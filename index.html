@@ -55,6 +55,9 @@
             <div class="w-px h-3 bg-slate-300"></div>
             <div class="text-slate-600">Accuracy: <span id="hdr-accuracy" class="text-emerald-600 font-bold">0%</span></div>
           </div>
+          <a href="feedback.html" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
+            <i data-lucide="message-square-plus" class="w-4 h-4 mr-1"></i> Feedback
+          </a>
           <a href="parent.html" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
             <i data-lucide="shield-check" class="w-4 h-4 mr-1"></i> Parent Portal
           </a>
@@ -139,6 +142,9 @@
                 <span id="q-skill-badge" class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md border border-slate-200">—</span>
                 <button id="btn-flag" onclick="toggleFlagCurrentQuestion()" class="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors ml-2" title="Bookmark / Flag question">
                   <i data-lucide="bookmark" class="w-4 h-4"></i>
+                </button>
+                <button onclick="reportCurrentQuestionIssue()" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Report issue with this question">
+                  <i data-lucide="flag" class="w-4 h-4"></i>
                 </button>
               </div>
             </div>
@@ -845,6 +851,13 @@
       }
       saveProgress();
       loadQuestion(currentIndex);
+    }
+
+    function reportCurrentQuestionIssue() {
+      const q = filteredQuestions[currentIndex];
+      if (q) {
+        window.open('feedback.html?qid=' + encodeURIComponent(q.id), '_blank');
+      }
     }
 
     function toggleRationale() {
