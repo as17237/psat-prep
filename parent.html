@@ -30,15 +30,18 @@
           </div>
         </div>
 
-        <div class="flex items-center space-x-4">
-          <a href="feedback.html" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+        <div class="flex items-center space-x-3">
+          <a href="feedback.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1.5"></i> Submit Feedback
           </a>
-          <a href="index.html" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
-            <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Go to Student Practice App
+          <button onclick="exportAuditTrail()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center" title="Download complete audit log of attempts and testing">
+            <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Export Audit Data
+          </button>
+          <a href="index.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student App
           </a>
-          <button onclick="window.print()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
-            <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Progress Report
+          <button onclick="window.print()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Report
           </button>
         </div>
       </div>
@@ -357,6 +360,41 @@
           mathContainer.appendChild(el);
         }
       });
+    }
+
+    function exportAuditTrail() {
+      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
+      const srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
+      const sessionsState = JSON.parse(localStorage.getItem('psat_sessions') || '{}');
+      const feedback = JSON.parse(localStorage.getItem('psat_uat_feedback') || '[]');
+      const questions = window.QUESTIONS_DATA || [];
+      const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
+
+      const auditSnapshot = {
+        exportedAt: new Date().toISOString(),
+        localTimestamp: new Date().toLocaleString(),
+        userAgent: navigator.userAgent,
+        summary: {
+          totalQuestionsInBank: questions.length,
+          totalAttempted: scoreData.totalAttempted,
+          estimatedScore: scoreData.isReady ? scoreData.totalScore : null,
+          rwScore: scoreData.rwScore,
+          mathScore: scoreData.mathScore,
+          streakDays: PSAT_ENGINE.calculateStreak(sessionsState)
+        },
+        sessionsLog: sessionsState,
+        questionAttempts: progress,
+        spacedRepetitionCards: srsState,
+        uatFeedbackLogs: feedback
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(auditSnapshot, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `psat_audit_trail_${Date.now()}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   </script>
 </body>
