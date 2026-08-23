@@ -1,0 +1,8 @@
+Question ID: c03ee93c
+Assessment Test Domain Skill Difficulty
+PSAT 8/9 Math Problem-Solving and Data Analysis One-variable data: Distributions and measures of center and spread Hard
+Question
+The frequency table summarizes the distribution of a data set. What is the maximum value of the data set?
+Correct Answer: 14
+Rationale
+The correct answer is 14. The table displays values from 6 to 14, so the maximum is 14.

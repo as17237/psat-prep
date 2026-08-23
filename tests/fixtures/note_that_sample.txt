@@ -1,0 +1,7 @@
+Question ID: c133370d
+Assessment Test Domain Skill Difficulty
+PSAT 8/9 Math Advanced Math Equivalent expressions Hard
+Question
+The expression above is equivalent to ax^2 + bx + c. What is the value of b?
+Rationale
+The correct answer is . Multiplying out gives 5/2. Note that 5/2 and 2.5 are examples of ways to enter a correct answer.

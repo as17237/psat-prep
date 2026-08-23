@@ -1,0 +1,47 @@
+name: Test and Validate Dataset
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Python Parser Unit Tests
+        run: |
+          python -m unittest test_extractor.py -v
+
+      - name: Run Node SRS and Free-Response Tests
+        run: |
+          node tests/test_free_response.js
+          node tests/test_srs.js
+          node tests/test_dataset_free_response.js
+
+      - name: Validate Extracted Dataset
+        run: |
+          python -c "import json; from validator import validate_dataset; \
+            ela = json.load(open('data/ela_questions.json')); \
+            math = json.load(open('data/math_questions.json')); \
+            res = validate_dataset(ela + math, base_image_dir='data/images'); \
+            assert res['is_valid'], 'Dataset validation failed!'; \
+            print('CI Validation Succeeded:', res['valid_count'], 'valid questions,', res['text_complete_count'], 'text-complete')"

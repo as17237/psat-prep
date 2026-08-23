@@ -1,0 +1,13 @@
+Question ID: 0cb26bb3
+Assessment Test Domain Skill Difficulty
+PSAT 8/9 Math Advanced Math Nonlinear functions Hard
+Question
+The function f is defined by an equation of the form f(x) = a / (x + b). What is the value of f(1)?
+Answer
+A.
+B.
+C.
+D.
+Correct Answer: A
+Rationale
+Choice A is correct. Substituting the points into the function yields f(1) = 3.

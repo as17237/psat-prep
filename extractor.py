@@ -27,12 +27,19 @@ KNOWN_DOMAINS = [
     "Geometry and Trigonometry"
 ]
 
+SKILL_ALIASES = {
+    "Cross-text Connections": "Cross-Text Connections"
+}
+
 NUM_TO_LETTER = {
     "1": "A",
     "2": "B",
     "3": "C",
     "4": "D"
 }
+
+MISMATCH_QIDS = {"f302230c", "ac972578"}
+
 
 def index_pdf_questions(pdf_doc: pdfium.PdfDocument, limit: Optional[int] = None) -> Dict[str, List[int]]:
     """
@@ -47,6 +54,8 @@ def index_pdf_questions(pdf_doc: pdfium.PdfDocument, limit: Optional[int] = None
         
         matches = re.findall(r"Question ID:\s*([a-zA-Z0-9]+)", text)
         if matches:
+            if len(set(matches)) > 1:
+                logger.warning(f"Page {page_idx} contains multiple Question IDs: {matches}")
             if limit is not None and len(q_map) >= limit:
                 break
             current_qid = matches[0]
@@ -146,6 +155,10 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
             if not metadata["domain"]:
                 metadata["skill"] = rem
 
+    # Normalize skill name casing
+    if metadata["skill"] in SKILL_ALIASES:
+        metadata["skill"] = SKILL_ALIASES[metadata["skill"]]
+
     # 2. Extract Rationale
     rationale = None
     m_rat = re.search(r"Rationale\s*\n(.*)", text, re.DOTALL)
@@ -193,6 +206,20 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
         q_type = "multiple_choice"
         options = [{"key": k, "text": f"Option {k}"} for k in ("A", "B", "C", "D")]
 
+    # 6. Compute text_complete flag
+    text_complete = True
+    if q_type == "multiple_choice":
+        if not options or len(options) != 4:
+            text_complete = False
+        else:
+            for opt in options:
+                txt = opt.get("text", "").strip()
+                if re.match(r"^Option\s+[A-D]$", txt, re.IGNORECASE) or not txt:
+                    text_complete = False
+                    break
+    if len(q_content) < 15:
+        text_complete = False
+
     return {
         "id": qid,
         "assessment": metadata["assessment"],
@@ -204,7 +231,9 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
         "question_text": q_content,
         "options": options,
         "correct_answer": correct_ans,
-        "rationale": rationale
+        "rationale": rationale,
+        "text_complete": text_complete,
+        "rationale_letter_mismatch": (qid in MISMATCH_QIDS)
     }
 
 

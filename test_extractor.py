@@ -1,50 +1,31 @@
 """
-test_extractor.py - Comprehensive Unit Tests & Accuracy Validation for PSAT Extractor
+test_extractor.py - Unit and Integration Test Suite for PSAT Extraction Engine
+Runs fast, deterministic parser tests on committed fixtures without requiring raw PDF files.
 """
 
 import unittest
 import os
-import json
-from extractor import extract_questions_from_bank
+from extractor import parse_question_text, parse_choices_robust
 from validator import validate_question, validate_dataset
 
-class TestPSATExtractor(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.output_dir = "data"
-        cls.images_dir = os.path.join(cls.output_dir, "images")
-        os.makedirs(cls.images_dir, exist_ok=True)
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "tests", "fixtures")
+
+def load_fixture(filename: str) -> str:
+    path = os.path.join(FIXTURES_DIR, filename)
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+class TestExtractorParser(unittest.TestCase):
+    """
+    Pure parser unit tests executing against committed text fixtures.
+    Runs on any machine in milliseconds with zero dependencies on large source PDFs.
+    """
+
+    def test_parse_ela_question(self):
+        txt = load_fixture("ela_sample.txt")
+        q = parse_question_text(txt, "737870c6")
         
-        cls.ela_questions = extract_questions_from_bank(
-            question_pdf_path="ELA1.pdf",
-            answer_pdf_path="ELA1A.pdf",
-            output_images_dir=cls.images_dir,
-            limit=3,
-            render_images=True
-        )
-        
-        cls.math_questions = extract_questions_from_bank(
-            question_pdf_path="MATH1.pdf",
-            answer_pdf_path="MATH1A.pdf",
-            output_images_dir=cls.images_dir,
-            limit=3,
-            render_images=True
-        )
-
-    def test_ela_extraction_count_and_validation(self):
-        self.assertEqual(len(self.ela_questions), 3, "Expected 3 ELA questions")
-        report = validate_dataset(self.ela_questions, base_image_dir=self.images_dir)
-        self.assertTrue(report["is_valid"], f"Validation failed with errors: {report['errors_by_qid']}")
-        self.assertEqual(report["valid_count"], 3)
-
-    def test_math_extraction_count_and_validation(self):
-        self.assertEqual(len(self.math_questions), 3, "Expected 3 Math questions")
-        report = validate_dataset(self.math_questions, base_image_dir=self.images_dir)
-        self.assertTrue(report["is_valid"], f"Validation failed with errors: {report['errors_by_qid']}")
-        self.assertEqual(report["valid_count"], 3)
-
-    def test_ela_question_1_ground_truth(self):
-        q = self.ela_questions[0]
         self.assertEqual(q["id"], "737870c6")
         self.assertEqual(q["assessment"], "PSAT 8/9")
         self.assertEqual(q["test"], "Reading and Writing")
@@ -52,98 +33,119 @@ class TestPSATExtractor(unittest.TestCase):
         self.assertEqual(q["skill"], "Inferences")
         self.assertEqual(q["difficulty"], "Hard")
         self.assertEqual(q["type"], "multiple_choice")
+        self.assertEqual(q["correct_answer"], "C")
+        self.assertEqual(len(q["options"]), 4)
+        self.assertTrue(q["text_complete"])
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
+
+    def test_parse_math_mc_question(self):
+        txt = load_fixture("math_mc_sample.txt")
+        q = parse_question_text(txt, "6cdc66d9")
+        
+        self.assertEqual(q["id"], "6cdc66d9")
+        self.assertEqual(q["test"], "Math")
+        self.assertEqual(q["domain"], "Algebra")
+        self.assertEqual(q["skill"], "Linear functions")
+        self.assertEqual(q["difficulty"], "Hard")
+        self.assertEqual(q["type"], "multiple_choice")
+        self.assertEqual(q["correct_answer"], "D")
+        self.assertEqual(len(q["options"]), 4)
+        self.assertTrue(q["text_complete"])
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
+
+    def test_parse_math_vector_placeholder(self):
+        txt = load_fixture("math_vector_sample.txt")
+        q = parse_question_text(txt, "0cb26bb3")
+        
+        self.assertEqual(q["id"], "0cb26bb3")
+        self.assertEqual(q["type"], "multiple_choice")
+        self.assertEqual(q["correct_answer"], "A")
+        self.assertEqual(len(q["options"]), 4)
+        # Vector formulas in options are detected as not text_complete
+        self.assertFalse(q["text_complete"])
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
+        self.assertTrue(any("placeholder" in w for w in warns))
+
+    def test_parse_free_response(self):
+        txt = load_fixture("math_fr_sample.txt")
+        q = parse_question_text(txt, "c03ee93c")
+        
+        self.assertEqual(q["id"], "c03ee93c")
+        self.assertEqual(q["type"], "free_response")
+        self.assertEqual(q["correct_answer"], "14")
+        self.assertEqual(len(q["options"]), 0)
+        self.assertTrue(q["text_complete"])
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
+
+    def test_parse_numbered_options(self):
+        txt = load_fixture("num_options_sample.txt")
+        q = parse_question_text(txt, "fb17d540")
+        
+        self.assertEqual(q["id"], "fb17d540")
+        self.assertEqual(q["type"], "multiple_choice")
+        self.assertEqual(q["correct_answer"], "B")
         self.assertEqual(len(q["options"]), 4)
         self.assertEqual([opt["key"] for opt in q["options"]], ["A", "B", "C", "D"])
-        self.assertEqual(q["correct_answer"], "C")
-        self.assertTrue("Choice C is the best answer" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
+        self.assertEqual(q["options"][1]["text"], "comparable to")
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
 
-    def test_ela_question_2_ground_truth_multi_page(self):
-        q = self.ela_questions[1]
-        self.assertEqual(q["id"], "1b9fa866")
-        self.assertEqual(q["assessment"], "PSAT 8/9")
-        self.assertEqual(q["test"], "Reading and Writing")
-        self.assertEqual(q["domain"], "Information and Ideas")
-        self.assertEqual(q["skill"], "Command of Evidence")
-        self.assertEqual(q["difficulty"], "Hard")
-        self.assertEqual(q["type"], "multiple_choice")
-        self.assertEqual(len(q["options"]), 4)
-        self.assertEqual(q["correct_answer"], "A")
-        self.assertTrue("Choice A is the best answer" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
-
-    def test_ela_question_3_ground_truth(self):
-        q = self.ela_questions[2]
-        self.assertEqual(q["id"], "da9a6075")
-        self.assertEqual(q["assessment"], "PSAT 8/9")
-        self.assertEqual(q["test"], "Reading and Writing")
-        self.assertEqual(q["domain"], "Information and Ideas")
-        self.assertEqual(q["skill"], "Command of Evidence")
-        self.assertEqual(q["difficulty"], "Medium")
-        self.assertEqual(q["type"], "multiple_choice")
-        self.assertEqual(len(q["options"]), 4)
-        self.assertEqual(q["correct_answer"], "A")
-        self.assertTrue("Choice A is the best answer" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
-
-    def test_math_question_1_free_response(self):
-        q = self.math_questions[0]
-        self.assertEqual(q["id"], "6cdc66d9")
-        self.assertEqual(q["assessment"], "PSAT 8/9")
-        self.assertEqual(q["test"], "Math")
-        self.assertEqual(q["domain"], "Algebra")
-        self.assertEqual(q["skill"], "Linear functions")
-        self.assertEqual(q["difficulty"], "Hard")
+    def test_parse_note_that_answer_fallback(self):
+        txt = load_fixture("note_that_sample.txt")
+        q = parse_question_text(txt, "c133370d")
+        
+        self.assertEqual(q["id"], "c133370d")
         self.assertEqual(q["type"], "free_response")
-        self.assertEqual(len(q["options"]), 0)
-        self.assertEqual(q["correct_answer"], "2")
-        self.assertTrue("The correct answer is" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
+        self.assertEqual(q["correct_answer"], "5/2")
+        
+        errs, warns = validate_question(q)
+        self.assertEqual(errs, [])
 
-    def test_math_question_2_multiple_choice(self):
-        q = self.math_questions[1]
-        self.assertEqual(q["id"], "7326e8c1")
-        self.assertEqual(q["assessment"], "PSAT 8/9")
-        self.assertEqual(q["test"], "Math")
-        self.assertEqual(q["domain"], "Algebra")
-        self.assertEqual(q["skill"], "Linear functions")
-        self.assertEqual(q["difficulty"], "Medium")
-        self.assertEqual(q["type"], "multiple_choice")
-        self.assertEqual(len(q["options"]), 4)
-        self.assertEqual(q["correct_answer"], "A")
-        self.assertTrue("Choice A is correct" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
-
-    def test_math_question_3_free_response(self):
-        q = self.math_questions[2]
-        self.assertEqual(q["id"], "b98324c9")
-        self.assertEqual(q["assessment"], "PSAT 8/9")
-        self.assertEqual(q["test"], "Math")
-        self.assertEqual(q["domain"], "Algebra")
-        self.assertEqual(q["skill"], "Linear equations in two variables")
-        self.assertEqual(q["difficulty"], "Hard")
-        self.assertEqual(q["type"], "free_response")
-        self.assertEqual(len(q["options"]), 0)
-        self.assertEqual(q["correct_answer"], "40")
-        self.assertTrue("The correct answer is" in q["rationale"])
-        self.assertTrue(os.path.exists(os.path.join(self.output_dir, q["question_image"])))
-
-    def test_validator_detects_bad_data(self):
-        # Corrupt data test
-        bad_q = {
+    def test_validator_catches_invalid_difficulty(self):
+        q = {
             "id": "bad123",
             "assessment": "PSAT 8/9",
             "test": "Math",
             "domain": "Algebra",
-            "skill": "Linear functions",
-            "difficulty": "Impossible", # invalid
-            "type": "multiple_choice",
-            "options": [{"key": "A", "text": "foo"}], # only 1 option
-            "correct_answer": "Z", # invalid key
-            "rationale": "short" # too short
+            "skill": "Linear equations",
+            "difficulty": "SuperHard",
+            "type": "free_response",
+            "question_text": "Solve for x.",
+            "options": [],
+            "correct_answer": "5",
+            "rationale": "The correct answer is 5."
         }
-        errors = validate_question(bad_q)
-        self.assertGreater(len(errors), 0, "Validator should flag multiple errors on corrupt question")
+        errs, _ = validate_question(q)
+        self.assertTrue(any("Invalid difficulty" in e for e in errs))
+
+
+class TestPDFIntegration(unittest.TestCase):
+    """
+    Integration tests requiring raw PDF files.
+    Skipped cleanly in CI or fresh checkouts where PDFs are not present.
+    """
+
+    @unittest.skipUnless(os.path.exists("ELA1.pdf") and os.path.exists("ELA1A.pdf"), "ELA PDFs not present")
+    def test_pdf_ela_sample_extraction(self):
+        from extractor import extract_questions_from_bank
+        extracted = extract_questions_from_bank("ELA1.pdf", "ELA1A.pdf", limit=3, render_images=False)
+        self.assertEqual(len(extracted), 3)
+
+    @unittest.skipUnless(os.path.exists("MATH1.pdf") and os.path.exists("MATH1A.pdf"), "Math PDFs not present")
+    def test_pdf_math_sample_extraction(self):
+        from extractor import extract_questions_from_bank
+        extracted = extract_questions_from_bank("MATH1.pdf", "MATH1A.pdf", limit=3, render_images=False)
+        self.assertEqual(len(extracted), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

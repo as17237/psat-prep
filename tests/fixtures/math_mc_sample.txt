@@ -1,0 +1,16 @@
+Question ID: 6cdc66d9
+Assessment Test Domain Skill Difficulty
+PSAT 8/9 Math Algebra Linear functions Hard
+Question
+Function f is defined by f(x) = -a^x + b, where a and b are constants. In the xy-plane, the graph of y = f(x) - 12 has a y-intercept at (0, -75/7).
+What is the value of b?
+Answer
+A. -2/7
+B. 5/7
+C. 9/7
+D. 16/7
+Correct Answer: D
+Rationale
+Choice D is correct. It is given that the graph of y = f(x) - 12 has a y-intercept at (0, -75/7). Substituting 0 for x and -75/7 for y in this equation
+yields -75/7 = f(0) - 12. Adding 12, or 84/7, to both sides yields 9/7 = f(0). Since f(x) = -a^x + b, f(0) = -a^0 + b = -1 + b. Therefore, 9/7 = -1 + b,
+which yields b = 16/7.
