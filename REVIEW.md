@@ -253,3 +253,72 @@ The Python tests live in `test_extractor.py` at the repo root, so the discover c
 6. Update `SYSTEM_ARCHITECTURE_AND_PLAN.md` (F).
 7. Require `--blob-base-url`, add resume and real backoff (E) — before any deploy, not before.
 8. Then item 9a: purge `data/images/` from git, and make the CI image check conditional first.
+
+---
+---
+
+# Re-review — round 3
+
+**Reviewed:** 2026-08-23 · commit `1ba85fd` ("fix(round-2)") vs `302086b`
+**Verdict: all eight round-2 items are genuinely fixed and verified by execution.** The codebase is in good shape. Round 3 is small: **one real defect** (a test that will start failing by itself on 2026-09-03 — proven, not speculated), a few minor consistency issues, and the still-pending git history purge, which is now unblocked.
+
+## Verification performed
+
+| Check | Result |
+| :--- | :--- |
+| Python tests (9) · Node suites (3) · `TZ=America/New_York` run | all pass |
+| Section badges (item 1) | `rwReady`/`mathReady` gate both badges; not-ready state shows `N / 15 questions attempted` — no score leaks from a single answer |
+| Local dates (item 2) | `localDateKey()` used in `recordDailySession`, `calculateStreak`, and the parent 7-day loop; day arithmetic via UTC day-numbers, immune to DST |
+| Prose FR keys (item 3) | `gradeFreeResponse('8','either 8 or 9')` → true (and `'7'` → false); literal test cases present; dataset test now independently asserts every key parses to ≥1 numeric form (72 multi-form keys / 448 forms) |
+| Timing reliability (item 4) | `timeSpentMs: null` + `timingReliable: false` when unknown; no invented durations; `gradeAttempt(true, null)` → 3, `gradeAttempt(true, 30000, false)` → 3, both tested |
+| Mismatch flag (item 5) | derived dynamically in `extractor.py` and `normalize_data.py`; re-deriving over the committed JSON reproduces exactly `{ac972578, f302230c}`; no hardcoded ID lists remain |
+| Architecture doc (item 6) | greps for `1520`, `100% integrity`, `-0.2` all clean |
+| Uploader (item 7) | exits 1 without `--blob-base-url` (verified without a pipe masking the exit code); resume via up-front blob listing + `--force`; retry only on 429/503, honours `x-ms-retry-after-ms`, exponential backoff; final log reports real success/failure counts |
+| CI image check (item 8 prereq) | `base_image_dir` now conditional on the directory existing |
+| Minor cleanups (item 9) | In Progress panel added; `120 min goal` shown in the label; `esc()` applied to bank table and parent domain bars; README documents the correct test command |
+| Dataset | 3,059 valid / 0 errors / 2,158 text-complete; bundle rebuilt with zero drift |
+
+## Round-3 findings
+
+### 1. The streak tests are a time bomb — they start failing on 2026-09-03 with no code change
+
+`tests/test_srs.js:92-96` tries to control "today" by monkeypatching the export:
+
+```js
+const original = PSAT_ENGINE.localDateKey;
+PSAT_ENGINE.localDateKey = () => referenceToday;
+```
+
+But `calculateStreak` (`srs.js:258`) calls the **internal closure** `localDateKey()`, not the exported property — so the patch is a no-op and the function always uses the real system clock. The month-boundary assertions (`tests/test_srs.js:100-101`) pass today only by coincidence: their fixture dates (2026-08-31, 2026-09-01) are in the *future* relative to the real date, which makes `diffDays` negative and slips past the `diffDays > 1` staleness check.
+
+**Proven by execution:** with the system clock mocked to 2026-09-05, the identical assertion returns 0 instead of 2 and the suite fails. From 2026-09-03 onward, every CI run goes red with no code change — and whoever hits it will be debugging the wrong thing.
+
+**Fix:** add an optional `todayKey` parameter — `calculateStreak(sessionsMap, todayKey)` — defaulting to `localDateKey()`; pass the reference date explicitly in the tests and delete the monkeypatch. Same pattern already used by `recordDailySession`'s `dateStr` parameter, so this makes the API consistent too.
+
+### 2. Future-dated sessions extend streaks (same code path)
+
+Because `diffDays > 1` is the only staleness check, a session entry dated after today (clock rolled back, restored backup, imported data) yields a negative diff and counts as an active streak. Treat `diffDays < 0` as broken (return 0) or clamp it — one line, worth adding alongside finding 1 with a test case.
+
+### 3. Student analytics crowns a "Top Weakness" after one wrong answer — `index.html:1033-1037`
+
+The weakness branch has no minimum-attempts gate: one incorrect answer puts that skill at 0% and makes it the Top Weakness. The parent portal already requires ≥3 attempts for the same metric (`parent.html:261`), so the two pages can disagree about the student's biggest gap. Relatedly, the In Progress panel's badge says "1-2 Attempts" but the branch only routes `acc >= 75` skills there — a skill at 0% on 1 attempt lands in Focus Areas, contradicting the label.
+
+**Fix:** make attempt count the primary split: `data.t < 3` → In Progress (any accuracy, relabel badge "< 3 Attempts"); `data.t >= 3 && acc >= 75` → Mastered; `data.t >= 3 && acc < 75` → Focus Areas, and only those are Top Weakness candidates. This matches the parent portal exactly.
+
+### 4. Minor / latent
+
+- **`esc()` doesn't escape single quotes** yet is interpolated into a single-quoted inline handler: `onclick="jumpToQuestion('${esc(q.id)}')"` (`index.html` bank table). Safe today because IDs are hex, but it's the one spot where the escaping helper doesn't actually cover the context it's used in. Prefer attaching the handler with `addEventListener` and reading the ID from a `data-` attribute (the pattern the palette buttons already use via `btn.onclick = () => ...`).
+- **Blob-only dry runs demand `--blob-base-url`.** The guard `if args.dry_run or args.cosmos_conn:` (`upload_to_azure.py:195`) makes *any* dry run take the Cosmos path, so testing just the blob upload without a base URL exits 1. Require the base URL only when a Cosmos upload is actually part of the run.
+- **Uploader failure counts don't reach the exit code.** `upload_questions_to_cosmos` now returns `(succeeded, failed)` but the call sites discard it; a run with failures still exits 0, so scripts and CI can't detect partial failure. Aggregate and `sys.exit(1)` when `failed > 0`.
+
+### 5. Carried forward: the git history purge (round-1 item 9a, round-2 item 8)
+
+Still pending, as expected — 3,059 images tracked, `.git` at 267 MB. Its prerequisite (the conditional CI image check) landed in this round, so the purge is now **unblocked**. It rewrites history, so it stays gated on your explicit go-ahead.
+
+## Suggested order for round 3
+
+1. Fix the streak test injection (finding 1) — **before 2026-09-03**, when CI starts failing on its own.
+2. Clamp negative day diffs (finding 2) — same file, same PR.
+3. Align the analytics buckets between student and parent pages (finding 3).
+4. The three minors (finding 4) — quick, low risk.
+5. The git purge (finding 5) — last, with explicit confirmation, since it rewrites history.

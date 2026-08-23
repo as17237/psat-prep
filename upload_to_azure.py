@@ -30,7 +30,7 @@ def upload_questions_to_cosmos(
 
     if not blob_base_url:
         logger.error("Error: --blob-base-url is required when uploading to Cosmos DB to ensure image URLs are rewritten.")
-        sys.exit(1)
+        return 0, len(questions)
 
     base_url = blob_base_url.rstrip("/")
     for q in questions:
@@ -126,18 +126,18 @@ def upload_images_to_blob(
     public_access: bool = False,
     force: bool = False,
     dry_run: bool = False
-):
+) -> Tuple[int, int]:
     image_files = [f for f in os.listdir(images_dir) if f.endswith((".png", ".webp", ".jpg"))]
 
     if dry_run:
         logger.info(f"[DRY-RUN] Found {len(image_files)} images in '{images_dir}' ready for upload to container '{container_name}'.")
-        return
+        return len(image_files), 0
 
     try:
         from azure.storage.blob import BlobServiceClient
     except ImportError:
         logger.error("azure-storage-blob not installed. Install with: pip install azure-storage-blob")
-        return
+        return 0, len(image_files)
 
     logger.info(f"Connecting to Azure Blob Storage container '{container_name}'...")
     blob_service_client = BlobServiceClient.from_connection_string(blob_connection_str)
@@ -159,6 +159,7 @@ def upload_images_to_blob(
     logger.info(f"Uploading {len(files_to_upload)} new images (skipped {len(image_files) - len(files_to_upload)}) using {max_workers} threads...")
 
     completed = 0
+    failed = 0
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(_upload_single_blob, container_client, os.path.join(images_dir, f), f, overwrite=force): f
@@ -167,10 +168,13 @@ def upload_images_to_blob(
         for future in as_completed(futures):
             if future.result():
                 completed += 1
-            if completed % 250 == 0 or completed == len(files_to_upload):
-                logger.info(f"Uploaded {completed} / {len(files_to_upload)} images.")
+            else:
+                failed += 1
+            if (completed + failed) % 250 == 0 or (completed + failed) == len(files_to_upload):
+                logger.info(f"Uploaded {completed} / {len(files_to_upload)} images (Failed: {failed}).")
 
-    logger.info(f"Azure Blob Storage upload finished. {completed} blobs uploaded.")
+    logger.info(f"Azure Blob Storage upload finished. {completed} blobs uploaded, {failed} failed.")
+    return completed, failed
 
 
 if __name__ == "__main__":
@@ -192,15 +196,34 @@ if __name__ == "__main__":
     math_file = os.path.join(args.data_dir, "math_questions.json")
     img_dir = os.path.join(args.data_dir, "images")
 
-    if args.dry_run or args.cosmos_conn:
-        if not args.blob_base_url:
-            logger.error("Error: --blob-base-url (or BLOB_BASE_URL env var) is required to ensure image URLs are rewritten.")
-            sys.exit(1)
-        if os.path.exists(ela_file):
-            upload_questions_to_cosmos(args.cosmos_conn, args.db_name, args.container_name, ela_file, blob_base_url=args.blob_base_url, blob_container_name=args.blob_container, dry_run=args.dry_run)
-        if os.path.exists(math_file):
-            upload_questions_to_cosmos(args.cosmos_conn, args.db_name, args.container_name, math_file, blob_base_url=args.blob_base_url, blob_container_name=args.blob_container, dry_run=args.dry_run)
+    # Determine intent:
+    # If explicitly passed --blob-conn without --cosmos-conn, it is a blob-only upload
+    wants_blob = bool(args.blob_conn or (args.dry_run and not args.cosmos_conn))
+    wants_cosmos = bool(args.cosmos_conn or (args.dry_run and not args.blob_conn))
 
-    if args.dry_run or args.blob_conn:
+    if wants_cosmos and not args.blob_base_url:
+        logger.error("Error: --blob-base-url (or BLOB_BASE_URL env var) is required when performing Cosmos DB migration to ensure image URLs are rewritten.")
+        sys.exit(1)
+
+    total_succeeded = 0
+    total_failed = 0
+
+    if wants_cosmos:
+        if os.path.exists(ela_file):
+            s, f = upload_questions_to_cosmos(args.cosmos_conn, args.db_name, args.container_name, ela_file, blob_base_url=args.blob_base_url, blob_container_name=args.blob_container, dry_run=args.dry_run)
+            total_succeeded += s
+            total_failed += f
+        if os.path.exists(math_file):
+            s, f = upload_questions_to_cosmos(args.cosmos_conn, args.db_name, args.container_name, math_file, blob_base_url=args.blob_base_url, blob_container_name=args.blob_container, dry_run=args.dry_run)
+            total_succeeded += s
+            total_failed += f
+
+    if wants_blob:
         if os.path.exists(img_dir):
-            upload_images_to_blob(args.blob_conn, args.blob_container, img_dir, public_access=args.public_access, force=args.force, dry_run=args.dry_run)
+            s, f = upload_images_to_blob(args.blob_conn, args.blob_container, img_dir, public_access=args.public_access, force=args.force, dry_run=args.dry_run)
+            total_succeeded += s
+            total_failed += f
+
+    logger.info(f"Final Execution Summary: {total_succeeded} succeeded, {total_failed} failed.")
+    if total_failed > 0:
+        sys.exit(1)

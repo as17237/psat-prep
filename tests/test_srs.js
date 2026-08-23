@@ -73,31 +73,32 @@ assert.strictEqual(scoreInfo.mathScore, null, 'Unready Math section score must b
 assert.strictEqual(scoreInfo.isReady, false, 'Total score should NOT be ready when one section is unready');
 assert.strictEqual(scoreInfo.totalScore, null);
 
-// 4. Local Date and Streak Calculation across month boundaries
+// 4. Local Date and Deterministic Streak Tests
 const localToday = PSAT_ENGINE.localDateKey();
 assert.strictEqual(typeof localToday, 'string');
 assert.match(localToday, /^\d{4}-\d{2}-\d{2}$/);
 
-// Streak crossing month boundary (30 Aug -> 31 Aug -> 1 Sep -> 2 Sep)
+// Case A: Streak crossing month boundary (31 Aug -> 1 Sep with reference today '2026-09-01')
 const sessionsMonthBoundary = {
-  '2026-08-30': { questionsAnswered: 5 },
   '2026-08-31': { questionsAnswered: 10 },
   '2026-09-01': { questionsAnswered: 8 }
 };
-// If tested on 2026-09-01
-// Test day difference logic:
-function testStreakDates(datesList, referenceToday) {
-  const map = {};
-  datesList.forEach(d => { map[d] = { questionsAnswered: 5 }; });
-  // override localDateKey inside test scope
-  const original = PSAT_ENGINE.localDateKey;
-  PSAT_ENGINE.localDateKey = () => referenceToday;
-  const res = PSAT_ENGINE.calculateStreak(map);
-  PSAT_ENGINE.localDateKey = original;
-  return res;
-}
+assert.strictEqual(PSAT_ENGINE.calculateStreak(sessionsMonthBoundary, '2026-09-01'), 2, 'Month boundary streak must be 2');
 
-assert.strictEqual(testStreakDates(['2026-08-31', '2026-09-01'], '2026-09-01'), 2, 'Month boundary streak must be 2');
-assert.strictEqual(testStreakDates(['2026-08-30', '2026-08-31', '2026-09-01'], '2026-09-01'), 3, 'Month boundary streak must be 3');
+// Case B: Streak ending yesterday (30 Aug -> 31 Aug with reference today '2026-09-01')
+const sessionsEndedYesterday = {
+  '2026-08-30': { questionsAnswered: 5 },
+  '2026-08-31': { questionsAnswered: 10 }
+};
+assert.strictEqual(PSAT_ENGINE.calculateStreak(sessionsEndedYesterday, '2026-09-01'), 2, 'Yesterday streak must be 2');
+
+// Case C: Broken streak in the past (30 Aug -> 31 Aug with reference today '2026-09-10')
+assert.strictEqual(PSAT_ENGINE.calculateStreak(sessionsEndedYesterday, '2026-09-10'), 0, 'Stale session streak must be 0');
+
+// Case D: Future-dated sessions relative to injected today (session on '2026-09-15' with today '2026-09-01')
+const sessionsFuture = {
+  '2026-09-15': { questionsAnswered: 12 }
+};
+assert.strictEqual(PSAT_ENGINE.calculateStreak(sessionsFuture, '2026-09-01'), 0, 'Future session must NOT count toward streak');
 
 console.log('✓ All Spaced Repetition (SM-2) and Scoring tests passed!');

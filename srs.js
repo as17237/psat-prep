@@ -240,26 +240,32 @@
 
   /**
    * Calculates consecutive active streak days ending today or yesterday using local calendar dates.
+   * @param {Object} sessionsMap - Map of 'YYYY-MM-DD' -> session object.
+   * @param {string} [todayKey] - Optional reference date 'YYYY-MM-DD' (defaults to localDateKey()).
    */
-  function calculateStreak(sessionsMap) {
+  function calculateStreak(sessionsMap, todayKey) {
     if (!sessionsMap) return 0;
+    var refDate = todayKey || localDateKey();
+
+    function parseLocalDayNumber(dStr) {
+      var parts = dStr.split('-').map(Number);
+      return Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
+    }
+
+    var todayDayNum = parseLocalDayNumber(refDate);
+
+    // Filter to valid past/present dates with answered questions (ignore future-dated entries)
     var dates = Object.keys(sessionsMap).filter(function (d) {
-      return sessionsMap[d] && sessionsMap[d].questionsAnswered > 0;
+      return sessionsMap[d] && sessionsMap[d].questionsAnswered > 0 && parseLocalDayNumber(d) <= todayDayNum;
     }).sort();
 
     if (dates.length === 0) return 0;
 
-    function parseLocalDayNumber(dStr) {
-      var parts = dStr.split('-').map(Number);
-      // Construct UTC date to measure pure calendar day differences without daylight savings shifts
-      return Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
-    }
-
-    var todayDayNum = parseLocalDayNumber(localDateKey());
     var lastDayNum = parseLocalDayNumber(dates[dates.length - 1]);
     var diffDays = todayDayNum - lastDayNum;
 
-    if (diffDays > 1) return 0;
+    // If latest session is older than yesterday or in the future, streak is 0
+    if (diffDays > 1 || diffDays < 0) return 0;
 
     var streak = 1;
     for (var i = dates.length - 1; i > 0; i--) {
