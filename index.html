@@ -667,7 +667,7 @@
       }
 
       // Visual Image
-      const imgPath = q.question_image ? `data/${q.question_image}` : '';
+      const imgPath = q.image_url || (q.question_image ? `data/${q.question_image}` : '');
       document.getElementById('q-image').src = imgPath;
 
       // Text View Warnings
