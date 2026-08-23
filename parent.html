@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parent Oversight Portal - PSAT Prep Mastery</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- Parent Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-emerald-100">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">Parent Oversight Portal</h1>
+            <p class="text-xs text-slate-500 font-medium">PSAT Practice Analytics & Score Forecast</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+          <a href="index.html" class="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Go to Student Practice App
+          </a>
+          <button onclick="window.print()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Weekly Report
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Hero Card: Target Score & Trajectory -->
+    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
+      <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        
+        <!-- Current Projected Score -->
+        <div class="space-y-2 border-b lg:border-b-0 lg:border-r border-indigo-800/60 pb-6 lg:pb-0 lg:pr-8">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-800">
+            Projected Scaled Score
+          </span>
+          <div class="flex items-baseline space-x-3 pt-2">
+            <h2 id="hero-scaled-score" class="text-5xl font-black tracking-tight text-white">1460</h2>
+            <span class="text-xl font-semibold text-slate-400">/ 1520</span>
+          </div>
+          <p class="text-sm text-slate-300">Estimated 98th Percentile (Targeting 1500+ Near-Perfect)</p>
+        </div>
+
+        <!-- Weekly Effort & Streak -->
+        <div class="space-y-4 border-b lg:border-b-0 lg:border-r border-indigo-800/60 pb-6 lg:pb-0 lg:pr-8">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-300 flex items-center"><i data-lucide="flame" class="w-4 h-4 text-amber-400 mr-1.5"></i> Active Streak</span>
+            <span id="hero-streak" class="font-bold text-amber-400">5 Days</span>
+          </div>
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-slate-300 flex items-center"><i data-lucide="clock" class="w-4 h-4 text-indigo-300 mr-1.5"></i> Weekly Practice</span>
+            <span id="hero-study-time" class="font-bold text-white">185 mins / 200 min goal</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-indigo-500 h-2.5 rounded-full" style="width: 92%"></div>
+          </div>
+        </div>
+
+        <!-- Spaced Repetition Due Queue -->
+        <div class="space-y-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-300">Spaced Repetition Retention</span>
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 id="hero-srs-due" class="text-2xl font-bold text-white">14 Questions</h3>
+              <p class="text-xs text-slate-300">Due for review today to lock into long-term memory</p>
+            </div>
+            <a href="index.html" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md">
+              Start Review Drill
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="check-circle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Attempted</p>
+          <h3 id="stat-total-attempted" class="text-2xl font-bold text-slate-900">0 / 3,059</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <i data-lucide="trending-up" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Overall Accuracy</p>
+          <h3 id="stat-overall-accuracy" class="text-2xl font-bold text-slate-900">0%</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+          <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Top Priority Weakness</p>
+          <h3 id="stat-top-weakness" class="text-sm font-bold text-slate-900 truncate">Inferences</h3>
+        </div>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <i data-lucide="bookmark" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Flagged For Review</p>
+          <h3 id="stat-flagged-count" class="text-2xl font-bold text-slate-900">0</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- Domain Mastery Breakdown -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      
+      <!-- Reading and Writing Mastery -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center">
+            <i data-lucide="book" class="w-4 h-4 mr-2 text-indigo-600"></i> Reading & Writing (ELA) Mastery
+          </h3>
+          <span class="text-xs font-semibold text-slate-500">1,554 Total Questions</span>
+        </div>
+        <div id="ela-domain-bars" class="space-y-4 pt-2">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Math Mastery -->
+      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center">
+            <i data-lucide="calculator" class="w-4 h-4 mr-2 text-indigo-600"></i> Math Mastery
+          </h3>
+          <span class="text-xs font-semibold text-slate-500">1,505 Total Questions</span>
+        </div>
+        <div id="math-domain-bars" class="space-y-4 pt-2">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Actionable Coaching Recommendations -->
+    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 class="text-base font-bold text-slate-900 flex items-center">
+          <i data-lucide="compass" class="w-4 h-4 mr-2 text-indigo-600"></i> Targeted Recommendations for 1500+ Score
+        </h3>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+          <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">Priority 1: Reading Precision</span>
+          <h4 class="text-sm font-bold text-slate-900">Drill Hard "Inferences" Questions</h4>
+          <p class="text-xs text-slate-600">Review official rationales on missed inference questions to ensure evidence is directly stated in passages.</p>
+        </div>
+        <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
+          <span class="text-xs font-bold text-indigo-800 uppercase tracking-wider">Priority 2: Math Speed</span>
+          <h4 class="text-sm font-bold text-slate-900">Free Response (SPR) Accuracy</h4>
+          <p class="text-xs text-slate-600">Ensure answers are double-checked for unit conversions and simplified fraction format.</p>
+        </div>
+        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
+          <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider">Priority 3: Spaced Repetition</span>
+          <h4 class="text-sm font-bold text-slate-900">Daily 15-Minute Due Queue</h4>
+          <p class="text-xs text-slate-600">Clear the spaced repetition queue every morning to prevent retention drop-off on hard concepts.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+    PSAT Prep Mastery &bull; Parent Oversight & Analytics Dashboard &bull; Connected to Azure Cloud Database
+  </footer>
+
+  <script src="data/questions_data.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      renderParentMetrics();
+    });
+
+    function renderParentMetrics() {
+      const questions = window.QUESTIONS_DATA || [];
+      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
+      
+      let totalAttempted = 0;
+      let totalCorrect = 0;
+      let flaggedCount = 0;
+
+      const domainStats = {};
+
+      questions.forEach(q => {
+        const p = progress[q.id];
+        if (!domainStats[q.domain]) {
+          domainStats[q.domain] = { test: q.test, correct: 0, attempted: 0, total: 0 };
+        }
+        domainStats[q.domain].total++;
+
+        if (p && p.answered) {
+          totalAttempted++;
+          domainStats[q.domain].attempted++;
+          if (p.isCorrect) {
+            totalCorrect++;
+            domainStats[q.domain].correct++;
+          }
+        }
+        if (p && p.isFlagged) flaggedCount++;
+      });
+
+      const overallAcc = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+      document.getElementById('stat-total-attempted').innerText = `${totalAttempted} / ${questions.length}`;
+      document.getElementById('stat-overall-accuracy').innerText = `${overallAcc}%`;
+      document.getElementById('stat-flagged-count').innerText = flaggedCount;
+
+      // Estimated Scaled Score (PSAT 8/9 / PSAT: 320 to 1520)
+      const baseScore = 700;
+      const estimatedScore = totalAttempted > 0 ? Math.min(1520, Math.round(baseScore + (overallAcc / 100) * 820)) : 1460;
+      document.getElementById('hero-scaled-score').innerText = estimatedScore;
+
+      // Render Domain Bars
+      const elaContainer = document.getElementById('ela-domain-bars');
+      const mathContainer = document.getElementById('math-domain-bars');
+      elaContainer.innerHTML = '';
+      mathContainer.innerHTML = '';
+
+      Object.entries(domainStats).forEach(([domain, data]) => {
+        const acc = data.attempted > 0 ? Math.round((data.correct / data.attempted) * 100) : 0;
+        const barColor = acc >= 75 ? 'bg-emerald-500' : (acc >= 50 ? 'bg-amber-500' : 'bg-indigo-500');
+
+        const el = document.createElement('div');
+        el.className = 'space-y-1.5';
+        el.innerHTML = `
+          <div class="flex justify-between text-xs font-semibold">
+            <span class="text-slate-800">${domain}</span>
+            <span class="text-slate-500">${data.attempted > 0 ? `${acc}% (${data.correct}/${data.attempted})` : `${data.total} Qs total`}</span>
+          </div>
+          <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+            <div class="${barColor} h-2 rounded-full transition-all" style="width: ${data.attempted > 0 ? acc : 10}%"></div>
+          </div>
+        `;
+
+        if (data.test === 'Reading and Writing') {
+          elaContainer.appendChild(el);
+        } else {
+          mathContainer.appendChild(el);
+        }
+      });
+    }
+  </script>
+</body>
+</html>

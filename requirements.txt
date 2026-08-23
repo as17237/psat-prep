@@ -1,0 +1,6 @@
+pypdfium2>=5.8.0
+pillow>=10.2.0
+pypdf>=6.11.0
+pdfplumber>=0.11.9
+azure-cosmos>=4.6.0
+azure-storage-blob>=12.19.0
