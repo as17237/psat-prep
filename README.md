@@ -76,3 +76,12 @@ node tests/test_dataset_free_response.js
 
 ### 3. Deploy to Azure
 See [SYSTEM_ARCHITECTURE_AND_PLAN.md](SYSTEM_ARCHITECTURE_AND_PLAN.md) for full Azure Cosmos DB, Blob Storage, and Azure Static Web Apps deployment instructions.
+
+---
+
+## 🌐 Live Azure Production Deployment
+
+- **Student Practice & Analytics Portal**: [https://psatprep4915.z13.web.core.windows.net/index.html](https://psatprep4915.z13.web.core.windows.net/index.html)
+- **Parent Oversight & Progress Dashboard**: [https://psatprep4915.z13.web.core.windows.net/parent.html](https://psatprep4915.z13.web.core.windows.net/parent.html)
+- **Azure Resource Group**: `rg-psat-prep`
+- **Storage Account**: `psatprep4915`
