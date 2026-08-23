@@ -1,13 +1,15 @@
 const assert = require('assert');
 const PSAT_ENGINE = require('../srs.js');
 
-console.log('Testing Spaced Repetition (SM-2) Engine...');
+console.log('Testing Spaced Repetition (SM-2) & Scoring Engine...');
 
-// 1. Grade Attempt timing thresholds
+// 1. Grade Attempt timing thresholds and unreliable timing
 assert.strictEqual(PSAT_ENGINE.gradeAttempt(false, 10000), 1, 'Incorrect answer must yield grade 1');
 assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 30000), 5, 'Correct in 30s must yield grade 5');
 assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 60000), 4, 'Correct in 60s must yield grade 4');
 assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 120000), 3, 'Correct in 120s must yield grade 3');
+assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, null), 3, 'Missing timing must fall back to conservative grade 3');
+assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 30000, false), 3, 'Unreliable timing flag must yield grade 3');
 
 // 2. SM-2 Ladder progression
 const now = Date.now();
@@ -43,27 +45,59 @@ assert.strictEqual(card.repetitions, 0, 'Reps must reset to 0 on failure');
 assert.strictEqual(card.intervalDays, 1, 'Interval must reset to 1 day on failure');
 assert.strictEqual(card.easeFactor, 2.26);
 
-// 3. Scaled score modeling
-const mockQuestions = [
-  { id: 'q1', test: 'Reading and Writing' },
-  { id: 'q2', test: 'Reading and Writing' },
-  { id: 'q3', test: 'Math' },
-  { id: 'q4', test: 'Math' }
-];
-const mockProgress = {
-  q1: { answered: true, isCorrect: true },
-  q2: { answered: true, isCorrect: false }
-};
-const scoreInfo = PSAT_ENGINE.calculateScaledScore(mockQuestions, mockProgress);
-assert.strictEqual(scoreInfo.isReady, false, 'Score should not be ready with <15 attempts');
+// 3. Section-Score and Total Score Gating
+const mockQuestions = [];
+const mockProgress = {};
+
+for (let i = 1; i <= 20; i++) {
+  const rwId = `rw_${i}`;
+  mockQuestions.push({ id: rwId, test: 'Reading and Writing' });
+  if (i <= 15) {
+    mockProgress[rwId] = { answered: true, isCorrect: true };
+  }
+}
+for (let i = 1; i <= 20; i++) {
+  const mathId = `math_${i}`;
+  mockQuestions.push({ id: mathId, test: 'Math' });
+  if (i <= 5) {
+    mockProgress[mathId] = { answered: true, isCorrect: true };
+  }
+}
+
+// 15 RW attempts (100%), 5 Math attempts (100%)
+let scoreInfo = PSAT_ENGINE.calculateScaledScore(mockQuestions, mockProgress);
+assert.strictEqual(scoreInfo.rwReady, true, 'RW with 15 attempts should be ready');
+assert.strictEqual(scoreInfo.rwScore, 720, '15/15 RW should score 720');
+assert.strictEqual(scoreInfo.mathReady, false, 'Math with 5 attempts should NOT be ready');
+assert.strictEqual(scoreInfo.mathScore, null, 'Unready Math section score must be null');
+assert.strictEqual(scoreInfo.isReady, false, 'Total score should NOT be ready when one section is unready');
 assert.strictEqual(scoreInfo.totalScore, null);
 
-// 4. Streak Calculation
-const sessions = {
-  '2026-08-21': { questionsAnswered: 5 },
-  '2026-08-22': { questionsAnswered: 10 },
-  '2026-08-23': { questionsAnswered: 8 }
-};
-assert.strictEqual(PSAT_ENGINE.calculateStreak(sessions), 3, 'Consecutive 3 days must give streak 3');
+// 4. Local Date and Streak Calculation across month boundaries
+const localToday = PSAT_ENGINE.localDateKey();
+assert.strictEqual(typeof localToday, 'string');
+assert.match(localToday, /^\d{4}-\d{2}-\d{2}$/);
 
-console.log('✓ All Spaced Repetition (SM-2) tests passed!');
+// Streak crossing month boundary (30 Aug -> 31 Aug -> 1 Sep -> 2 Sep)
+const sessionsMonthBoundary = {
+  '2026-08-30': { questionsAnswered: 5 },
+  '2026-08-31': { questionsAnswered: 10 },
+  '2026-09-01': { questionsAnswered: 8 }
+};
+// If tested on 2026-09-01
+// Test day difference logic:
+function testStreakDates(datesList, referenceToday) {
+  const map = {};
+  datesList.forEach(d => { map[d] = { questionsAnswered: 5 }; });
+  // override localDateKey inside test scope
+  const original = PSAT_ENGINE.localDateKey;
+  PSAT_ENGINE.localDateKey = () => referenceToday;
+  const res = PSAT_ENGINE.calculateStreak(map);
+  PSAT_ENGINE.localDateKey = original;
+  return res;
+}
+
+assert.strictEqual(testStreakDates(['2026-08-31', '2026-09-01'], '2026-09-01'), 2, 'Month boundary streak must be 2');
+assert.strictEqual(testStreakDates(['2026-08-30', '2026-08-31', '2026-09-01'], '2026-09-01'), 3, 'Month boundary streak must be 3');
+
+console.log('✓ All Spaced Repetition (SM-2) and Scoring tests passed!');

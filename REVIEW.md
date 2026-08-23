@@ -109,3 +109,147 @@ Several things will bite on the next machine or the first real deploy:
 5. Purge `data/images/` from git, fix the image-URL rewrite in the Azure uploader, and make the test suite runnable from a clean clone.
 
 See **`FIX_PLAN.md`** for the implementation plan covering every item above.
+
+---
+---
+
+# Re-review — round 2
+
+**Reviewed:** 2026-08-23 · commit `302086b` ("fix: implement review items") vs `6bec447`
+**Verdict: 8 of 9 plan items are genuinely fixed, and the fixes are real — not cosmetic.** I verified them by executing the code, not by reading it. Four defects remain, one of which (the section-score gate leak) is a smaller instance of the exact problem round 1 was about. None are large.
+
+## Verification performed
+
+| Check | Result |
+| :--- | :--- |
+| Dataset schema validation | 3,059 / 3,059 valid, 0 errors |
+| Text-completeness metric | 2,158 (70.5%) — matches independent recount |
+| Bundle ↔ JSON sync | in sync, IDs and order preserved |
+| Skill casing collisions | 0 (26 skills, down from 27) |
+| Python tests on a **clean clone with no PDFs** | 7 passed, 2 skipped, 0 failed |
+| Python tests with PDFs present | 9 passed |
+| Node test suites (3) | all pass |
+| SM-2 ladder, executed | 1 → 3 → 7 → 18 → 45 days, EF floor 1.3 holds, failure resets to reps 0 / 1 day |
+| Free-response grader vs **all 365 items** | every stored form of every key grades correct (446 forms) |
+| Azure uploader `--dry-run` | image_url rewrite produces correct absolute blob URLs |
+
+## Item-by-item status
+
+| # | Item | Status |
+| :--- | :--- | :--- |
+| 1 | Parent-portal fabrications | **Fixed** — one leak, see A |
+| 2 | Score projection | **Fixed** — 240–1440, per-section, sample-gated |
+| 3 | Free-response grading | **Fixed** — 363/365; see B |
+| 4 | Response-time capture | **Fixed** — see C |
+| 5 | SRS engine | **Implemented and correct** |
+| 6 | Validator text-completeness | **Fixed** |
+| 7a | Skill casing | **Fixed** |
+| 7b | Contradictory-source flag | **Fixed** — hardcoded rather than derived, see D |
+| 8 | Azure uploader | **Mostly fixed** — see E |
+| 9a | Purge images from git | **Not done** — deferred as instructed |
+| 9b | Portable test suite | **Fixed and verified** |
+| 9c | Multi-ID-per-page warning | **Fixed** |
+| 9d | `innerHTML` hardening | **Partial** — options and palette use `textContent`; bank table and parent domain bars still concatenate |
+
+## What was done well
+
+`srs.js` is the standout. Making it a UMD module with zero DOM access means the SM-2 logic, the grader, and the score model are all directly testable from Node — and the three test files actually exercise them, including one that runs the grader across the entire real dataset. That is a better structure than I proposed.
+
+The timing capture is also more careful than asked: `visibilitychange` accounting genuinely excludes background time, verified by inspection of the accumulate-on-hide / reset-on-show pair.
+
+And the empty-states are honest now. With `localStorage` cleared, the parent hero shows `—` with "Needs at least 15 questions attempted per section (current: 0 RW, 0 Math)". That is the right behaviour.
+
+## Remaining defects
+
+### A. Section scores bypass the sample-size gate — `parent.html:307-312`
+
+The hero score correctly refuses to render until both sections have 15 attempts. The two section-header badges do not:
+
+```js
+if (scoreData.rwScore !== null) {
+  document.getElementById('ela-section-score').innerText = `Est. Section Score: ${scoreData.rwScore} / 720`;
+}
+```
+
+`calculateScaledScore` returns `rwScore` whenever `rwAttempted > 0` (`srs.js:162-163`), so **one** correct Reading question renders "Est. Section Score: 720 / 720" next to the ELA mastery header — while the hero directly above it says there isn't enough data yet. A parent reads the 720. Gate both badges on `scoreData.isReady` (or add a per-section readiness flag), and show `—` otherwise.
+
+### B. Two free-response keys are ungradeable — `srs.js:38-58`
+
+The grader splits accepted forms on commas. Two questions store their key in prose instead:
+
+- `67c08ea4` → `"either 8 or 9"`
+- `7d0fa86a` → `"either 2 or 8"`
+
+Verified by execution: `gradeFreeResponse("8", "either 8 or 9")` returns **false**. Both correct answers are marked wrong, and no test caught it because `tests/test_dataset_free_response.js` splits on commas the same way the grader does — so it checks the key against itself and passes vacuously. Split on `/\s*(?:,|\bor\b)\s*/` and strip a leading `either`, then add these two IDs as explicit test cases so the test stops mirroring the implementation.
+
+### C. Streak and daily totals use the UTC date, not the local one — `srs.js:184, 207` and `parent.html:279`
+
+`new Date().toISOString().split('T')[0]` yields the **UTC** calendar date. In America/New_York that rolls over at 8pm local. Executed proof:
+
+```
+Mon 24 Aug 21:00 EDT -> date key 2026-08-25
+Tue 25 Aug 10:00 EDT -> date key 2026-08-25
+```
+
+An evening session on Monday and a morning session on Tuesday collapse into a single day entry, so a real two-day streak reports as one, and "Past 7 Days Practice" attributes evening minutes to the following day. Use a local-date formatter instead:
+
+```js
+function localDateKey(d) {
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+```
+
+Apply it in `recordDailySession`, `calculateStreak`, and the 7-day loop in `parent.html`. Existing stored keys stay readable — the format is identical.
+
+**Two smaller timing issues in the same area:**
+- `index.html:766` defaults to `timeSpentMs = 30000` when the clock is missing, and `srs.js:76` defaults to `60000` for the same condition. The two disagree, and 30s maps to grade **5** — the best possible grade, invented. Use one shared default, pick the conservative grade (3), and carry the `timingReliable: false` flag the plan called for so the SRS can tell "answered fast" from "we don't know".
+- `parent.html:288` measures the study bar against a hardcoded 120-minute weekly goal that appears nowhere in the UI, so the bar fills against an invisible target. Show the goal or drop the bar.
+
+### D. The contradictory-source flag is hardcoded — `extractor.py:41`, `normalize_data.py:47`
+
+`MISMATCH_QIDS = {"f302230c", "ac972578"}` is a literal set of the two IDs I happened to report. Re-extracting a different bank flags nothing. The generic detector already exists and works — it's in `validator.py:77-80`. Move that same regex comparison into `parse_question_text` and set the flag from it; delete the constant from both files.
+
+### E. Azure uploader — three gaps before it is deploy-safe
+
+The important fixes landed: `image_url` rewriting, private-by-default containers, env-var credentials, threaded blob upload, `--dry-run`. Remaining:
+
+1. **`--blob-base-url` is optional**, and when omitted the rewrite loop is skipped silently (`upload_to_azure.py:31`) — reproducing the original broken-images bug with no warning. Verified: a dry run without it prints no `image_url` line and exits 0. Make it required whenever a Cosmos upload is requested, or fail loudly.
+2. **No resume / skip-existing.** A failed run re-uploads all 3,059 blobs.
+3. **Retry is a flat `time.sleep(1.0)` × 3 on any `CosmosHttpResponseError`** (`:62-72`) — it burns retries on non-retryable 4xx and doesn't back off on the 429s that serverless Cosmos will actually produce. Check the status code and use exponential backoff. Also, "upload completed successfully" is logged unconditionally even when individual items failed.
+
+### F. `SYSTEM_ARCHITECTURE_AND_PLAN.md` was never updated
+
+`README.md` and `AGENT_HANDOFF.md` were revised accurately — the handoff now states 70.5% text completeness and the 240–1440 scale. The architecture doc still says:
+
+- "validated with **100% integrity**" (§1) — the claim item 6 was meant to retire
+- "320–1520 for PSAT 8/9" (§4.1, and the diagram at §4) — factually wrong, and the exact bug fixed in the code
+- "Decrease Ease Factor (-0.2)" (§3, diagram) — the implementation correctly applies the SM-2 formula, which yields **-0.54** at q=1; the doc's prose and its own formula have always contradicted each other
+
+Fix the doc to match the shipped behaviour, or the next agent will "fix" the code back to the wrong scale.
+
+### G. Minor: skills with high accuracy but few attempts vanish — `index.html:1003-1005`
+
+```js
+if (acc !== null && acc >= 75 && data.t >= 3) { strengths }
+else if (acc !== null && acc < 75) { weaknesses }
+```
+
+A skill at 100% on 2 attempts matches neither branch and disappears from both panels with no explanation. Add an "In progress" grouping, or show it greyed in strengths with the attempt count.
+
+### H. Minor: `python3 -m unittest discover tests` finds 0 tests
+
+The Python tests live in `test_extractor.py` at the repo root, so the discover command in the round-1 checklist runs nothing. CI uses `python -m unittest test_extractor.py`, which works — the checklist was wrong, not the code. Worth aligning so nobody mistakes an empty run for a pass.
+
+**Forward-looking:** the CI validate step passes `base_image_dir='data/images'`, so it will start failing the moment item 9a removes the images from git. Make the image check conditional on the directory existing before that purge happens.
+
+## Suggested order for round 2
+
+1. Gate the section-score badges (A) — same class of defect as round 1, user-visible.
+2. Fix the local-date keys (C) — silently corrupts streaks and daily totals from day one.
+3. Fix the two prose free-response keys, and make the test stop mirroring the implementation (B).
+4. Unify the timing default and add `timingReliable` (C, sub-item).
+5. Derive the mismatch flag instead of hardcoding it (D).
+6. Update `SYSTEM_ARCHITECTURE_AND_PLAN.md` (F).
+7. Require `--blob-base-url`, add resume and real backoff (E) — before any deploy, not before.
+8. Then item 9a: purge `data/images/` from git, and make the CI image check conditional first.

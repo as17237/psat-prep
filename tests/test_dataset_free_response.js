@@ -14,7 +14,14 @@ questions.forEach(q => {
   if (q.type === 'free_response') {
     frCount++;
     const key = q.correct_answer;
-    const forms = String(key).split(',').map(s => s.trim()).filter(Boolean);
+    const forms = PSAT_ENGINE.extractAcceptedForms(key);
+    
+    assert(forms.length > 0, `Question ${q.id}: key '${key}' failed to extract accepted forms`);
+    
+    // Assert at least one numeric form exists
+    const hasNumeric = forms.some(f => PSAT_ENGINE.parseNumeric(f) !== null);
+    assert(hasNumeric, `Question ${q.id}: key '${key}' does not parse to any numeric form`);
+
     if (forms.length > 1) {
       multiFormCount++;
     }

@@ -22,12 +22,20 @@ assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('44/3', '14.66, 14.67, 44/3'), 
 assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('-0.3267', '-.3266, -.3267, -49/150'), true, '-0.3267 should match');
 assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('-49/150', '-.3266, -.3267, -49/150'), true, '-49/150 should match');
 
-// 5. False cases
+// 5. Prose Keys (either X or Y) - Questions 67c08ea4 & 7d0fa86a
+assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('8', 'either 8 or 9'), true, "8 should match 'either 8 or 9'");
+assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('9', 'either 8 or 9'), true, "9 should match 'either 8 or 9'");
+assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('2', 'either 2 or 8'), true, "2 should match 'either 2 or 8'");
+assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('8', 'either 2 or 8'), true, "8 should match 'either 2 or 8'");
+assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('7', 'either 8 or 9'), false, "7 should NOT match 'either 8 or 9'");
+
+// 6. False cases
 assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('0.3', '.2, 1/5'), false, '0.3 should NOT match .2, 1/5');
 assert.strictEqual(PSAT_ENGINE.gradeFreeResponse('5/3', '5/2'), false, '5/3 should NOT match 5/2');
 
-// 6. Formatting helper
+// 7. Formatting helper
 assert.strictEqual(PSAT_ENGINE.formatAcceptedAnswers('.2, 1/5'), '.2 or 1/5');
 assert.strictEqual(PSAT_ENGINE.formatAcceptedAnswers('14.66, 14.67, 44/3'), '14.66, 14.67, or 44/3');
+assert.strictEqual(PSAT_ENGINE.formatAcceptedAnswers('either 8 or 9'), '8 or 9');
 
 console.log('✓ All Free-Response Grading tests passed!');

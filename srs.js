@@ -12,6 +12,20 @@
 })(typeof self !== 'undefined' ? self : this, function () {
 
   /**
+   * Formats a Date object as a local calendar date key 'YYYY-MM-DD' (avoids UTC rollover shifts).
+   */
+  function localDateKey(d) {
+    var dateObj = d || new Date();
+    if (typeof dateObj === 'string' || typeof dateObj === 'number') {
+      dateObj = new Date(dateObj);
+    }
+    var y = dateObj.getFullYear();
+    var m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    var day = String(dateObj.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  /**
    * Parses string numeric values including decimals, fractions (e.g. 5/2, -49/150), and formatted text.
    */
   function parseNumeric(s) {
@@ -33,6 +47,25 @@
   }
 
   /**
+   * Extracts all accepted forms from a free-response answer key (handles comma separation, prose 'either X or Y').
+   */
+  function extractAcceptedForms(key) {
+    if (key === null || key === undefined) return [];
+    var raw = String(key).trim();
+    if (!raw) return [];
+
+    // Strip leading 'either ' (e.g., 'either 8 or 9')
+    raw = raw.replace(/^either\s+/i, '');
+
+    // Split on commas or word-bounded 'or'
+    var parts = raw.split(/\s*(?:,|\bor\b)\s*/i).map(function (s) {
+      return s.trim();
+    }).filter(Boolean);
+
+    return parts;
+  }
+
+  /**
    * Grades free-response (Student-Produced Response) input against one or multiple accepted keys.
    */
   function gradeFreeResponse(input, key) {
@@ -40,7 +73,7 @@
     var rawInput = String(input).trim();
     if (!rawInput) return false;
 
-    var acceptedForms = String(key).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var acceptedForms = extractAcceptedForms(key);
     var userNum = parseNumeric(rawInput);
 
     return acceptedForms.some(function (accepted) {
@@ -58,11 +91,11 @@
   }
 
   /**
-   * Formats a comma-separated key into human-friendly text (e.g. ".2, 1/5" -> ".2 or 1/5")
+   * Formats a key into human-friendly text (e.g. ".2, 1/5" -> ".2 or 1/5", "either 8 or 9" -> "8 or 9")
    */
   function formatAcceptedAnswers(key) {
     if (!key) return '';
-    var forms = String(key).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    var forms = extractAcceptedForms(key);
     if (forms.length <= 1) return forms[0] || '';
     if (forms.length === 2) return forms[0] + ' or ' + forms[1];
     return forms.slice(0, -1).join(', ') + ', or ' + forms[forms.length - 1];
@@ -70,12 +103,15 @@
 
   /**
    * Computes SM-2 response grade (1 to 5) based on correctness and response time.
+   * If timing is missing or unreliable, falls back conservatively to grade 3 (Hesitant).
    */
-  function gradeAttempt(isCorrect, timeMs) {
+  function gradeAttempt(isCorrect, timeMs, timingReliable) {
     if (!isCorrect) return 1;
-    var ms = typeof timeMs === 'number' && timeMs > 0 ? timeMs : 60000;
-    if (ms < 45000) return 5; // Fast / Mastered (<45s)
-    if (ms <= 90000) return 4; // Proficient (45s-90s)
+    if (timingReliable === false || typeof timeMs !== 'number' || isNaN(timeMs) || timeMs <= 0) {
+      return 3; // Conservative fallback: Hesitant
+    }
+    if (timeMs < 45000) return 5; // Fast / Mastered (<45s)
+    if (timeMs <= 90000) return 4; // Proficient (45s-90s)
     return 3; // Hesitant (>90s)
   }
 
@@ -132,6 +168,7 @@
   /**
    * Computes an empirical PSAT 8/9 scaled score estimate (240–1440).
    * 120–720 for Reading and Writing, 120–720 for Math.
+   * Gates section and total scores on minimum 15 attempts.
    */
   function calculateScaledScore(questions, progress) {
     var rwAttempted = 0;
@@ -153,48 +190,56 @@
     });
 
     var MIN_PER_SECTION = 15;
-    var isReady = (rwAttempted >= MIN_PER_SECTION && mathAttempted >= MIN_PER_SECTION);
+    var rwReady = rwAttempted >= MIN_PER_SECTION;
+    var mathReady = mathAttempted >= MIN_PER_SECTION;
+    var isReady = rwReady && mathReady;
 
     var rwAcc = rwAttempted > 0 ? (rwCorrect / rwAttempted) : 0;
     var mathAcc = mathAttempted > 0 ? (mathCorrect / mathAttempted) : 0;
 
     // Mapping: 120 floor + accuracy * 600 points = 120 to 720
-    var rwScore = rwAttempted > 0 ? Math.min(720, Math.max(120, Math.round(120 + rwAcc * 600))) : null;
-    var mathScore = mathAttempted > 0 ? Math.min(720, Math.max(120, Math.round(120 + mathAcc * 600))) : null;
+    var rwScore = rwReady ? Math.min(720, Math.max(120, Math.round(120 + rwAcc * 600))) : null;
+    var mathScore = mathReady ? Math.min(720, Math.max(120, Math.round(120 + mathAcc * 600))) : null;
     var totalScore = (rwScore !== null && mathScore !== null) ? (rwScore + mathScore) : null;
 
     return {
       isReady: isReady,
+      rwReady: rwReady,
+      mathReady: mathReady,
       rwAttempted: rwAttempted,
       rwCorrect: rwCorrect,
       rwScore: rwScore,
       mathAttempted: mathAttempted,
       mathCorrect: mathCorrect,
       mathScore: mathScore,
-      totalScore: isReady ? totalScore : null,
+      totalScore: totalScore,
       totalAttempted: rwAttempted + mathAttempted,
       minRequiredPerSection: MIN_PER_SECTION
     };
   }
 
   /**
-   * Appends or updates a daily practice session log in localStorage.
+   * Appends or updates a daily practice session log in localStorage using local calendar date.
    */
-  function recordDailySession(sessionsMap, isCorrect, timeSpentMs, dateStr) {
-    var today = dateStr || (new Date()).toISOString().split('T')[0];
+  function recordDailySession(sessionsMap, isCorrect, timeSpentMs, dateStr, timingReliable) {
+    var today = dateStr || localDateKey();
     var map = sessionsMap || {};
     var entry = map[today] || { date: today, questionsAnswered: 0, correct: 0, totalTimeMs: 0 };
 
     entry.questionsAnswered += 1;
     if (isCorrect) entry.correct += 1;
-    entry.totalTimeMs += Math.min(600000, Math.max(1000, timeSpentMs || 30000)); // Cap at 10 mins
+    
+    // Only accumulate time if timing was reliable
+    if (timingReliable !== false && typeof timeSpentMs === 'number') {
+      entry.totalTimeMs += Math.min(600000, Math.max(1000, timeSpentMs));
+    }
 
     map[today] = entry;
     return map;
   }
 
   /**
-   * Calculates consecutive active streak days ending today or yesterday.
+   * Calculates consecutive active streak days ending today or yesterday using local calendar dates.
    */
   function calculateStreak(sessionsMap) {
     if (!sessionsMap) return 0;
@@ -204,23 +249,26 @@
 
     if (dates.length === 0) return 0;
 
-    var today = (new Date()).toISOString().split('T')[0];
-    var lastDate = dates[dates.length - 1];
+    function parseLocalDayNumber(dStr) {
+      var parts = dStr.split('-').map(Number);
+      // Construct UTC date to measure pure calendar day differences without daylight savings shifts
+      return Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
+    }
 
-    // If last practice was before yesterday, streak is broken
-    var dToday = new Date(today);
-    var dLast = new Date(lastDate);
-    var diffDays = Math.round((dToday - dLast) / (1000 * 60 * 60 * 24));
+    var todayDayNum = parseLocalDayNumber(localDateKey());
+    var lastDayNum = parseLocalDayNumber(dates[dates.length - 1]);
+    var diffDays = todayDayNum - lastDayNum;
 
     if (diffDays > 1) return 0;
 
     var streak = 1;
     for (var i = dates.length - 1; i > 0; i--) {
-      var curr = new Date(dates[i]);
-      var prev = new Date(dates[i - 1]);
-      var diff = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
-      if (diff === 1) {
+      var currDay = parseLocalDayNumber(dates[i]);
+      var prevDay = parseLocalDayNumber(dates[i - 1]);
+      if (currDay - prevDay === 1) {
         streak++;
+      } else if (currDay === prevDay) {
+        continue;
       } else {
         break;
       }
@@ -229,7 +277,9 @@
   }
 
   return {
+    localDateKey: localDateKey,
     parseNumeric: parseNumeric,
+    extractAcceptedForms: extractAcceptedForms,
     gradeFreeResponse: gradeFreeResponse,
     formatAcceptedAnswers: formatAcceptedAnswers,
     gradeAttempt: gradeAttempt,

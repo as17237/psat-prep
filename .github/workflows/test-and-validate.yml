@@ -39,9 +39,10 @@ jobs:
 
       - name: Validate Extracted Dataset
         run: |
-          python -c "import json; from validator import validate_dataset; \
+          python -c "import os, json; from validator import validate_dataset; \
             ela = json.load(open('data/ela_questions.json')); \
             math = json.load(open('data/math_questions.json')); \
-            res = validate_dataset(ela + math, base_image_dir='data/images'); \
+            img_dir = 'data/images' if os.path.exists('data/images') else None; \
+            res = validate_dataset(ela + math, base_image_dir=img_dir); \
             assert res['is_valid'], 'Dataset validation failed!'; \
             print('CI Validation Succeeded:', res['valid_count'], 'valid questions,', res['text_complete_count'], 'text-complete')"

@@ -69,7 +69,7 @@
           </div>
           <div class="flex items-center justify-between text-sm">
             <span class="text-slate-300 flex items-center"><i data-lucide="clock" class="w-4 h-4 text-indigo-300 mr-1.5"></i> Past 7 Days Practice</span>
-            <span id="hero-study-time" class="font-bold text-white">0 mins</span>
+            <span id="hero-study-time" class="font-bold text-white">0 mins / 120 min goal</span>
           </div>
           <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
             <div id="hero-progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all" style="width: 0%"></div>
@@ -145,7 +145,7 @@
           <h3 class="text-base font-bold text-slate-900 flex items-center">
             <i data-lucide="book" class="w-4 h-4 mr-2 text-indigo-600"></i> Reading & Writing (ELA) Mastery
           </h3>
-          <span id="ela-section-score" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">1,554 Total Qs</span>
+          <span id="ela-section-score" class="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">0 / 15 questions attempted</span>
         </div>
         <div id="ela-domain-bars" class="space-y-4 pt-2">
           <!-- Dynamically populated -->
@@ -158,7 +158,7 @@
           <h3 class="text-base font-bold text-slate-900 flex items-center">
             <i data-lucide="calculator" class="w-4 h-4 mr-2 text-indigo-600"></i> Math Mastery
           </h3>
-          <span id="math-section-score" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">1,505 Total Qs</span>
+          <span id="math-section-score" class="text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">0 / 15 questions attempted</span>
         </div>
         <div id="math-domain-bars" class="space-y-4 pt-2">
           <!-- Dynamically populated -->
@@ -205,6 +205,11 @@
   <script src="data/questions_data.js"></script>
   
   <script>
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       renderParentMetrics();
@@ -268,23 +273,23 @@
       });
       document.getElementById('stat-top-weakness').innerText = topWeakness;
 
-      // Real Streak Calculation
+      // Real Streak Calculation (Local Dates)
       const streak = PSAT_ENGINE.calculateStreak(sessionsState);
       document.getElementById('hero-streak').innerText = `${streak} Day${streak === 1 ? '' : 's'}`;
 
-      // Past 7 Days Practice Duration
+      // Past 7 Days Practice Duration (Local Dates)
       let past7DaysMs = 0;
       const today = new Date();
       for (let i = 0; i < 7; i++) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        const dStr = d.toISOString().split('T')[0];
+        const dStr = PSAT_ENGINE.localDateKey(d);
         if (sessionsState[dStr]) {
           past7DaysMs += sessionsState[dStr].totalTimeMs || 0;
         }
       }
       const studyMins = Math.round(past7DaysMs / 60000);
-      document.getElementById('hero-study-time').innerText = `${studyMins} mins`;
+      document.getElementById('hero-study-time').innerText = `${studyMins} mins / 120 min goal`;
       const progressPct = Math.min(100, Math.round((studyMins / 120) * 100)); // 120 min weekly goal
       document.getElementById('hero-progress-bar').style.width = `${progressPct}%`;
 
@@ -303,11 +308,22 @@
         document.getElementById('hero-score-subtext').innerText = `Needs at least ${scoreData.minRequiredPerSection} questions attempted per section (current: ${scoreData.rwAttempted} RW, ${scoreData.mathAttempted} Math).`;
       }
 
-      if (scoreData.rwScore !== null) {
-        document.getElementById('ela-section-score').innerText = `Est. Section Score: ${scoreData.rwScore} / 720`;
+      const elaBadge = document.getElementById('ela-section-score');
+      if (scoreData.rwReady) {
+        elaBadge.innerText = `Est. Section Score: ${scoreData.rwScore} / 720`;
+        elaBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+      } else {
+        elaBadge.innerText = `${scoreData.rwAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
+        elaBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
       }
-      if (scoreData.mathScore !== null) {
-        document.getElementById('math-section-score').innerText = `Est. Section Score: ${scoreData.mathScore} / 720`;
+
+      const mathBadge = document.getElementById('math-section-score');
+      if (scoreData.mathReady) {
+        mathBadge.innerText = `Est. Section Score: ${scoreData.mathScore} / 720`;
+        mathBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+      } else {
+        mathBadge.innerText = `${scoreData.mathAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
+        mathBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
       }
 
       // Render Domain Bars
@@ -324,7 +340,7 @@
         el.className = 'space-y-1.5';
         el.innerHTML = `
           <div class="flex justify-between text-xs font-semibold">
-            <span class="text-slate-800">${domain}</span>
+            <span class="text-slate-800">${esc(domain)}</span>
             <span class="text-slate-500">${data.attempted > 0 ? `${acc}% (${data.correct}/${data.attempted})` : `${data.total} Qs total`}</span>
           </div>
           <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">

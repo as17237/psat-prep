@@ -38,8 +38,6 @@ NUM_TO_LETTER = {
     "4": "D"
 }
 
-MISMATCH_QIDS = {"f302230c", "ac972578"}
-
 
 def index_pdf_questions(pdf_doc: pdfium.PdfDocument, limit: Optional[int] = None) -> Dict[str, List[int]]:
     """
@@ -220,6 +218,13 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
     if len(q_content) < 15:
         text_complete = False
 
+    # 7. Dynamically detect rationale letter mismatch
+    rationale_letter_mismatch = False
+    if q_type == "multiple_choice" and correct_ans and rationale:
+        m_rat_check = re.search(r"Choice\s+([A-D])\s+is\s+(?:the\s+best\s+answer|correct)", rationale, re.IGNORECASE)
+        if m_rat_check and m_rat_check.group(1).upper() != correct_ans.upper():
+            rationale_letter_mismatch = True
+
     return {
         "id": qid,
         "assessment": metadata["assessment"],
@@ -233,7 +238,7 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
         "correct_answer": correct_ans,
         "rationale": rationale,
         "text_complete": text_complete,
-        "rationale_letter_mismatch": (qid in MISMATCH_QIDS)
+        "rationale_letter_mismatch": rationale_letter_mismatch
     }
 
 
