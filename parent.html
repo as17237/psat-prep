@@ -261,80 +261,118 @@
         </div>
       </div>
 
-      <!-- Tab 2: Custom Filtered Test Builder -->
-      <div id="bview-custom" class="hidden space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <!-- Subject -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Subject / Test</label>
-            <select id="cust-test" onchange="onCustomTestSubjectChange()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
-              <option value="Both">Both (Reading & Writing + Math)</option>
-              <option value="Reading and Writing">Reading and Writing Only</option>
-              <option value="Math">Math Only</option>
-            </select>
+      <!-- Tab 2: Custom Filtered Test Builder (Multi-Select ELA & Math) -->
+      <div id="bview-custom" class="space-y-6">
+        
+        <!-- Top Filter Bar: Preset Buttons & Quick Toggles -->
+        <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider mr-2">Quick Presets:</span>
+            <button type="button" onclick="setPresetDomains('all')" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl border border-slate-200 shadow-xs transition-all">All Sections (ELA + Math)</button>
+            <button type="button" onclick="setPresetDomains('ela')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl border border-indigo-200 transition-all flex items-center">
+              <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1"></i> ELA Only
+            </button>
+            <button type="button" onclick="setPresetDomains('math')" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200 transition-all flex items-center">
+              <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1"></i> Math Only
+            </button>
+            <button type="button" onclick="setPresetDomains('clear')" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-medium rounded-xl border border-slate-200 transition-all">Clear All</button>
           </div>
 
+          <div class="flex items-center space-x-3 text-xs font-semibold">
+            <span id="cust-matching-summary" class="text-indigo-700 font-bold bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">Matching: 3,059 Questions</span>
+          </div>
+        </div>
+
+        <!-- Multi-Select Domain & Skill Section Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Reading & Writing (ELA) Column -->
+          <div class="bg-indigo-50/40 rounded-2xl border border-indigo-200 p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-indigo-200/80 pb-3">
+              <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                  <i data-lucide="book" class="w-4 h-4"></i>
+                </span>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">Reading & Writing (ELA) Domains</h4>
+                  <span class="text-[11px] text-slate-500 font-medium">1,554 Questions Available</span>
+                </div>
+              </div>
+              <button type="button" onclick="toggleSectionSkills('Reading and Writing')" id="toggle-btn-rw" class="text-xs text-indigo-700 hover:underline font-semibold">Deselect ELA</button>
+            </div>
+
+            <!-- ELA Domains Container -->
+            <div id="container-ela-domains" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Math Column -->
+          <div class="bg-emerald-50/40 rounded-2xl border border-emerald-200 p-5 space-y-4">
+            <div class="flex items-center justify-between border-b border-emerald-200/80 pb-3">
+              <div class="flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
+                  <i data-lucide="calculator" class="w-4 h-4"></i>
+                </span>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">Math Domains</h4>
+                  <span class="text-[11px] text-slate-500 font-medium">1,505 Questions Available</span>
+                </div>
+              </div>
+              <button type="button" onclick="toggleSectionSkills('Math')" id="toggle-btn-math" class="text-xs text-emerald-700 hover:underline font-semibold">Deselect Math</button>
+            </div>
+
+            <!-- Math Domains Container -->
+            <div id="container-math-domains" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Test Parameters & Controls -->
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-xs">
           <!-- Difficulty -->
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Difficulty</label>
-            <select id="cust-diff" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+            <select id="cust-diff" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
               <option value="All">All Difficulties (Mixed)</option>
-              <option value="Hard">Hard Difficulties Only (High-Yield)</option>
-              <option value="Medium">Medium Difficulties Only</option>
-              <option value="Easy">Easy Difficulties Only</option>
+              <option value="Hard">Hard Questions Only (High-Yield)</option>
+              <option value="Medium">Medium Questions Only</option>
+              <option value="Easy">Easy Questions Only</option>
             </select>
           </div>
 
-          <!-- Question Type -->
+          <!-- Format -->
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Format</label>
-            <select id="cust-qtype" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
-              <option value="all">All Formats (MCQ & Free-Response)</option>
-              <option value="mcq">Multiple Choice Only (A, B, C, D)</option>
-              <option value="spr">Free-Response (Student-Produced) Only</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <!-- Domain Filter -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter by Domain</label>
-            <select id="cust-domain" onchange="onCustomDomainChange()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
-              <option value="All">All Domains</option>
+            <select id="cust-qtype" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
+              <option value="all">All Formats (MCQ & Grid-In)</option>
+              <option value="mcq">Multiple Choice Only</option>
+              <option value="spr">Free-Response (Math SPR) Only</option>
             </select>
           </div>
 
-          <!-- Skill Filter -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter by Specific Skill</label>
-            <select id="cust-skill" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
-              <option value="All">All Skills in Selected Domain</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <!-- Count -->
           <div class="space-y-1.5">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Count</label>
-            <input type="number" id="cust-count" value="20" min="5" max="98" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800">
+            <input type="number" id="cust-count" value="20" min="5" max="98" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
           </div>
 
           <!-- Time Limit -->
           <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Time Limit (Minutes)</label>
-            <div class="flex items-center space-x-3">
-              <input type="number" id="cust-time" value="30" min="5" max="180" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Time Limit</label>
+            <div class="flex items-center space-x-2">
+              <input type="number" id="cust-time" value="30" min="5" max="180" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-medium text-slate-800">
               <label class="flex items-center text-xs font-semibold text-slate-600 whitespace-nowrap">
-                <input type="checkbox" id="cust-untimed" onchange="document.getElementById('cust-time').disabled = this.checked;" class="rounded text-indigo-600 mr-1.5"> Untimed
+                <input type="checkbox" id="cust-untimed" onchange="document.getElementById('cust-time').disabled = this.checked;" class="rounded text-indigo-600 mr-1"> Untimed
               </label>
             </div>
           </div>
         </div>
 
         <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
-          <span id="cust-matching-count" class="text-xs font-semibold text-indigo-600">Matching Questions in Bank: 3,059</span>
+          <span id="cust-selected-summary" class="text-xs text-slate-600 font-medium">Selected: 8 Domains, 24 Skills</span>
           <div class="flex items-center space-x-3">
             <button onclick="copyShareableTestLink('custom')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
@@ -344,6 +382,7 @@
             </button>
           </div>
         </div>
+
       </div>
 
       <!-- Tab 3: Full-Length PSAT 8/9 Standard Exam -->
@@ -442,6 +481,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       renderParentMetrics();
+      initCustomDomainSkills();
     });
 
     function renderParentMetrics() {
@@ -594,7 +634,11 @@
       });
     }
 
-    let currentGapCount = 20;
+    let selectedSkillsSet = new Set();
+    let domainToSkillsMap = {};
+    let skillToDomainMap = {};
+    let skillToSectionMap = {};
+    let skillQuestionCountMap = {};
 
     function switchBuilderTab(tab) {
       document.getElementById('bview-gap').classList.add('hidden');
@@ -611,12 +655,192 @@
       } else if (tab === 'custom') {
         document.getElementById('bview-custom').classList.remove('hidden');
         document.getElementById('btab-custom').className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center';
-        populateCustomDomainOptions();
+        if (selectedSkillsSet.size === 0) {
+          initCustomDomainSkills();
+        } else {
+          updateCustomTestCalculations();
+        }
       } else if (tab === 'psat89') {
         document.getElementById('bview-psat89').classList.remove('hidden');
         document.getElementById('btab-psat89').className = 'px-3 py-1.5 rounded-lg bg-white text-emerald-600 shadow-sm transition-all flex items-center';
       }
       lucide.createIcons();
+    }
+
+    function initCustomDomainSkills() {
+      const questions = window.QUESTIONS_DATA || [];
+      domainToSkillsMap = {};
+      skillToDomainMap = {};
+      skillToSectionMap = {};
+      skillQuestionCountMap = {};
+      selectedSkillsSet.clear();
+
+      questions.forEach(q => {
+        if (!domainToSkillsMap[q.domain]) {
+          domainToSkillsMap[q.domain] = { section: q.test, skills: new Set(), totalQuestions: 0 };
+        }
+        domainToSkillsMap[q.domain].skills.add(q.skill);
+        domainToSkillsMap[q.domain].totalQuestions++;
+        skillToDomainMap[q.skill] = q.domain;
+        skillToSectionMap[q.skill] = q.test;
+        skillQuestionCountMap[q.skill] = (skillQuestionCountMap[q.skill] || 0) + 1;
+        selectedSkillsSet.add(q.skill);
+      });
+
+      renderCustomDomainSkillCheckboxes();
+      updateCustomTestCalculations();
+    }
+
+    function renderCustomDomainSkillCheckboxes() {
+      const elaContainer = document.getElementById('container-ela-domains');
+      const mathContainer = document.getElementById('container-math-domains');
+      if (!elaContainer || !mathContainer) return;
+
+      elaContainer.innerHTML = '';
+      mathContainer.innerHTML = '';
+
+      Object.entries(domainToSkillsMap).forEach(([domain, info]) => {
+        const isELA = (info.section === 'Reading and Writing');
+        const targetContainer = isELA ? elaContainer : mathContainer;
+        const skillsArr = Array.from(info.skills).sort();
+
+        const domainCard = document.createElement('div');
+        domainCard.className = 'bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3';
+
+        const domainCheckboxId = `chk-dom-${domain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const allSkillsSelected = skillsArr.every(s => selectedSkillsSet.has(s));
+
+        domainCard.innerHTML = `
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <label class="flex items-center space-x-2.5 cursor-pointer">
+              <input type="checkbox" id="${domainCheckboxId}" ${allSkillsSelected ? 'checked' : ''} onchange="toggleDomainGroup('${esc(domain)}', this.checked)" class="rounded text-${isELA ? 'indigo' : 'emerald'}-600 focus:ring-${isELA ? 'indigo' : 'emerald'}-500">
+              <span class="font-bold text-xs text-slate-900">${esc(domain)}</span>
+            </label>
+            <span class="text-[11px] font-semibold text-slate-500">${info.totalQuestions} Qs</span>
+          </div>
+          <div class="grid grid-cols-1 gap-1.5 pt-1 pl-5">
+            ${skillsArr.map(skill => {
+              const skillChkId = `chk-sk-${skill.replace(/[^a-zA-Z0-9]/g, '_')}`;
+              const isChecked = selectedSkillsSet.has(skill);
+              const qCount = skillQuestionCountMap[skill] || 0;
+              return `
+                <label class="flex items-center justify-between text-xs text-slate-700 hover:text-slate-900 cursor-pointer py-0.5">
+                  <span class="flex items-center space-x-2">
+                    <input type="checkbox" id="${skillChkId}" data-skill="${esc(skill)}" data-domain="${esc(domain)}" ${isChecked ? 'checked' : ''} onchange="toggleSkillItem('${esc(skill)}', this.checked)" class="rounded text-${isELA ? 'indigo' : 'emerald'}-600 focus:ring-${isELA ? 'indigo' : 'emerald'}-500">
+                    <span class="font-medium">${esc(skill)}</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">${qCount} Qs</span>
+                </label>
+              `;
+            }).join('')}
+          </div>
+        `;
+
+        targetContainer.appendChild(domainCard);
+      });
+
+      lucide.createIcons();
+    }
+
+    function toggleDomainGroup(domain, isChecked) {
+      const info = domainToSkillsMap[domain];
+      if (!info) return;
+
+      info.skills.forEach(skill => {
+        if (isChecked) selectedSkillsSet.add(skill);
+        else selectedSkillsSet.delete(skill);
+
+        const chk = document.querySelector(`input[data-skill="${skill}"]`);
+        if (chk) chk.checked = isChecked;
+      });
+
+      updateCustomTestCalculations();
+    }
+
+    function toggleSkillItem(skill, isChecked) {
+      if (isChecked) selectedSkillsSet.add(skill);
+      else selectedSkillsSet.delete(skill);
+
+      const domain = skillToDomainMap[skill];
+      if (domain && domainToSkillsMap[domain]) {
+        const allSkills = Array.from(domainToSkillsMap[domain].skills);
+        const domainChk = document.getElementById(`chk-dom-${domain.replace(/[^a-zA-Z0-9]/g, '_')}`);
+        if (domainChk) {
+          domainChk.checked = allSkills.every(s => selectedSkillsSet.has(s));
+        }
+      }
+
+      updateCustomTestCalculations();
+    }
+
+    function toggleSectionSkills(section) {
+      const isELA = (section === 'Reading and Writing');
+      let sectionSkills = [];
+      Object.entries(skillToSectionMap).forEach(([skill, sec]) => {
+        if (sec === section) sectionSkills.push(skill);
+      });
+
+      const anySelected = sectionSkills.some(s => selectedSkillsSet.has(s));
+      const newState = !anySelected;
+
+      sectionSkills.forEach(s => {
+        if (newState) selectedSkillsSet.add(s);
+        else selectedSkillsSet.delete(s);
+      });
+
+      renderCustomDomainSkillCheckboxes();
+      updateCustomTestCalculations();
+
+      const btn = document.getElementById(isELA ? 'toggle-btn-rw' : 'toggle-btn-math');
+      if (btn) btn.innerText = newState ? `Deselect ${isELA ? 'ELA' : 'Math'}` : `Select ${isELA ? 'ELA' : 'Math'}`;
+    }
+
+    function setPresetDomains(preset) {
+      if (preset === 'all') {
+        Object.keys(skillToDomainMap).forEach(s => selectedSkillsSet.add(s));
+      } else if (preset === 'ela') {
+        selectedSkillsSet.clear();
+        Object.entries(skillToSectionMap).forEach(([s, sec]) => {
+          if (sec === 'Reading and Writing') selectedSkillsSet.add(s);
+        });
+      } else if (preset === 'math') {
+        selectedSkillsSet.clear();
+        Object.entries(skillToSectionMap).forEach(([s, sec]) => {
+          if (sec === 'Math') selectedSkillsSet.add(s);
+        });
+      } else if (preset === 'clear') {
+        selectedSkillsSet.clear();
+      }
+
+      renderCustomDomainSkillCheckboxes();
+      updateCustomTestCalculations();
+    }
+
+    function updateCustomTestCalculations() {
+      const questions = window.QUESTIONS_DATA || [];
+      const diffVal = document.getElementById('cust-diff').value;
+      const qtypeVal = document.getElementById('cust-qtype').value;
+
+      let matchingCount = 0;
+      let matchingELA = 0;
+      let matchingMath = 0;
+
+      questions.forEach(q => {
+        if (!selectedSkillsSet.has(q.skill)) return;
+        if (diffVal !== 'All' && q.difficulty !== diffVal) return;
+        if (qtypeVal === 'mcq' && q.question_type === 'free_response') return false;
+        if (qtypeVal === 'spr' && q.question_type !== 'free_response') return false;
+
+        matchingCount++;
+        if (q.test === 'Reading and Writing') matchingELA++;
+        else matchingMath++;
+      });
+
+      const selectedDomainsCount = new Set(Array.from(selectedSkillsSet).map(s => skillToDomainMap[s])).size;
+      const selectedSkillsCount = selectedSkillsSet.size;
+
+      document.getElementById('cust-matching-summary').innerText = `Matching: ${matchingCount.toLocaleString()} Questions (${matchingELA} ELA, ${matchingMath} Math)`;
+      document.getElementById('cust-selected-summary').innerText = `Selected: ${selectedDomainsCount} Domains, ${selectedSkillsCount} Skills (${matchingCount.toLocaleString()} Matching in Bank)`;
     }
 
     function setGapCount(c) {
@@ -630,79 +854,6 @@
         }
       });
       document.getElementById('gap-est-time').innerText = `${Math.round(c * 1.5)} minutes`;
-    }
-
-    function populateCustomDomainOptions() {
-      const questions = window.QUESTIONS_DATA || [];
-      const testVal = document.getElementById('cust-test').value;
-      const domainSelect = document.getElementById('cust-domain');
-      const skillSelect = document.getElementById('cust-skill');
-
-      const domains = new Set();
-      questions.forEach(q => {
-        if (testVal === 'Both' || q.test === testVal) {
-          domains.add(q.domain);
-        }
-      });
-
-      domainSelect.innerHTML = '<option value="All">All Domains</option>';
-      Array.from(domains).sort().forEach(d => {
-        const opt = document.createElement('option');
-        opt.value = d;
-        opt.innerText = d;
-        domainSelect.appendChild(opt);
-      });
-
-      onCustomDomainChange();
-    }
-
-    function onCustomTestSubjectChange() {
-      populateCustomDomainOptions();
-    }
-
-    function onCustomDomainChange() {
-      const questions = window.QUESTIONS_DATA || [];
-      const testVal = document.getElementById('cust-test').value;
-      const domainVal = document.getElementById('cust-domain').value;
-      const skillSelect = document.getElementById('cust-skill');
-
-      const skills = new Set();
-      questions.forEach(q => {
-        if ((testVal === 'Both' || q.test === testVal) && (domainVal === 'All' || q.domain === domainVal)) {
-          skills.add(q.skill);
-        }
-      });
-
-      skillSelect.innerHTML = '<option value="All">All Skills in Selected Domain</option>';
-      Array.from(skills).sort().forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.innerText = s;
-        skillSelect.appendChild(opt);
-      });
-
-      updateCustomMatchingCount();
-    }
-
-    function updateCustomMatchingCount() {
-      const questions = window.QUESTIONS_DATA || [];
-      const testVal = document.getElementById('cust-test').value;
-      const domainVal = document.getElementById('cust-domain').value;
-      const skillVal = document.getElementById('cust-skill').value;
-      const diffVal = document.getElementById('cust-diff').value;
-      const qtypeVal = document.getElementById('cust-qtype').value;
-
-      const matching = questions.filter(q => {
-        if (testVal !== 'Both' && q.test !== testVal) return false;
-        if (domainVal !== 'All' && q.domain !== domainVal) return false;
-        if (skillVal !== 'All' && q.skill !== skillVal) return false;
-        if (diffVal !== 'All' && q.difficulty !== diffVal) return false;
-        if (qtypeVal === 'mcq' && q.question_type === 'free_response') return false;
-        if (qtypeVal === 'spr' && q.question_type !== 'free_response') return false;
-        return true;
-      });
-
-      document.getElementById('cust-matching-count').innerText = `Matching Questions in Bank: ${matching.length.toLocaleString()}`;
     }
 
     function launchGapDrill() {
@@ -725,9 +876,11 @@
 
     function launchCustomTest() {
       const questions = window.QUESTIONS_DATA || [];
-      const testVal = document.getElementById('cust-test').value;
-      const domainVal = document.getElementById('cust-domain').value;
-      const skillVal = document.getElementById('cust-skill').value;
+      if (selectedSkillsSet.size === 0) {
+        alert('Please select at least one skill or domain to generate a custom test.');
+        return;
+      }
+
       const diffVal = document.getElementById('cust-diff').value;
       const qtypeVal = document.getElementById('cust-qtype').value;
       const countVal = parseInt(document.getElementById('cust-count').value, 10) || 20;
@@ -735,9 +888,7 @@
       const isUntimed = document.getElementById('cust-untimed').checked;
 
       const filters = {
-        test: testVal,
-        domains: domainVal === 'All' ? null : [domainVal],
-        skills: skillVal === 'All' ? null : [skillVal],
+        skills: Array.from(selectedSkillsSet),
         difficulties: diffVal === 'All' ? null : [diffVal],
         questionType: qtypeVal,
         count: countVal,
@@ -746,6 +897,11 @@
       };
 
       const customTest = PSAT_ENGINE.generateCustomTest(questions, filters);
+      if (customTest.questions.length === 0) {
+        alert('No questions match the selected filters. Please broaden your selection.');
+        return;
+      }
+
       sessionStorage.setItem('psat_active_custom_test', JSON.stringify(customTest));
       window.location.href = 'index.html?mode=custom';
     }
@@ -757,10 +913,10 @@
       } else if (type === 'gap') {
         url += `?mode=gap_drill&count=${currentGapCount}&focus=${document.getElementById('gap-focus-type').value}`;
       } else if (type === 'custom') {
-        const testVal = document.getElementById('cust-test').value;
         const diffVal = document.getElementById('cust-diff').value;
         const countVal = document.getElementById('cust-count').value;
-        url += `?mode=custom_filter&test=${encodeURIComponent(testVal)}&diff=${encodeURIComponent(diffVal)}&count=${countVal}`;
+        const skillsStr = Array.from(selectedSkillsSet).join(',');
+        url += `?mode=custom_filter&diff=${encodeURIComponent(diffVal)}&count=${countVal}&skills=${encodeURIComponent(skillsStr)}`;
       }
 
       navigator.clipboard.writeText(url).then(() => {

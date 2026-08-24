@@ -625,14 +625,26 @@
           <!-- Question Content -->
           <div class="p-6 space-y-6 flex-1 flex flex-col justify-between">
             
-            <div id="exam-q-body-area">
-              <!-- Visual Card -->
-              <div id="exam-q-visual" class="flex justify-center items-center py-2">
-                <img id="exam-q-image" src="" alt="PSAT Question Card" class="max-w-full h-auto max-h-[380px] object-contain rounded-lg border border-slate-100 shadow-xs">
+            <div id="exam-q-body-area" class="space-y-3">
+              <!-- Card / Image View with Zoom Controls -->
+              <div id="exam-q-visual" class="flex flex-col items-center py-2 space-y-2">
+                
+                <!-- Zoom Toolbar -->
+                <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded-xl text-xs font-semibold text-slate-600 self-end mr-2">
+                  <span class="text-[11px] text-slate-400 uppercase tracking-wider mr-1">Image Size:</span>
+                  <button type="button" onclick="adjustExamZoom(-15)" class="p-1 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Zoom Out">-</button>
+                  <span id="exam-zoom-label" class="font-mono text-xs text-indigo-700 font-bold min-w-[42px] text-center">100%</span>
+                  <button type="button" onclick="adjustExamZoom(15)" class="p-1 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Zoom In">+</button>
+                  <button type="button" onclick="resetExamZoom()" class="p-1 hover:bg-slate-200 rounded text-slate-500 text-[10px]" title="Reset Zoom">↺</button>
+                </div>
+
+                <div class="w-full flex justify-center overflow-x-auto p-2">
+                  <img id="exam-q-image" src="" alt="PSAT Question Card" class="max-w-full w-auto h-auto object-contain rounded-xl shadow-xs border border-slate-200 transition-transform duration-150" style="max-height: none;">
+                </div>
               </div>
 
               <!-- Text Mode -->
-              <div id="exam-q-text" class="hidden space-y-4 text-slate-800 text-base leading-relaxed max-w-3xl mx-auto py-2">
+              <div id="exam-q-text" class="hidden space-y-4 text-slate-800 text-base leading-relaxed max-w-3xl mx-auto py-4">
                 <p id="exam-q-prompt" class="whitespace-pre-line"></p>
               </div>
             </div>
@@ -1875,6 +1887,28 @@
       }
     }
 
+    let examZoomPercentage = 100;
+
+    function adjustExamZoom(delta) {
+      examZoomPercentage = Math.max(70, Math.min(220, examZoomPercentage + delta));
+      applyExamZoom();
+    }
+
+    function resetExamZoom() {
+      examZoomPercentage = 100;
+      applyExamZoom();
+    }
+
+    function applyExamZoom() {
+      const img = document.getElementById('exam-q-image');
+      const label = document.getElementById('exam-zoom-label');
+      if (label) label.innerText = `${examZoomPercentage}%`;
+      if (img) {
+        img.style.transform = `scale(${examZoomPercentage / 100})`;
+        img.style.transformOrigin = 'top center';
+      }
+    }
+
     function renderExamPalettePills() {
       const container = document.getElementById('exam-palette-pills');
       if (!container) return;
@@ -2109,8 +2143,8 @@
 
           <!-- Official Card / Prompt -->
           ${q.image_url ? `
-            <div class="flex justify-center p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <img src="${esc(q.image_url)}" alt="Question Card" class="max-w-full max-h-[300px] object-contain rounded-lg">
+            <div class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <img src="${esc(q.image_url)}" alt="Question Card" class="max-w-full w-auto h-auto object-contain rounded-xl">
             </div>` : `
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-800">${esc(q.prompt)}</div>
           `}
@@ -2190,8 +2224,12 @@
         const testParam = urlParams.get('test') || 'Both';
         const diffParam = urlParams.get('diff') || 'All';
         const countParam = parseInt(urlParams.get('count') || '20', 10);
+        const skillsParam = urlParams.get('skills');
+        const skillsArr = skillsParam ? skillsParam.split(',').filter(Boolean) : null;
+
         const filtered = PSAT_ENGINE.generateCustomTest(questions, {
           test: testParam,
+          skills: skillsArr,
           difficulties: diffParam === 'All' ? null : [diffParam],
           count: countParam
         });
