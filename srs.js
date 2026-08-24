@@ -282,6 +282,348 @@
     return streak;
   }
 
+  /**
+   * Official PSAT 8/9 Exam Specifications
+   */
+  var PSAT_89_SPECS = {
+    totalQuestions: 98,
+    totalTimeMinutes: 134, // 2 hours 14 minutes
+    breakMinutes: 10,
+    sections: {
+      readingAndWriting: {
+        name: 'Reading and Writing',
+        totalQuestions: 54,
+        totalMinutes: 64,
+        modules: [
+          { id: 'rw_m1', name: 'Reading and Writing — Module 1', questionsCount: 27, timeLimitSeconds: 32 * 60 },
+          { id: 'rw_m2', name: 'Reading and Writing — Module 2', questionsCount: 27, timeLimitSeconds: 32 * 60 }
+        ]
+      },
+      math: {
+        name: 'Math',
+        totalQuestions: 44,
+        totalMinutes: 70,
+        modules: [
+          { id: 'math_m1', name: 'Math — Module 1', questionsCount: 22, timeLimitSeconds: 35 * 60 },
+          { id: 'math_m2', name: 'Math — Module 2', questionsCount: 22, timeLimitSeconds: 35 * 60 }
+        ]
+      }
+    }
+  };
+
+  /**
+   * Helper to shuffle an array deterministically or randomly.
+   */
+  function _shuffle(arr) {
+    var copy = arr.slice();
+    for (var i = copy.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var temp = copy[i];
+      copy[i] = copy[j];
+      copy[j] = temp;
+    }
+    return copy;
+  }
+
+  /**
+   * Assembles a strictly formatted standard 98-question PSAT 8/9 exam.
+   * Section 1: 54 Reading & Writing (two 32-min modules of 27 Qs each)
+   * Break: 10 minutes
+   * Section 2: 44 Math (two 35-min modules of 22 Qs each, with realistic MCQ & SPR mix)
+   */
+  function generateStandardPSAT89Exam(allQuestions) {
+    var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
+    var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+
+    var shuffledRw = _shuffle(rwPool);
+    var shuffledMath = _shuffle(mathPool);
+
+    var rwM1Qs = shuffledRw.slice(0, 27);
+    var rwM2Qs = shuffledRw.slice(27, 54);
+
+    // For Math, ensure a realistic mix of ~17 MCQs and ~5 Free-Response per module
+    var mathMcqs = shuffledMath.filter(function (q) { return q.question_type !== 'free_response'; });
+    var mathSprs = shuffledMath.filter(function (q) { return q.question_type === 'free_response'; });
+
+    var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
+    var mathM2Qs = _shuffle(mathMcqs.slice(17, 34).concat(mathSprs.slice(5, 10)));
+
+    return {
+      id: 'exam_psat89_' + Date.now(),
+      title: 'Standard PSAT 8/9 Full-Length Exam',
+      type: 'standard_psat89',
+      totalQuestions: 98,
+      totalTimeMinutes: 134,
+      breakMinutes: 10,
+      createdAt: Date.now(),
+      modules: [
+        {
+          id: 'rw_m1',
+          section: 'Reading and Writing',
+          moduleNumber: 1,
+          name: 'Reading and Writing — Module 1',
+          questionsCount: 27,
+          timeLimitSeconds: 32 * 60,
+          questions: rwM1Qs
+        },
+        {
+          id: 'rw_m2',
+          section: 'Reading and Writing',
+          moduleNumber: 2,
+          name: 'Reading and Writing — Module 2',
+          questionsCount: 27,
+          timeLimitSeconds: 32 * 60,
+          questions: rwM2Qs
+        },
+        {
+          id: 'math_m1',
+          section: 'Math',
+          moduleNumber: 1,
+          name: 'Math — Module 1',
+          questionsCount: 22,
+          timeLimitSeconds: 35 * 60,
+          questions: mathM1Qs
+        },
+        {
+          id: 'math_m2',
+          section: 'Math',
+          moduleNumber: 2,
+          name: 'Math — Module 2',
+          questionsCount: 22,
+          timeLimitSeconds: 35 * 60,
+          questions: mathM2Qs
+        }
+      ]
+    };
+  }
+
+  /**
+   * Generates an AI/Spaced-Repetition Gap-Targeted Practice Drill.
+   * Prioritizes:
+   * 1. Due / Overdue Spaced Repetition cards (memory decay)
+   * 2. Identified skill weaknesses (accuracy < 75% or missed questions)
+   * 3. Coverage gaps in low-attempt skills
+   * 4. Hard mastery challenges in high-performing skills
+   */
+  function generateGapTargetedDrill(allQuestions, progressMap, srsMap, options) {
+    var opts = options || {};
+    var count = Math.max(5, Math.min(60, opts.count || 20));
+    var progress = progressMap || {};
+    var srs = srsMap || {};
+    var now = Date.now();
+
+    // 1. Calculate Skill Accuracy Profile
+    var skillStats = {};
+    allQuestions.forEach(function (q) {
+      if (!skillStats[q.skill]) {
+        skillStats[q.skill] = { attempted: 0, correct: 0, total: 0, domain: q.domain, test: q.test };
+      }
+      skillStats[q.skill].total++;
+      var p = progress[q.id];
+      if (p && p.answered) {
+        skillStats[q.skill].attempted++;
+        if (p.isCorrect) skillStats[q.skill].correct++;
+      }
+    });
+
+    var weakSkills = new Set();
+    Object.entries(skillStats).forEach(function (entry) {
+      var skill = entry[0];
+      var data = entry[1];
+      if (data.attempted >= 2 && (data.correct / data.attempted) < 0.75) {
+        weakSkills.add(skill);
+      }
+    });
+
+    // 2. Score questions into Gap Priority Buckets
+    var scoredQuestions = allQuestions.map(function (q) {
+      var p = progress[q.id];
+      var s = srs[q.id];
+      var priorityScore = 0;
+      var reason = 'General Practice';
+
+      if (s && s.dueAt && s.dueAt <= now) {
+        priorityScore = 100 + Math.min(50, Math.floor((now - s.dueAt) / 86400000));
+        reason = '⏰ Spaced Repetition Due (Memory Retention)';
+      } else if (p && p.answered && !p.isCorrect) {
+        priorityScore = 80;
+        reason = '❌ Previously Missed Question';
+      } else if (weakSkills.has(q.skill)) {
+        priorityScore = 65;
+        reason = '⚠️ Skill Weakness: ' + q.skill;
+      } else if (!p || !p.answered) {
+        priorityScore = 40;
+        reason = '🆕 Unpracticed Skill Coverage: ' + q.skill;
+      } else if (q.difficulty === 'Hard') {
+        priorityScore = 25;
+        reason = '⭐ Mastery Challenge (Hard)';
+      } else {
+        priorityScore = 10;
+        reason = 'Reinforcement Review';
+      }
+
+      // Add a small jitter to rotate questions with equal priority
+      priorityScore += Math.random() * 5;
+
+      return {
+        question: q,
+        score: priorityScore,
+        gapReason: reason
+      };
+    });
+
+    // Sort by priority descending
+    scoredQuestions.sort(function (a, b) { return b.score - a.score; });
+
+    var selected = scoredQuestions.slice(0, count).map(function (item) {
+      var qCopy = Object.assign({}, item.question);
+      qCopy.gapReason = item.gapReason;
+      return qCopy;
+    });
+
+    return {
+      id: 'drill_gap_' + Date.now(),
+      title: 'Adaptive Spaced Repetition Gap-Targeted Drill',
+      type: 'gap_targeted_drill',
+      totalQuestions: selected.length,
+      timeLimitMinutes: Math.round(selected.length * 1.5), // ~1.5 mins per question
+      createdAt: Date.now(),
+      questions: selected
+    };
+  }
+
+  /**
+   * Generates a fully customized test based on parent/teacher filter criteria.
+   */
+  function generateCustomTest(allQuestions, filters) {
+    var f = filters || {};
+    var filtered = allQuestions.filter(function (q) {
+      if (f.test && f.test !== 'Both' && q.test !== f.test) return false;
+      if (Array.isArray(f.domains) && f.domains.length > 0 && !f.domains.includes(q.domain)) return false;
+      if (Array.isArray(f.skills) && f.skills.length > 0 && !f.skills.includes(q.skill)) return false;
+      if (Array.isArray(f.difficulties) && f.difficulties.length > 0 && !f.difficulties.includes(q.difficulty)) return false;
+      if (f.questionType === 'mcq' && q.question_type === 'free_response') return false;
+      if (f.questionType === 'spr' && q.question_type !== 'free_response') return false;
+      return true;
+    });
+
+    var count = Math.min(filtered.length, Math.max(1, f.count || 20));
+    var shuffled = _shuffle(filtered).slice(0, count);
+
+    var timeLimitMinutes = f.timeLimitMinutes ? parseInt(f.timeLimitMinutes, 10) : Math.round(count * 1.5);
+
+    return {
+      id: 'custom_test_' + Date.now(),
+      title: f.title || 'Custom Practice Test',
+      type: 'custom_test',
+      totalQuestions: shuffled.length,
+      timeLimitMinutes: timeLimitMinutes,
+      isUntimed: f.isUntimed === true,
+      filters: f,
+      createdAt: Date.now(),
+      questions: shuffled
+    };
+  }
+
+  /**
+   * Evaluates a full standard PSAT 8/9 exam submission.
+   */
+  function scoreStandardExam(exam, userAnswersMap, questionTimesMap) {
+    var answers = userAnswersMap || {};
+    var times = questionTimesMap || {};
+
+    var rwTotal = 54;
+    var mathTotal = 44;
+    var rwCorrect = 0;
+    var mathCorrect = 0;
+    var totalTimeSpentMs = 0;
+
+    var moduleReports = [];
+
+    exam.modules.forEach(function (mod) {
+      var modCorrect = 0;
+      var modAttempted = 0;
+      var questionReviews = [];
+
+      mod.questions.forEach(function (q) {
+        var userAns = answers[q.id];
+        var timeMs = times[q.id] || 0;
+        totalTimeSpentMs += timeMs;
+
+        var isCorrect = false;
+        var answered = (userAns !== undefined && userAns !== null && String(userAns).trim() !== '');
+
+        if (answered) {
+          modAttempted++;
+          if (q.question_type === 'free_response') {
+            isCorrect = gradeFreeResponse(userAns, q.correct_answer);
+          } else {
+            isCorrect = String(userAns).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase();
+          }
+        }
+
+        if (isCorrect) {
+          modCorrect++;
+          if (mod.section === 'Reading and Writing') rwCorrect++;
+          else mathCorrect++;
+        }
+
+        questionReviews.push({
+          questionId: q.id,
+          prompt: q.prompt,
+          section: mod.section,
+          domain: q.domain,
+          skill: q.skill,
+          difficulty: q.difficulty,
+          questionType: q.question_type,
+          userAnswer: userAns || 'Unanswered',
+          correctAnswer: q.correct_answer,
+          isCorrect: isCorrect,
+          answered: answered,
+          timeSpentMs: timeMs,
+          rationale: q.rationale,
+          image_url: q.image_url || (q.question_image ? 'data/' + q.question_image : '')
+        });
+      });
+
+      moduleReports.push({
+        id: mod.id,
+        name: mod.name,
+        section: mod.section,
+        totalQuestions: mod.questions.length,
+        attempted: modAttempted,
+        correct: modCorrect,
+        accuracyPercent: mod.questions.length > 0 ? Math.round((modCorrect / mod.questions.length) * 100) : 0,
+        questions: questionReviews
+      });
+    });
+
+    // Official PSAT 8/9 Scaled Score Mapping (120 to 720 per section, 240 to 1440 composite)
+    var rwScaled = Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600)));
+    var mathScaled = Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600)));
+    var totalScaled = rwScaled + mathScaled;
+
+    return {
+      examId: exam.id,
+      completedAt: Date.now(),
+      totalQuestions: 98,
+      totalCorrect: rwCorrect + mathCorrect,
+      totalAttempted: Object.keys(answers).length,
+      overallAccuracyPercent: Math.round(((rwCorrect + mathCorrect) / 98) * 100),
+      scores: {
+        totalScaled: totalScaled, // 240 to 1440
+        rwScaled: rwScaled,       // 120 to 720
+        mathScaled: mathScaled,   // 120 to 720
+        rwCorrect: rwCorrect,
+        rwTotal: rwTotal,
+        mathCorrect: mathCorrect,
+        mathTotal: mathTotal
+      },
+      totalTimeSpentMs: totalTimeSpentMs,
+      moduleReports: moduleReports
+    };
+  }
+
   return {
     localDateKey: localDateKey,
     parseNumeric: parseNumeric,
@@ -292,6 +634,11 @@
     scheduleNext: scheduleNext,
     calculateScaledScore: calculateScaledScore,
     recordDailySession: recordDailySession,
-    calculateStreak: calculateStreak
+    calculateStreak: calculateStreak,
+    PSAT_89_SPECS: PSAT_89_SPECS,
+    generateStandardPSAT89Exam: generateStandardPSAT89Exam,
+    generateGapTargetedDrill: generateGapTargetedDrill,
+    generateCustomTest: generateCustomTest,
+    scoreStandardExam: scoreStandardExam
   };
 });

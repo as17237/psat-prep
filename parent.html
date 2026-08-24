@@ -173,6 +173,229 @@
 
     </div>
 
+    <!-- Custom Test & Adaptive Spaced Repetition Drill Builder -->
+    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center">
+            <i data-lucide="sliders" class="w-5 h-5 mr-2 text-indigo-600"></i> Test & Adaptive Drill Builder
+          </h3>
+          <p class="text-xs text-slate-500 font-medium">Generate standard PSAT 8/9 exams, custom filtered drills, or adaptive spaced repetition tests targeting student learning gaps.</p>
+        </div>
+        <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          <button onclick="switchBuilderTab('gap')" id="btab-gap" class="px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center">
+            <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-500"></i> Gap Drill (SRS)
+          </button>
+          <button onclick="switchBuilderTab('custom')" id="btab-custom" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center">
+            <i data-lucide="filter" class="w-3.5 h-3.5 mr-1"></i> Custom Filtered
+          </button>
+          <button onclick="switchBuilderTab('psat89')" id="btab-psat89" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center">
+            <i data-lucide="award" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i> Standard PSAT 8/9
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 1: AI / Spaced Repetition Gap-Targeted Drill -->
+      <div id="bview-gap" class="space-y-6">
+        <div class="bg-gradient-to-r from-indigo-50 via-slate-50 to-amber-50 p-5 rounded-xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full">
+                Spaced Repetition Gap Engine
+              </span>
+              <a href="https://en.wikipedia.org/wiki/Spaced_repetition" target="_blank" class="text-xs text-indigo-600 hover:underline flex items-center">
+                What is Spaced Repetition? <i data-lucide="external-link" class="w-3 h-3 ml-0.5"></i>
+              </a>
+            </div>
+            <h4 class="text-base font-bold text-slate-900">Personalized Mastery Gap Generator</h4>
+            <p class="text-xs text-slate-600 max-w-2xl">
+              Uses the SuperMemo SM-2 algorithm to detect memory decay and prioritizes due review cards, skills with &lt;75% accuracy, and unpracticed coverage gaps.
+            </p>
+          </div>
+          <div class="flex items-center space-x-4 shrink-0 bg-white p-3 rounded-xl border border-slate-200">
+            <div class="text-center">
+              <span class="text-xs text-slate-500 block">Due SRS Cards</span>
+              <span id="gap-due-srs" class="text-base font-bold text-amber-600">0</span>
+            </div>
+            <div class="w-px h-8 bg-slate-200"></div>
+            <div class="text-center">
+              <span class="text-xs text-slate-500 block">Weak Skills</span>
+              <span id="gap-weak-skills" class="text-base font-bold text-rose-600">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Number of Questions</label>
+            <div class="grid grid-cols-4 gap-2">
+              <button type="button" onclick="setGapCount(10)" id="gap-c-10" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">10 Qs</button>
+              <button type="button" onclick="setGapCount(20)" id="gap-c-20" class="py-2 text-xs font-bold rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-600 transition-colors">20 Qs</button>
+              <button type="button" onclick="setGapCount(30)" id="gap-c-30" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">30 Qs</button>
+              <button type="button" onclick="setGapCount(50)" id="gap-c-50" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">50 Qs</button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Target Focus Area</label>
+            <select id="gap-focus-type" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
+              <option value="all">⚡ Comprehensive Gap Drill (SRS Due + Weaknesses + New)</option>
+              <option value="srs_only">⏰ Spaced Repetition Due Cards Only</option>
+              <option value="weak_only">⚠️ Low Accuracy Skills Only (&lt;75%)</option>
+              <option value="math_only">🧮 Math Mastery Focus</option>
+              <option value="rw_only">📖 Reading & Writing Mastery Focus</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
+          <span class="text-xs text-slate-500">Estimated duration: <span id="gap-est-time" class="font-bold text-slate-800">30 minutes</span> (~1.5 min/question)</span>
+          <div class="flex items-center space-x-3">
+            <button onclick="copyShareableTestLink('gap')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+              <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
+            </button>
+            <button onclick="launchGapDrill()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Gap Drill in Student App
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Custom Filtered Test Builder -->
+      <div id="bview-custom" class="hidden space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <!-- Subject -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Subject / Test</label>
+            <select id="cust-test" onchange="onCustomTestSubjectChange()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+              <option value="Both">Both (Reading & Writing + Math)</option>
+              <option value="Reading and Writing">Reading and Writing Only</option>
+              <option value="Math">Math Only</option>
+            </select>
+          </div>
+
+          <!-- Difficulty -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Difficulty</label>
+            <select id="cust-diff" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+              <option value="All">All Difficulties (Mixed)</option>
+              <option value="Hard">Hard Difficulties Only (High-Yield)</option>
+              <option value="Medium">Medium Difficulties Only</option>
+              <option value="Easy">Easy Difficulties Only</option>
+            </select>
+          </div>
+
+          <!-- Question Type -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Format</label>
+            <select id="cust-qtype" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+              <option value="all">All Formats (MCQ & Free-Response)</option>
+              <option value="mcq">Multiple Choice Only (A, B, C, D)</option>
+              <option value="spr">Free-Response (Student-Produced) Only</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Domain Filter -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter by Domain</label>
+            <select id="cust-domain" onchange="onCustomDomainChange()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+              <option value="All">All Domains</option>
+            </select>
+          </div>
+
+          <!-- Skill Filter -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Filter by Specific Skill</label>
+            <select id="cust-skill" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800">
+              <option value="All">All Skills in Selected Domain</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <!-- Count -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Count</label>
+            <input type="number" id="cust-count" value="20" min="5" max="98" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800">
+          </div>
+
+          <!-- Time Limit -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Time Limit (Minutes)</label>
+            <div class="flex items-center space-x-3">
+              <input type="number" id="cust-time" value="30" min="5" max="180" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800">
+              <label class="flex items-center text-xs font-semibold text-slate-600 whitespace-nowrap">
+                <input type="checkbox" id="cust-untimed" onchange="document.getElementById('cust-time').disabled = this.checked;" class="rounded text-indigo-600 mr-1.5"> Untimed
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
+          <span id="cust-matching-count" class="text-xs font-semibold text-indigo-600">Matching Questions in Bank: 3,059</span>
+          <div class="flex items-center space-x-3">
+            <button onclick="copyShareableTestLink('custom')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+              <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
+            </button>
+            <button onclick="launchCustomTest()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Custom Test in Student App
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Full-Length PSAT 8/9 Standard Exam -->
+      <div id="bview-psat89" class="hidden space-y-6">
+        <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white p-6 rounded-2xl shadow-md space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/60 px-3 py-1 rounded-full border border-emerald-700">
+              Official Bluebook Format Simulation
+            </span>
+            <span class="text-xs font-mono text-slate-300">Scale: 240–1440 Composite</span>
+          </div>
+
+          <h4 class="text-xl font-bold">Standard PSAT 8/9 Full-Length Timed Exam</h4>
+          <p class="text-xs text-slate-300 max-w-3xl leading-relaxed">
+            Simulates the exact digital College Board PSAT 8/9 structure. Questions are partitioned into 4 locked timed modules with an official 10-minute scheduled break and scaled scoring.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+            <div class="bg-white/10 p-3 rounded-xl">
+              <span class="text-xs text-slate-400 block font-semibold">Total Duration</span>
+              <span class="text-base font-bold text-white">2h 14m (134 min)</span>
+            </div>
+            <div class="bg-white/10 p-3 rounded-xl">
+              <span class="text-xs text-slate-400 block font-semibold">Reading & Writing</span>
+              <span class="text-base font-bold text-white">54 Qs (Two 32m mods)</span>
+            </div>
+            <div class="bg-white/10 p-3 rounded-xl">
+              <span class="text-xs text-slate-400 block font-semibold">Scheduled Break</span>
+              <span class="text-base font-bold text-emerald-400">10 Minutes</span>
+            </div>
+            <div class="bg-white/10 p-3 rounded-xl">
+              <span class="text-xs text-slate-400 block font-semibold">Math Section</span>
+              <span class="text-base font-bold text-white">44 Qs (Two 35m mods)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <span class="text-xs text-slate-500">Strict exam conditions: Module answers are locked upon submission.</span>
+          <div class="flex items-center space-x-3">
+            <button onclick="copyShareableTestLink('psat89')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+              <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
+            </button>
+            <a href="index.html?mode=psat89" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Full PSAT 8/9 Exam
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
     <!-- Actionable Coaching Recommendations -->
     <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
       <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -304,6 +527,15 @@
       const dueCardsCount = Object.values(srsState).filter(c => c.dueAt <= now).length;
       document.getElementById('hero-srs-due').innerText = `${dueCardsCount} Question${dueCardsCount === 1 ? '' : 's'}`;
 
+      let weakSkillsCount = 0;
+      Object.entries(skillStats).forEach(([skill, data]) => {
+        if (data.attempted >= 2 && (data.correct / data.attempted) < 0.75) {
+          weakSkillsCount++;
+        }
+      });
+      if (document.getElementById('gap-due-srs')) document.getElementById('gap-due-srs').innerText = dueCardsCount;
+      if (document.getElementById('gap-weak-skills')) document.getElementById('gap-weak-skills').innerText = weakSkillsCount;
+
       // Real PSAT 8/9 Scaled Score (240–1440 scale)
       const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
       if (scoreData.isReady) {
@@ -359,6 +591,182 @@
         } else {
           mathContainer.appendChild(el);
         }
+      });
+    }
+
+    let currentGapCount = 20;
+
+    function switchBuilderTab(tab) {
+      document.getElementById('bview-gap').classList.add('hidden');
+      document.getElementById('bview-custom').classList.add('hidden');
+      document.getElementById('bview-psat89').classList.add('hidden');
+
+      document.getElementById('btab-gap').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
+      document.getElementById('btab-custom').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
+      document.getElementById('btab-psat89').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
+
+      if (tab === 'gap') {
+        document.getElementById('bview-gap').classList.remove('hidden');
+        document.getElementById('btab-gap').className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center';
+      } else if (tab === 'custom') {
+        document.getElementById('bview-custom').classList.remove('hidden');
+        document.getElementById('btab-custom').className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center';
+        populateCustomDomainOptions();
+      } else if (tab === 'psat89') {
+        document.getElementById('bview-psat89').classList.remove('hidden');
+        document.getElementById('btab-psat89').className = 'px-3 py-1.5 rounded-lg bg-white text-emerald-600 shadow-sm transition-all flex items-center';
+      }
+      lucide.createIcons();
+    }
+
+    function setGapCount(c) {
+      currentGapCount = c;
+      [10, 20, 30, 50].forEach(n => {
+        const btn = document.getElementById(`gap-c-${n}`);
+        if (n === c) {
+          btn.className = 'py-2 text-xs font-bold rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-600 transition-colors';
+        } else {
+          btn.className = 'py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors';
+        }
+      });
+      document.getElementById('gap-est-time').innerText = `${Math.round(c * 1.5)} minutes`;
+    }
+
+    function populateCustomDomainOptions() {
+      const questions = window.QUESTIONS_DATA || [];
+      const testVal = document.getElementById('cust-test').value;
+      const domainSelect = document.getElementById('cust-domain');
+      const skillSelect = document.getElementById('cust-skill');
+
+      const domains = new Set();
+      questions.forEach(q => {
+        if (testVal === 'Both' || q.test === testVal) {
+          domains.add(q.domain);
+        }
+      });
+
+      domainSelect.innerHTML = '<option value="All">All Domains</option>';
+      Array.from(domains).sort().forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.innerText = d;
+        domainSelect.appendChild(opt);
+      });
+
+      onCustomDomainChange();
+    }
+
+    function onCustomTestSubjectChange() {
+      populateCustomDomainOptions();
+    }
+
+    function onCustomDomainChange() {
+      const questions = window.QUESTIONS_DATA || [];
+      const testVal = document.getElementById('cust-test').value;
+      const domainVal = document.getElementById('cust-domain').value;
+      const skillSelect = document.getElementById('cust-skill');
+
+      const skills = new Set();
+      questions.forEach(q => {
+        if ((testVal === 'Both' || q.test === testVal) && (domainVal === 'All' || q.domain === domainVal)) {
+          skills.add(q.skill);
+        }
+      });
+
+      skillSelect.innerHTML = '<option value="All">All Skills in Selected Domain</option>';
+      Array.from(skills).sort().forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s;
+        opt.innerText = s;
+        skillSelect.appendChild(opt);
+      });
+
+      updateCustomMatchingCount();
+    }
+
+    function updateCustomMatchingCount() {
+      const questions = window.QUESTIONS_DATA || [];
+      const testVal = document.getElementById('cust-test').value;
+      const domainVal = document.getElementById('cust-domain').value;
+      const skillVal = document.getElementById('cust-skill').value;
+      const diffVal = document.getElementById('cust-diff').value;
+      const qtypeVal = document.getElementById('cust-qtype').value;
+
+      const matching = questions.filter(q => {
+        if (testVal !== 'Both' && q.test !== testVal) return false;
+        if (domainVal !== 'All' && q.domain !== domainVal) return false;
+        if (skillVal !== 'All' && q.skill !== skillVal) return false;
+        if (diffVal !== 'All' && q.difficulty !== diffVal) return false;
+        if (qtypeVal === 'mcq' && q.question_type === 'free_response') return false;
+        if (qtypeVal === 'spr' && q.question_type !== 'free_response') return false;
+        return true;
+      });
+
+      document.getElementById('cust-matching-count').innerText = `Matching Questions in Bank: ${matching.length.toLocaleString()}`;
+    }
+
+    function launchGapDrill() {
+      const questions = window.QUESTIONS_DATA || [];
+      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
+      const srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
+      const focusType = document.getElementById('gap-focus-type').value;
+
+      let filteredQuestions = questions;
+      if (focusType === 'math_only') {
+        filteredQuestions = questions.filter(q => q.test === 'Math');
+      } else if (focusType === 'rw_only') {
+        filteredQuestions = questions.filter(q => q.test === 'Reading and Writing');
+      }
+
+      const drill = PSAT_ENGINE.generateGapTargetedDrill(filteredQuestions, progress, srsState, { count: currentGapCount });
+      sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
+      window.location.href = 'index.html?mode=custom';
+    }
+
+    function launchCustomTest() {
+      const questions = window.QUESTIONS_DATA || [];
+      const testVal = document.getElementById('cust-test').value;
+      const domainVal = document.getElementById('cust-domain').value;
+      const skillVal = document.getElementById('cust-skill').value;
+      const diffVal = document.getElementById('cust-diff').value;
+      const qtypeVal = document.getElementById('cust-qtype').value;
+      const countVal = parseInt(document.getElementById('cust-count').value, 10) || 20;
+      const timeVal = parseInt(document.getElementById('cust-time').value, 10) || 30;
+      const isUntimed = document.getElementById('cust-untimed').checked;
+
+      const filters = {
+        test: testVal,
+        domains: domainVal === 'All' ? null : [domainVal],
+        skills: skillVal === 'All' ? null : [skillVal],
+        difficulties: diffVal === 'All' ? null : [diffVal],
+        questionType: qtypeVal,
+        count: countVal,
+        timeLimitMinutes: timeVal,
+        isUntimed: isUntimed
+      };
+
+      const customTest = PSAT_ENGINE.generateCustomTest(questions, filters);
+      sessionStorage.setItem('psat_active_custom_test', JSON.stringify(customTest));
+      window.location.href = 'index.html?mode=custom';
+    }
+
+    function copyShareableTestLink(type) {
+      let url = window.location.origin + window.location.pathname.replace('parent.html', 'index.html');
+      if (type === 'psat89') {
+        url += '?mode=psat89';
+      } else if (type === 'gap') {
+        url += `?mode=gap_drill&count=${currentGapCount}&focus=${document.getElementById('gap-focus-type').value}`;
+      } else if (type === 'custom') {
+        const testVal = document.getElementById('cust-test').value;
+        const diffVal = document.getElementById('cust-diff').value;
+        const countVal = document.getElementById('cust-count').value;
+        url += `?mode=custom_filter&test=${encodeURIComponent(testVal)}&diff=${encodeURIComponent(diffVal)}&count=${countVal}`;
+      }
+
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Copied shareable test link to clipboard!\n' + url);
+      }).catch(() => {
+        prompt('Copy this shareable test link:', url);
       });
     }
 

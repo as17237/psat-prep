@@ -101,4 +101,76 @@ const sessionsFuture = {
 };
 assert.strictEqual(PSAT_ENGINE.calculateStreak(sessionsFuture, '2026-09-01'), 0, 'Future session must NOT count toward streak');
 
-console.log('✓ All Spaced Repetition (SM-2) and Scoring tests passed!');
+// 5. Standard PSAT 8/9 Exam Generation
+const mockFullBank = [];
+for (let i = 1; i <= 100; i++) {
+  mockFullBank.push({
+    id: `rw_${i}`,
+    test: 'Reading and Writing',
+    domain: 'Information and Ideas',
+    skill: 'Inferences',
+    difficulty: i % 3 === 0 ? 'Hard' : (i % 2 === 0 ? 'Medium' : 'Easy'),
+    question_type: 'multiple_choice',
+    correct_answer: 'A'
+  });
+}
+for (let i = 1; i <= 100; i++) {
+  mockFullBank.push({
+    id: `math_${i}`,
+    test: 'Math',
+    domain: 'Algebra',
+    skill: 'Linear equations',
+    difficulty: i % 3 === 0 ? 'Hard' : (i % 2 === 0 ? 'Medium' : 'Easy'),
+    question_type: i <= 20 ? 'free_response' : 'multiple_choice',
+    correct_answer: i <= 20 ? '42' : 'B'
+  });
+}
+
+const standardExam = PSAT_ENGINE.generateStandardPSAT89Exam(mockFullBank);
+assert.strictEqual(standardExam.totalQuestions, 98, 'Total exam questions must be 98');
+assert.strictEqual(standardExam.totalTimeMinutes, 134, 'Total exam time must be 134 minutes (2h 14m)');
+assert.strictEqual(standardExam.breakMinutes, 10, 'Exam break must be 10 minutes');
+assert.strictEqual(standardExam.modules.length, 4, 'Must contain 4 distinct modules');
+assert.strictEqual(standardExam.modules[0].questionsCount, 27, 'R&W Module 1 must have 27 Qs');
+assert.strictEqual(standardExam.modules[0].timeLimitSeconds, 32 * 60, 'R&W Module 1 time must be 32m');
+assert.strictEqual(standardExam.modules[1].questionsCount, 27, 'R&W Module 2 must have 27 Qs');
+assert.strictEqual(standardExam.modules[2].questionsCount, 22, 'Math Module 1 must have 22 Qs');
+assert.strictEqual(standardExam.modules[2].timeLimitSeconds, 35 * 60, 'Math Module 1 time must be 35m');
+assert.strictEqual(standardExam.modules[3].questionsCount, 22, 'Math Module 2 must have 22 Qs');
+
+// 6. Exam Scoring Engine
+const userAnswers = {};
+standardExam.modules.forEach(mod => {
+  mod.questions.forEach(q => {
+    userAnswers[q.id] = q.correct_answer; // 100% correct
+  });
+});
+const examReport = PSAT_ENGINE.scoreStandardExam(standardExam, userAnswers, {});
+assert.strictEqual(examReport.scores.totalScaled, 1440, '100% accuracy must score 1440');
+assert.strictEqual(examReport.scores.rwScaled, 720, '100% RW accuracy must score 720');
+assert.strictEqual(examReport.scores.mathScaled, 720, '100% Math accuracy must score 720');
+assert.strictEqual(examReport.overallAccuracyPercent, 100);
+
+// 7. Spaced Repetition Gap-Targeted Selection
+const mockSrs = {
+  'rw_1': { dueAt: Date.now() - 100000, repetitions: 1 } // Overdue
+};
+const mockProgressMap = {
+  'rw_2': { answered: true, isCorrect: false }, // Missed
+  'math_1': { answered: true, isCorrect: true }
+};
+const gapDrill = PSAT_ENGINE.generateGapTargetedDrill(mockFullBank, mockProgressMap, mockSrs, { count: 10 });
+assert.strictEqual(gapDrill.questions.length, 10);
+assert.strictEqual(gapDrill.questions[0].id, 'rw_1', 'Overdue SRS card must be highest priority');
+assert.strictEqual(gapDrill.questions[1].id, 'rw_2', 'Missed question must be second priority');
+
+// 8. Custom Filtered Test Builder
+const customTest = PSAT_ENGINE.generateCustomTest(mockFullBank, {
+  test: 'Math',
+  questionType: 'spr',
+  count: 5
+});
+assert.strictEqual(customTest.questions.length, 5);
+assert.ok(customTest.questions.every(q => q.test === 'Math' && q.question_type === 'free_response'));
+
+console.log('✓ All Spaced Repetition (SM-2), Exam Generation, and Scoring tests passed!');
