@@ -188,12 +188,12 @@
                 <!-- Free Response (Student-Produced Response) Input -->
                 <div id="free-response-container" class="hidden space-y-3">
                   <div class="flex items-center space-x-3 max-w-md">
-                    <input type="text" id="free-response-input" placeholder="Enter answer (e.g. 2, 40, 3/4, 2.5)" class="flex-1 px-4 py-2.5 text-base border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 font-mono">
+                    <input type="text" id="free-response-input" onkeydown="if(event.key === 'Enter') submitFreeResponse();" placeholder="Enter answer (e.g. 2, 40, 3/4, 2.5)" class="flex-1 px-4 py-2.5 text-base border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 font-mono">
                     <button onclick="submitFreeResponse()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-colors">
                       Submit
                     </button>
                   </div>
-                  <p class="text-xs text-slate-500">For fractions or decimals, enter simplified values (e.g., 5/2 or 2.5).</p>
+                  <p class="text-xs text-slate-500">For fractions or decimals, enter simplified values (e.g., 5/2 or 2.5). Press Enter to submit.</p>
                 </div>
               </div>
 
@@ -661,9 +661,9 @@
               <div id="exam-spr-container" class="hidden max-w-md mx-auto space-y-2">
                 <label class="text-xs font-bold text-slate-700 uppercase tracking-wider block">Student-Produced Response (Grid-In)</label>
                 <div class="flex space-x-3">
-                  <input type="text" id="exam-spr-input" oninput="recordExamSprAnswer(this.value)" placeholder="Enter decimal or fraction (e.g. 5/2, 2.5)" class="flex-1 text-base bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 font-mono focus:ring-2 focus:ring-indigo-500 text-slate-900">
+                  <input type="text" id="exam-spr-input" oninput="recordExamSprAnswer(this.value)" onkeydown="if(event.key === 'Enter') nextExamQuestion();" placeholder="Enter decimal or fraction (e.g. 5/2, 2.5)" class="flex-1 text-base bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 font-mono focus:ring-2 focus:ring-indigo-500 text-slate-900">
                 </div>
-                <p class="text-xs text-slate-400">Accepts fractions (e.g. 7/4), decimals (e.g. 1.75), or integers.</p>
+                <p class="text-xs text-slate-400">Accepts fractions (e.g. 7/4), decimals (e.g. 1.75), or integers. Press Enter to proceed.</p>
               </div>
 
             </div>
@@ -864,15 +864,33 @@
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function safeGetStorage(key, defaultVal) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultVal;
+      } catch (e) {
+        console.warn('Storage read error for key:', key, e);
+        return defaultVal;
+      }
+    }
+
+    function safeSetStorage(key, val) {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+      } catch (e) {
+        console.error('Storage write or quota error for key:', key, e);
+      }
+    }
+
     let questions = window.QUESTIONS_DATA || [];
     let filteredQuestions = [...questions];
     let currentIndex = 0;
     let viewMode = 'card';
     
-    // Persistent local states
-    let progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
-    let srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
-    let sessionsState = JSON.parse(localStorage.getItem('psat_sessions') || '{}');
+    // Persistent local states with crash guards
+    let progress = safeGetStorage('psat_progress', {});
+    let srsState = safeGetStorage('psat_srs', {});
+    let sessionsState = safeGetStorage('psat_sessions', {});
 
     // Timing tracking
     let questionShownAt = null;
@@ -917,9 +935,9 @@
     });
 
     function saveProgress() {
-      localStorage.setItem('psat_progress', JSON.stringify(progress));
-      localStorage.setItem('psat_srs', JSON.stringify(srsState));
-      localStorage.setItem('psat_sessions', JSON.stringify(sessionsState));
+      safeSetStorage('psat_progress', progress);
+      safeSetStorage('psat_srs', srsState);
+      safeSetStorage('psat_sessions', sessionsState);
       updateHeaderStats();
       renderPalette();
     }
@@ -1659,7 +1677,7 @@
     function startSectionTest(testType) {
       const isMath = (testType === 'Math');
       const pool = questions.filter(q => q.test === testType);
-      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+      const shuffled = PSAT_ENGINE._shuffle(pool);
 
       let modules = [];
       if (!isMath) {
@@ -1668,11 +1686,11 @@
           { id: 'rw_m2', section: 'Reading and Writing', moduleNumber: 2, name: 'Reading and Writing — Module 2', questionsCount: 27, timeLimitSeconds: 32 * 60, questions: shuffled.slice(27, 54) }
         ];
       } else {
-        const mcqs = shuffled.filter(q => q.question_type !== 'free_response');
-        const sprs = shuffled.filter(q => q.question_type === 'free_response');
+        const mcqs = shuffled.filter(q => (q.type || q.question_type) !== 'free_response');
+        const sprs = shuffled.filter(q => (q.type || q.question_type) === 'free_response');
         modules = [
-          { id: 'math_m1', section: 'Math', moduleNumber: 1, name: 'Math — Module 1', questionsCount: 22, timeLimitSeconds: 35 * 60, questions: [...mcqs.slice(0, 17), ...sprs.slice(0, 5)].sort(() => Math.random() - 0.5) },
-          { id: 'math_m2', section: 'Math', moduleNumber: 2, name: 'Math — Module 2', questionsCount: 22, timeLimitSeconds: 35 * 60, questions: [...mcqs.slice(17, 34), ...sprs.slice(5, 10)].sort(() => Math.random() - 0.5) }
+          { id: 'math_m1', section: 'Math', moduleNumber: 1, name: 'Math — Module 1', questionsCount: 22, timeLimitSeconds: 35 * 60, questions: PSAT_ENGINE._shuffle(mcqs.slice(0, 17).concat(sprs.slice(0, 5))) },
+          { id: 'math_m2', section: 'Math', moduleNumber: 2, name: 'Math — Module 2', questionsCount: 22, timeLimitSeconds: 35 * 60, questions: PSAT_ENGINE._shuffle(mcqs.slice(17, 34).concat(sprs.slice(5, 10))) }
         ];
       }
 
@@ -1715,6 +1733,26 @@
       initExamSession();
     }
 
+    let examModuleDeadline = 0;
+    let examModuleExpired = false;
+    let examFiveMinAlertShown = false;
+
+    function showExamToast(msg) {
+      let toast = document.getElementById('exam-toast-banner');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'exam-toast-banner';
+        toast.className = 'fixed top-5 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 bg-slate-900 text-white text-sm font-bold rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-2 transition-all duration-300';
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `<i data-lucide="bell" class="w-4 h-4 text-amber-400 mr-2"></i> ${esc(msg)}`;
+      toast.classList.remove('hidden');
+      lucide.createIcons();
+      setTimeout(() => {
+        if (toast) toast.classList.add('hidden');
+      }, 4500);
+    }
+
     function initExamSession() {
       currentModuleIndex = 0;
       currentExamQIndex = 0;
@@ -1725,28 +1763,49 @@
       loadExamModule(0);
     }
 
+    function flushExamQuestionTime() {
+      if (examQuestionShownAt !== null && activeExam && activeExam.modules[currentModuleIndex]) {
+        const curQ = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
+        if (curQ) {
+          const elapsed = Date.now() - examQuestionShownAt;
+          if (elapsed > 0) {
+            examUserTimes[curQ.id] = (examUserTimes[curQ.id] || 0) + elapsed;
+          }
+        }
+        examQuestionShownAt = Date.now();
+      }
+    }
+
     function loadExamModule(modIdx) {
       if (examTimerInterval) clearInterval(examTimerInterval);
       currentModuleIndex = modIdx;
       currentExamQIndex = 0;
+      examModuleExpired = false;
+      examFiveMinAlertShown = false;
 
       const mod = activeExam.modules[currentModuleIndex];
       examModuleTimerSeconds = mod.timeLimitSeconds;
+      examModuleDeadline = Date.now() + (mod.timeLimitSeconds * 1000);
 
       document.getElementById('exam-active-module-title').innerText = mod.name;
 
-      // Start module countdown
+      // Start module countdown based on wall-clock deadline
       updateExamTimerDisplay();
       examTimerInterval = setInterval(() => {
-        if (examModuleTimerSeconds > 0) {
-          examModuleTimerSeconds--;
-          updateExamTimerDisplay();
-          if (examModuleTimerSeconds === 300) { // 5 min warning
-            alert('⚠️ 5 Minutes Remaining in this module!');
-          }
-        } else {
+        const remainingMs = examModuleDeadline - Date.now();
+        examModuleTimerSeconds = Math.max(0, Math.round(remainingMs / 1000));
+        updateExamTimerDisplay();
+
+        if (examModuleTimerSeconds <= 300 && !examFiveMinAlertShown && examModuleTimerSeconds > 0) {
+          examFiveMinAlertShown = true;
+          showExamToast('5 Minutes Remaining in this module!');
+        }
+
+        if (examModuleTimerSeconds <= 0) {
           clearInterval(examTimerInterval);
-          alert('⏰ Time has expired for this module! Moving to module review.');
+          examModuleExpired = true;
+          flushExamQuestionTime();
+          showExamToast('Time has expired for this module! Opening module review.');
           showModuleReviewScreen();
         }
       }, 1000);
@@ -1770,13 +1829,7 @@
     }
 
     function loadExamQuestion(qIdx) {
-      // Record time on previous question
-      if (examQuestionShownAt !== null) {
-        const prevQ = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
-        if (prevQ) {
-          examUserTimes[prevQ.id] = (examUserTimes[prevQ.id] || 0) + (Date.now() - examQuestionShownAt);
-        }
-      }
+      flushExamQuestionTime();
       examQuestionShownAt = Date.now();
 
       currentExamQIndex = qIdx;
@@ -1793,10 +1846,10 @@
       // Question body
       const imgPath = q.image_url || (q.question_image ? 'data/' + q.question_image : '');
       document.getElementById('exam-q-image').src = imgPath;
-      document.getElementById('exam-q-prompt').innerText = q.prompt || 'View official question card above.';
+      document.getElementById('exam-q-prompt').innerText = q.question_text || q.prompt || 'View official question card above.';
 
       // Input controls: MCQ vs Free Response
-      const isFreeResponse = (q.question_type === 'free_response');
+      const isFreeResponse = ((q.type || q.question_type) === 'free_response');
       const mcqContainer = document.getElementById('exam-mcq-options');
       const sprContainer = document.getElementById('exam-spr-container');
 
@@ -1831,7 +1884,14 @@
 
       ['A', 'B', 'C', 'D'].forEach(letter => {
         const isSelected = (selected === letter);
-        const optText = (q.options && q.options[letter]) ? q.options[letter] : `Choice (${letter})`;
+        let optText = `Choice (${letter})`;
+
+        if (Array.isArray(q.options)) {
+          const found = q.options.find(o => o.key === letter);
+          if (found && found.text) optText = found.text;
+        } else if (q.options && q.options[letter]) {
+          optText = q.options[letter];
+        }
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -1951,6 +2011,7 @@
     }
 
     function showModuleReviewScreen() {
+      flushExamQuestionTime();
       const mod = activeExam.modules[currentModuleIndex];
       document.getElementById('review-module-heading').innerText = `${mod.name} — Review`;
 
@@ -1973,6 +2034,10 @@
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.onclick = () => {
+          if (examModuleExpired) {
+            alert('Time for this module has expired. You cannot return to edit questions.');
+            return;
+          }
           showExamSubview('exam-active');
           loadExamQuestion(idx);
         };
@@ -2004,11 +2069,16 @@
     }
 
     function returnToActiveExamQuestion() {
+      if (examModuleExpired) {
+        alert('Time for this module has expired. You cannot return to edit questions.');
+        return;
+      }
       showExamSubview('exam-active');
       loadExamQuestion(currentExamQIndex);
     }
 
     function submitCurrentExamModule() {
+      flushExamQuestionTime();
       const mod = activeExam.modules[currentModuleIndex];
       const unanswered = mod.questions.filter(q => !examUserAnswers[q.id]).length;
       let msg = 'Are you sure you want to submit this module? Once submitted, you cannot return to change answers in this module.';
@@ -2052,7 +2122,7 @@
           updateBreakDisplay();
         } else {
           clearInterval(breakTimerInterval);
-          alert('10-Minute Break is over! Starting Section 2: Math.');
+          showExamToast('10-Minute Break is over! Starting Section 2: Math.');
           resumeExamAfterBreak();
         }
       }, 1000);
@@ -2064,6 +2134,7 @@
     }
 
     function finishExamAndShowReport() {
+      flushExamQuestionTime();
       currentExamReport = PSAT_ENGINE.scoreStandardExam(activeExam, examUserAnswers, examUserTimes);
       renderExamReport(currentExamReport);
       showExamSubview('exam-report');
@@ -2146,7 +2217,7 @@
             <div class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
               <img src="${esc(q.image_url)}" alt="Question Card" class="max-w-full w-auto h-auto object-contain rounded-xl">
             </div>` : `
-            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-800">${esc(q.prompt)}</div>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-800">${esc(q.question_text || q.prompt)}</div>
           `}
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -2177,26 +2248,35 @@
     function saveExamResultsToHistory() {
       if (!currentExamReport) return;
 
+      let savedCount = 0;
       currentExamReport.moduleReports.forEach(m => {
         m.questions.forEach(q => {
-          progress[q.questionId] = {
-            answered: true,
-            selectedAnswer: q.userAnswer,
-            isCorrect: q.isCorrect,
-            timeSpentMs: q.timeSpentMs,
-            timingReliable: true,
-            timestamp: Date.now()
-          };
+          if (q.answered && q.userAnswer && q.userAnswer !== 'Unanswered') {
+            const existingProgress = progress[q.questionId] || {};
+            const timeSpent = q.timeSpentMs || 0;
+            const isReliable = timeSpent > 0;
 
-          const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, q.timeSpentMs, true);
-          srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now());
-          sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, q.timeSpentMs);
+            progress[q.questionId] = {
+              answered: true,
+              selectedAnswer: q.userAnswer,
+              isCorrect: q.isCorrect,
+              timeSpentMs: timeSpent,
+              timingReliable: isReliable,
+              isFlagged: existingProgress.isFlagged || false,
+              timestamp: Date.now()
+            };
+
+            const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
+            srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now());
+            sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, isReliable);
+            savedCount++;
+          }
         });
       });
 
       saveProgress();
       const btn = document.getElementById('btn-save-exam');
-      btn.innerText = '✓ Saved to Practice & Spaced Repetition History!';
+      btn.innerText = `✓ Saved ${savedCount} Answered Question${savedCount === 1 ? '' : 's'} to Practice History!`;
       btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default';
       btn.disabled = true;
     }
@@ -2209,7 +2289,10 @@
       if (mode === 'psat89') {
         startStandardExam();
       } else if (mode === 'gap_drill') {
-        startGapDrillFromLobby();
+        const countParam = parseInt(urlParams.get('count') || '20', 10);
+        const focusParam = urlParams.get('focus') || 'all';
+        const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: countParam, focus: focusParam });
+        startCustomTestDirect(drill);
       } else if (mode === 'custom') {
         const stored = sessionStorage.getItem('psat_active_custom_test');
         if (stored) {

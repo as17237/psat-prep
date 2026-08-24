@@ -478,17 +478,38 @@
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    function safeGetStorage(key, defaultVal) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultVal;
+      } catch (e) {
+        console.warn('Storage read error for key:', key, e);
+        return defaultVal;
+      }
+    }
+
+    function safeSetStorage(key, val) {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+      } catch (e) {
+        console.error('Storage write error for key:', key, e);
+      }
+    }
+
+    let currentGapCount = 20;
+
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       renderParentMetrics();
       initCustomDomainSkills();
+      setGapCount(20);
     });
 
     function renderParentMetrics() {
       const questions = window.QUESTIONS_DATA || [];
-      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
-      const srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
-      const sessionsState = JSON.parse(localStorage.getItem('psat_sessions') || '{}');
+      const progress = safeGetStorage('psat_progress', {});
+      const srsState = safeGetStorage('psat_srs', {});
+      const sessionsState = safeGetStorage('psat_sessions', {});
       
       let totalAttempted = 0;
       let totalCorrect = 0;
@@ -858,18 +879,11 @@
 
     function launchGapDrill() {
       const questions = window.QUESTIONS_DATA || [];
-      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
-      const srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
+      const progress = safeGetStorage('psat_progress', {});
+      const srsState = safeGetStorage('psat_srs', {});
       const focusType = document.getElementById('gap-focus-type').value;
 
-      let filteredQuestions = questions;
-      if (focusType === 'math_only') {
-        filteredQuestions = questions.filter(q => q.test === 'Math');
-      } else if (focusType === 'rw_only') {
-        filteredQuestions = questions.filter(q => q.test === 'Reading and Writing');
-      }
-
-      const drill = PSAT_ENGINE.generateGapTargetedDrill(filteredQuestions, progress, srsState, { count: currentGapCount });
+      const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: currentGapCount, focus: focusType });
       sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
       window.location.href = 'index.html?mode=custom';
     }
@@ -927,10 +941,10 @@
     }
 
     function exportAuditTrail() {
-      const progress = JSON.parse(localStorage.getItem('psat_progress') || '{}');
-      const srsState = JSON.parse(localStorage.getItem('psat_srs') || '{}');
-      const sessionsState = JSON.parse(localStorage.getItem('psat_sessions') || '{}');
-      const feedback = JSON.parse(localStorage.getItem('psat_uat_feedback') || '[]');
+      const progress = safeGetStorage('psat_progress', {});
+      const srsState = safeGetStorage('psat_srs', {});
+      const sessionsState = safeGetStorage('psat_sessions', {});
+      const feedback = safeGetStorage('psat_uat_feedback', []);
       const questions = window.QUESTIONS_DATA || [];
       const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
 

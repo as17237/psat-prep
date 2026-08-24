@@ -171,6 +171,57 @@ const customTest = PSAT_ENGINE.generateCustomTest(mockFullBank, {
   count: 5
 });
 assert.strictEqual(customTest.questions.length, 5);
-assert.ok(customTest.questions.every(q => q.test === 'Math' && q.question_type === 'free_response'));
+assert.ok(customTest.questions.every(q => q.test === 'Math' && (q.type || q.question_type) === 'free_response'));
 
-console.log('✓ All Spaced Repetition (SM-2), Exam Generation, and Scoring tests passed!');
+// 9. Integration with REAL Dataset (3,059 questions from data/*.json)
+const fs = require('fs');
+const path = require('path');
+const realEla = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/ela_questions.json'), 'utf8'));
+const realMath = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/math_questions.json'), 'utf8'));
+const realBank = realEla.concat(realMath);
+
+assert.strictEqual(realBank.length, 3059, 'Real bank must have 3,059 items');
+
+// A: Standard PSAT 8/9 Exam from real dataset
+const realStandardExam = PSAT_ENGINE.generateStandardPSAT89Exam(realBank);
+assert.strictEqual(realStandardExam.totalQuestions, 98, 'Real dataset standard exam must have 98 questions');
+assert.strictEqual(realStandardExam.modules.length, 4, 'Must have 4 modules');
+assert.strictEqual(realStandardExam.modules[0].questions.length, 27, 'RW M1 must have 27 Qs');
+assert.strictEqual(realStandardExam.modules[1].questions.length, 27, 'RW M2 must have 27 Qs');
+assert.strictEqual(realStandardExam.modules[2].questions.length, 22, 'Math M1 must have 22 Qs');
+assert.strictEqual(realStandardExam.modules[3].questions.length, 22, 'Math M2 must have 22 Qs');
+
+// Verify realistic MCQ & SPR mix in Math modules
+const m1SprCount = realStandardExam.modules[2].questions.filter(q => (q.type || q.question_type) === 'free_response').length;
+const m2SprCount = realStandardExam.modules[3].questions.filter(q => (q.type || q.question_type) === 'free_response').length;
+assert.strictEqual(m1SprCount, 5, 'Math M1 must contain 5 free-response SPR items');
+assert.strictEqual(m2SprCount, 5, 'Math M2 must contain 5 free-response SPR items');
+
+// B: Real Custom Test SPR Filter
+const realSprCustom = PSAT_ENGINE.generateCustomTest(realBank, { questionType: 'spr', count: 10 });
+assert.strictEqual(realSprCustom.questions.length, 10, 'Real SPR custom filter must return 10 items');
+assert.ok(realSprCustom.questions.every(q => (q.type || q.question_type) === 'free_response'), 'All returned items must be SPR');
+
+// C: Real MCQ Options Resolution
+const realMcq = realEla[0];
+assert.ok(Array.isArray(realMcq.options), 'Options must be an array of {key, text}');
+const optA = realMcq.options.find(o => o.key === 'A');
+assert.ok(optA && optA.text && optA.text.length > 0, 'Choice A must have valid resolved text');
+
+// D: Exam Scoring on Real Dataset
+const realAnswers = {};
+realStandardExam.modules.forEach(mod => {
+  mod.questions.forEach(q => {
+    const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
+    realAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
+  });
+});
+const realReport = PSAT_ENGINE.scoreStandardExam(realStandardExam, realAnswers, {});
+assert.strictEqual(realReport.scores.totalScaled, 1440, '100% on real exam must scale to 1440');
+assert.strictEqual(realReport.scores.rwScaled, 720, '100% RW on real exam must scale to 720');
+assert.strictEqual(realReport.scores.mathScaled, 720, '100% Math on real exam must scale to 720');
+assert.strictEqual(realReport.moduleReports[2].totalQuestions, 22, 'Math M1 report total must be 22');
+assert.strictEqual(realReport.moduleReports[3].totalQuestions, 22, 'Math M2 report total must be 22');
+
+console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, and Scoring tests passed!');
+

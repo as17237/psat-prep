@@ -342,8 +342,8 @@
     var rwM2Qs = shuffledRw.slice(27, 54);
 
     // For Math, ensure a realistic mix of ~17 MCQs and ~5 Free-Response per module
-    var mathMcqs = shuffledMath.filter(function (q) { return q.question_type !== 'free_response'; });
-    var mathSprs = shuffledMath.filter(function (q) { return q.question_type === 'free_response'; });
+    var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
+    var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
 
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
     var mathM2Qs = _shuffle(mathMcqs.slice(17, 34).concat(mathSprs.slice(5, 10)));
@@ -412,6 +412,18 @@
     var srs = srsMap || {};
     var now = Date.now();
 
+    var pool = allQuestions;
+    if (opts.focus === 'math_only') {
+      pool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+    } else if (opts.focus === 'rw_only') {
+      pool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
+    } else if (opts.focus === 'srs_only') {
+      var srsPool = allQuestions.filter(function (q) {
+        return srs[q.id] && srs[q.id].dueAt && srs[q.id].dueAt <= now;
+      });
+      if (srsPool.length > 0) pool = srsPool;
+    }
+
     // 1. Calculate Skill Accuracy Profile
     var skillStats = {};
     allQuestions.forEach(function (q) {
@@ -435,8 +447,16 @@
       }
     });
 
+    if (opts.focus === 'weak_only') {
+      var weakPool = allQuestions.filter(function (q) {
+        var p = progress[q.id];
+        return weakSkills.has(q.skill) || (p && p.answered && !p.isCorrect);
+      });
+      if (weakPool.length > 0) pool = weakPool;
+    }
+
     // 2. Score questions into Gap Priority Buckets
-    var scoredQuestions = allQuestions.map(function (q) {
+    var scoredQuestions = pool.map(function (q) {
       var p = progress[q.id];
       var s = srs[q.id];
       var priorityScore = 0;
@@ -498,12 +518,13 @@
   function generateCustomTest(allQuestions, filters) {
     var f = filters || {};
     var filtered = allQuestions.filter(function (q) {
+      var qType = q.type || q.question_type || 'multiple_choice';
       if (f.test && f.test !== 'Both' && q.test !== f.test) return false;
       if (Array.isArray(f.domains) && f.domains.length > 0 && !f.domains.includes(q.domain)) return false;
       if (Array.isArray(f.skills) && f.skills.length > 0 && !f.skills.includes(q.skill)) return false;
       if (Array.isArray(f.difficulties) && f.difficulties.length > 0 && !f.difficulties.includes(q.difficulty)) return false;
-      if (f.questionType === 'mcq' && q.question_type === 'free_response') return false;
-      if (f.questionType === 'spr' && q.question_type !== 'free_response') return false;
+      if (f.questionType === 'mcq' && qType === 'free_response') return false;
+      if (f.questionType === 'spr' && qType !== 'free_response') return false;
       return true;
     });
 
@@ -532,11 +553,17 @@
     var answers = userAnswersMap || {};
     var times = questionTimesMap || {};
 
-    var rwTotal = 54;
-    var mathTotal = 44;
+    var rwTotal = 0;
+    var mathTotal = 0;
     var rwCorrect = 0;
     var mathCorrect = 0;
     var totalTimeSpentMs = 0;
+
+    exam.modules.forEach(function (mod) {
+      if (mod.section === 'Reading and Writing') rwTotal += mod.questions.length;
+      else mathTotal += mod.questions.length;
+    });
+    var totalQuestionsCount = rwTotal + mathTotal;
 
     var moduleReports = [];
 
@@ -551,11 +578,12 @@
         totalTimeSpentMs += timeMs;
 
         var isCorrect = false;
-        var answered = (userAns !== undefined && userAns !== null && String(userAns).trim() !== '');
+        var answered = (userAns !== undefined && userAns !== null && String(userAns).trim() !== '' && String(userAns).trim() !== 'Unanswered');
+        var qType = q.type || q.question_type || 'multiple_choice';
 
         if (answered) {
           modAttempted++;
-          if (q.question_type === 'free_response') {
+          if (qType === 'free_response') {
             isCorrect = gradeFreeResponse(userAns, q.correct_answer);
           } else {
             isCorrect = String(userAns).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase();
@@ -570,13 +598,15 @@
 
         questionReviews.push({
           questionId: q.id,
-          prompt: q.prompt,
+          prompt: q.question_text || q.prompt || '',
+          question_text: q.question_text || q.prompt || '',
           section: mod.section,
           domain: q.domain,
           skill: q.skill,
           difficulty: q.difficulty,
-          questionType: q.question_type,
-          userAnswer: userAns || 'Unanswered',
+          type: qType,
+          questionType: qType,
+          userAnswer: answered ? userAns : 'Unanswered',
           correctAnswer: q.correct_answer,
           isCorrect: isCorrect,
           answered: answered,
@@ -599,17 +629,18 @@
     });
 
     // Official PSAT 8/9 Scaled Score Mapping (120 to 720 per section, 240 to 1440 composite)
-    var rwScaled = Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600)));
-    var mathScaled = Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600)));
+    var rwScaled = rwTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600))) : 120;
+    var mathScaled = mathTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600))) : 120;
     var totalScaled = rwScaled + mathScaled;
+    var overallAcc = totalQuestionsCount > 0 ? Math.round(((rwCorrect + mathCorrect) / totalQuestionsCount) * 100) : 0;
 
     return {
       examId: exam.id,
       completedAt: Date.now(),
-      totalQuestions: 98,
+      totalQuestions: totalQuestionsCount,
       totalCorrect: rwCorrect + mathCorrect,
-      totalAttempted: Object.keys(answers).length,
-      overallAccuracyPercent: Math.round(((rwCorrect + mathCorrect) / 98) * 100),
+      totalAttempted: Object.keys(answers).filter(function(k) { return answers[k] !== undefined && answers[k] !== null && String(answers[k]).trim() !== '' && String(answers[k]).trim() !== 'Unanswered'; }).length,
+      overallAccuracyPercent: overallAcc,
       scores: {
         totalScaled: totalScaled, // 240 to 1440
         rwScaled: rwScaled,       // 120 to 720

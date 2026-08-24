@@ -26,7 +26,7 @@ def _upsert_single_question(container, q: Dict[str, Any]) -> bool:
         except CosmosHttpResponseError as e:
             if e.status_code in (429, 503):
                 retries -= 1
-                retry_after = getattr(e, 'headers', {}).get('x-ms-retry-after-ms')
+                retry_after = (getattr(e, 'headers', None) or {}).get('x-ms-retry-after-ms')
                 delay = (float(retry_after) / 1000.0) if retry_after else backoff
                 time.sleep(delay)
                 backoff *= 1.5
@@ -39,7 +39,7 @@ def _upsert_single_question(container, q: Dict[str, Any]) -> bool:
     return False
 
 
-def run_migration(cosmos_conn_str: str, blob_base_url: str, db_name: str = "psat-prep-db"):
+def run_migration(cosmos_conn_str: str, blob_base_url: str, db_name: str = "psat-prep-db", blob_container_name: str = "question-cards"):
     logger.info(f"Connecting to Cosmos DB...")
     client = CosmosClient.from_connection_string(cosmos_conn_str)
     
@@ -79,7 +79,7 @@ def run_migration(cosmos_conn_str: str, blob_base_url: str, db_name: str = "psat
     for q in all_questions:
         if q.get("question_image"):
             filename = os.path.basename(q["question_image"])
-            q["image_url"] = f"{base_url}/data/images/{filename}"
+            q["image_url"] = f"{base_url}/{blob_container_name}/{filename}"
 
     # 5. Upload Questions Concurrently
     logger.info(f"Uploading {len(all_questions)} questions to 'Questions' container using 16 threads...")

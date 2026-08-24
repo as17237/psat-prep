@@ -322,3 +322,142 @@ Still pending, as expected — 3,059 images tracked, `.git` at 267 MB. Its prere
 3. Align the analytics buckets between student and parent pages (finding 3).
 4. The three minors (finding 4) — quick, low risk.
 5. The git purge (finding 5) — last, with explicit confirmation, since it rewrites history.
+
+---
+---
+
+# Re-review — round 4
+
+**Reviewed:** 2026-08-23 · commit `e2c1fa7` vs `b8ba313`
+**Verdict: all four round-3 items landed and verify clean. But three feature commits (`9e9b197`…`e2c1fa7`) added an entire exam engine, drill generator, custom-test builder, and feedback reporter — and that engine was never run against the real data schema. Five new defects follow from it, two of which make the flagship PSAT 8/9 exam mode ship-broken.** Every finding below was proven by executing the code against the committed dataset, not by inspection alone.
+
+## Verification performed
+
+| Check | Result |
+| :--- | :--- |
+| Python tests (9) · Node suites (3) | all pass |
+| Round-3 item 1 & 2 (streak tests / future dates) | `calculateStreak(sessionsMap, todayKey)` param present; `diffDays < 0` returns 0; future-dated entries filtered — closed |
+| Round-3 item 3 (analytics buckets) | attempt-count primary split with In Progress panel, matches parent portal — closed |
+| Round-3 item 4 minors | bank table uses safe `onclick` closure; blob-only dry run decoupled from Cosmos; uploader aggregates failures into exit code — closed |
+| Dataset schema re-check | `options` is an **array** of `{key, text}` on all 3,059 records; `question_type` exists on **zero** records (only `type`) |
+| `generateStandardPSAT89Exam`, executed | module sizes **27 / 27 / 17 / 17 = 88 questions**, advertised as 98; zero grid-ins placed by the MCQ/SPR mixer |
+| `generateCustomTest({questionType:'spr'})`, executed | **0 questions** returned |
+| `renderExamMcqOptions` lookup `q.options['A']` | `undefined` → renders placeholder text |
+
+## Round-4 findings
+
+### 1. Exam mode renders "Choice (A)" placeholders instead of real option text — `index.html:1834`
+
+```js
+const optText = (q.options && q.options[letter]) ? q.options[letter] : `Choice (${letter})`;
+```
+
+`q.options` is an array indexed `0–3`; `q.options['A']` is always `undefined`. Every multiple-choice question in the exam runner displays four generic buttons with no answer text — for 40% of the bank (Math), the card image is the only place the choices exist at all, so text mode plus this bug makes the exam unanswerable. The practice view does this correctly one viewport away (`index.html:1113`). **Fix:** resolve the choice with `q.options.find(o => o.key === letter)`.
+
+### 2. Phantom `question_type` field breaks the exam engine end-to-end
+
+The dataset carries `type`; nothing carries `question_type`. Every consumer of the phantom field silently misbehaves:
+
+| Location | Consequence |
+| :--- | :--- |
+| `srs.js:345-346` | Standard-exam MCQ/SPR mixer puts all 1,505 Math questions in the "MCQ" bucket and none in the "SPR" bucket → Math modules get 17 questions instead of 22 (**verified: 88-question exam sold as 98**) |
+| `srs.js:602-604, :609-612` | Scoring divides by hardcoded `rwTotal=54 / mathTotal=44` and reports `/ 98` regardless of what was generated — with only 34 live Math questions, the Math scaled score caps at ~584 even at 100% correct |
+| `index.html:1671-1675` | "Math Half-Test" builds two 17-question modules — **34 questions advertised as 44** |
+| `index.html:1799`, `srs.js:558-561` | Grid-in input never renders in exam mode; free responses would be graded by letter-string comparison |
+| `srs.js:505-506`, `parent.html:831-832` | Parent portal "Free-Response Only" filter matches **0 questions** (verified) and its matching counter lies for MCQ-only |
+
+**Fix:** replace every `q.question_type` with `q.type` (six sites), stop hardcoding 54/44/98 in scoring — derive totals from the generated modules.
+
+### 3. Parent portal gap-drill launcher crashes on first use — `parent.html:872, :914`
+
+`currentGapCount` is read by `launchGapDrill()` and `copyShareableTestLink('gap')` but never declared or initialized — `setGapCount()` only assigns it *after* a preset button is clicked, while the HTML pre-paints "20 Qs" as selected via hardcoded classes. Clicking **Launch Gap Drill in Student App** on a fresh page load throws `ReferenceError: currentGapCount is not defined` and silently does nothing. **Fix:** `let currentGapCount = 20;` and call `setGapCount(20)` from `DOMContentLoaded`.
+
+### 4. Exam timer leaks time, and expired modules stay editable — `index.html:1740-1752, :714-716`
+
+Two independent integrity holes in a product whose selling point is strict timing:
+
+1. **Background-tab time dilation.** The countdown decrements a counter once per `setInterval(…, 1000)` tick. Browsers clamp inactive-tab timers to ~1 tick/minute, so a student who switches tabs during a 32-minute module earns most of it back. Compute remaining time from a wall-clock deadline (`deadline - Date.now()`), never from tick counts.
+2. **Expiry isn't enforced.** At 0:00 the code alerts, clears the interval, and lands on the module review screen — whose "**← Return to Questions**" button (`index.html:2006`) happily reopens the module with no timer running. A student can answer indefinitely after time expires. Auto-submit the module on expiry, or lock the return path once `examModuleTimerSeconds === 0`.
+
+(The `alert('⚠️ 5 Minutes Remaining')` also blocks the event loop mid-question — swap for an inline banner while touching this code.)
+
+### 5. "Save to Practice & SRS History" corrupts the analytics it feeds — `index.html:2177-2202`
+
+`saving` iterates **all** module-report rows, not just answered ones, and writes `answered: true` for each — so skipped questions enter the progress map with `selectedAnswer: 'Unanswered'` (invented at `srs.js:579`: `userAnswer: userAns || 'Unanswered'`). Consequences, all mechanical:
+
+- Accuracy stats count fabricated attempts; the bank explorer shows them as plain "Incorrect".
+- `isFlagged` bookmarks on those questions are overwritten away.
+- `recordDailySession` is called without the `timingReliable` argument (`index.html:2193`), so its clamp (`srs.js:234`: `max(1000, timeSpentMs)`) credits **≥1 second per question — ~1.6 phantom minutes per saved exam**, even if every item was skipped instantly.
+- `timingReliable: true` is hardcoded even when `timeSpentMs` is 0, contradicting the round-2 convention the SRS relies on to distinguish "fast" from "unknown".
+
+**Fix:** persist only rows with `answered === true`, preserve `isFlagged`, pass the real reliability flag, and store `null` time as unreliable rather than 0.
+
+### 6. Minor / latent
+
+- **Enter doesn't submit grid-ins in practice mode** (`index.html:189-197`) — the SPR input has no form wrapper or keydown handler; mouse-only. Keyboard users hit Submit with the tab key today.
+- **Biased shuffle**: `[...pool].sort(() => Math.random() - 0.5)` (`index.html:1662, :1674`) skews permutation order; `_shuffle` already exists in `srs.js` — use it.
+- **Silently ignored drill options**: `gap-focus-type` offers `srs_only` and `weak_only` (`parent.html:243-244`) but `launchGapDrill()` handles only `math_only`/`rw_only`; selecting either quietly produces a comprehensive drill.
+- **Shareable gap links drop their parameters**: `copyShareableTestLink('gap')` emits `count`/`focus`, but `index.html`'s `mode=gap_drill` branch ignores both and hardcodes 20.
+- **`migrate_to_cosmos.py:29`**: `getattr(e, 'headers', {})` still yields `None` when the exception carries no headers → `.get` raises inside the retry path. Use `(getattr(e, 'headers', None) or {}).get(...)`.
+- **Exam zoom overflows vertically**: `applyExamZoom` CSS-scales an image inside an `overflow-x-auto` container (`index.html:641`); above 100% the bottom clips into the answer area.
+
+## Suggested order for round 4
+
+1. Finding 2 — replace `question_type` with `type` everywhere and de-hardcode exam totals/scoring. Biggest blast radius: wrong exam composition *and* wrong scores.
+2. Finding 1 — same surface, one-line lookup fix; verify by launching a standard exam.
+3. Finding 3 — declare `currentGapCount`; unblocks the parent-portal launcher.
+4. Finding 4 — deadline-based timer + enforce expiry.
+5. Finding 5 — gate the save loop on `answered`, preserve flags/reliability.
+6. Finding 6 minors — batch in one PR.
+7. Add Node tests that generate exams/drills from the *real* bundle (`data/questions_data.js`) and assert module sizes, SPR counts, and option-text resolution — the exact gap that let findings 1–2 ship.
+
+---
+
+## Addendum to Round 4 — 3 additional defects not in original review (appended 2026-08-23)
+
+> These were found on a second pass over `e2c1fa7` and are distinct from findings 1–6 above. They are high-priority and will be fixed next, in the order listed.
+
+### 7. Phantom `prompt` field breaks exam Text Mode and score report — `srs.js:573`, `index.html:1796`, `index.html:2149` *(not in original round-4 list)*
+
+Dataset schema carries `question_text` on all 3,059 records; `prompt` exists on zero (`validator.py:15-98`, `extractor.py:235-241`). Exam engine stores `prompt: q.prompt` (`srs.js:573`) which is always `undefined`, and renders `q.prompt || 'View official question card above.'` (`index.html:1796`) so exam Text Mode is permanently empty even for text-complete questions. Score report fallback `index.html:2149` (`${esc(q.prompt)}`) is always empty; only `q.image_url` path masks it. Same class as finding 2 but separate field, not flagged above. Verified: `python3 -c "import json; print(any('prompt' in q for q in json.load(open('data/ela_questions.json'))+json.load(open('data/math_questions.json'))))"` → `False` while `q.question_text` present on 3,059. **Fix:** replace all three sites with `q.question_text` (carry `question_text` in `scoreStandardExam` review object, fallback to empty only when `text_complete===false`).
+
+### 8. Blob `image_url` container divergence between provisioners — `migrate_to_cosmos.py:82` vs `upload_to_azure.py:39` *(not in original round-4 list)*
+
+* `migrate_to_cosmos.py:82`: `f"{base_url}/data/images/{filename}"`
+* `upload_to_azure.py:39`: `f"{base_url}/{blob_container_name}/{filename}"` where default `blob_container_name="question-cards"` (`upload_to_azure.py:187`, `SYSTEM_ARCHITECTURE_AND_PLAN.md` diagram: `question-cards/*.png`)
+* Local fallback `index.html:1078` / `srs.js:585` correctly uses `data/` + `question_image` (`images/...` → `data/images/...`) for file-served mode.
+
+Whichever script last provisioned Cosmos, the other URL 404s on the live site `https://psatprep4915.z13.web.core.windows.net` (static hosting expects one container path). Round-4 covered rewrite existence but not name mismatch. Verified by reading both files; `git log --oneline` shows both provisioners live. **Fix:** unify on parameterized container (default `question-cards`), update `migrate_to_cosmos.py:82` to use `blob_container_name`, assert in dry-run that every `image_url` contains the container name, and document single canonical URL format.
+
+### 9. Exam last-question time never flushed + `localStorage` parse crash bricks app — `index.html:1772-1780`, `index.html:2011`, `index.html:873`, `parent.html:489` *(not in original round-4 list)*
+
+Two independent reliability bugs:
+
+1. **Last-question time loss.** `loadExamQuestion` `index.html:1772-1780` accumulates `examUserTimes[prevQ.id] += Date.now()-examQuestionShownAt` only on *next* navigation. `showModuleReviewScreen` (`:1953`), `submitCurrentExamModule` (`:2011`), and `finishExamAndShowReport` never flush the current `examQuestionShownAt`. The final question in each of 4 modules records `0ms`; `totalTimeSpentMs` undercounts by up to ~140 min per full exam, report shows wrong `1h 48m`, and `saveExamResultsToHistory` persists `0ms` as reliable timing.
+2. **Corrupted storage white-screens app.** `index.html:873-875` / `parent.html:489-491` do `JSON.parse(localStorage.getItem('psat_progress')||'{}')` with no `try/catch`. A truncated/quota-exceeded value (progress ~300KB + `psat_srs` history can exceed 5MB `localStorage` limit; `saveProgress` `:919-922` does three `setItem` without quota guard) throws uncaught `SyntaxError` before first paint. Recovery requires manual `localStorage.clear()`.
+
+Round-4 finding 4 covers timer dilation/expiry and finding 5 covers save-loop corruption, but neither covers missing flush nor storage crash. **Fix:** flush `examQuestionShownAt` into `examUserTimes` before review/submit/finish; wrap all `JSON.parse(localStorage.getItem(...))` in `try/catch` fallback `{}` and guard `setItem` with quota handling + version flag for `timingReliable` migration.
+
+### Suggested order for addendum (fix next)
+
+1. Finding 7 — `prompt` → `question_text` (one-line at 3 sites, exam Text Mode 100% broken).
+2. Finding 8 — unify blob container to `question-cards` in both provisioners (production 404).
+3. Finding 9 — flush last-question timing + harden `localStorage` parsing (data-loss / white-screen).
+
+---
+
+## Full ranked fix list (independent verification, 2026-08-23)
+
+Verified independently against real dataset (`data/*.json` = 3,059 records; `question_type` = 0; `prompt` = 0; `options` array structure confirmed) and executed paths (`node` + `python` checks passed; timer tick-based; save-loop unguarded; `currentGapCount` undeclared; blob paths diverge; `JSON.parse` unprotected). No contradictions found.
+
+| Rank | Finding | File refs | Blast radius |
+|---|---|---|---|
+| 1 | 2 — `question_type` phantom | `srs.js:345-346`, `:505-506`, `:558-561`, `:602-612`; `index.html:1662-1675`, `:1799`; `parent.html:831-832` | Exam broken (88 Q sold as 98; SPR=0; scoring/filter broken) |
+| 2 | 1 — options array lookup (`q.options['A']`) | `index.html:1834` | Exam unanswerable (all MCQ buttons show placeholder) |
+| 3 | 9 — exam time flush + `localStorage` crash | `index.html:1772-1780`, `:1953`, `:2011` + `:873-875`, `parent.html:489-491` | Data loss (last Q = 0ms) + white-screen (corrupt storage) |
+| 4 | 5 — save loop corrupts analytics | `index.html:2177-2202` | Fabricates attempts; overwrites flags; phantom minutes |
+| 5 | 4 — timer dilates / expiry unenforced | `index.html:1740-1752`, `:714-716` | Student gains time by switching tabs; answers after expiry |
+| 6 | 3 — `currentGapCount` undeclared | `parent.html:872`, `:914` | Parent gap drill crashes on fresh load |
+| 7 | 8 — blob container divergence | `migrate_to_cosmos.py:82` vs `upload_to_azure.py:39` | Production 404 (depends which provisioner ran) |
+| 8 | 7 — phantom `prompt` | `srs.js:573`, `index.html:1796`, `:2149` | Exam Text Mode empty; score report blank |
+| 9 | 6 — minors batch | `index.html:1662-1674`, `parent.html:243-244`, `srs.js`, `upload_to_azure.py` | Biased shuffle; ignored drill options; partial `innerHTML`; retry `None`; gap params lost |
