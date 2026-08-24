@@ -594,6 +594,23 @@
 
         </div>
 
+        <!-- Past Exam & Practice Test History Section -->
+        <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-2">
+            <div>
+              <h3 class="text-lg font-bold text-slate-900 flex items-center">
+                <i data-lucide="history" class="w-5 h-5 mr-2 text-indigo-600"></i> Completed Exam History & Score Reports
+              </h3>
+              <p class="text-xs text-slate-500 font-medium">All completed full-length exams, section tests, and adaptive drills are automatically saved here for review.</p>
+            </div>
+            <span id="exam-history-count-badge" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg self-start sm:self-auto">0 Completed Tests</span>
+          </div>
+
+          <div id="exam-history-container" class="space-y-3">
+            <!-- Dynamically populated past exams -->
+          </div>
+        </div>
+
       </div>
 
       <!-- Subview B: Active Exam Interface -->
@@ -837,24 +854,9 @@
           </div>
         </div>
 
-        <!-- Module Breakdown Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span class="text-xs font-semibold text-slate-500 uppercase">R&W &bull; Module 1</span>
-            <h4 id="report-m1-score" class="text-xl font-bold text-slate-900">26 / 27 (96%)</h4>
-          </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span class="text-xs font-semibold text-slate-500 uppercase">R&W &bull; Module 2</span>
-            <h4 id="report-m2-score" class="text-xl font-bold text-slate-900">25 / 27 (93%)</h4>
-          </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span class="text-xs font-semibold text-slate-500 uppercase">Math &bull; Module 1</span>
-            <h4 id="report-m3-score" class="text-xl font-bold text-slate-900">21 / 22 (95%)</h4>
-          </div>
-          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1">
-            <span class="text-xs font-semibold text-slate-500 uppercase">Math &bull; Module 2</span>
-            <h4 id="report-m4-score" class="text-xl font-bold text-slate-900">20 / 22 (91%)</h4>
-          </div>
+        <!-- Module Breakdown Dynamic Grid -->
+        <div id="report-modules-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Dynamically populated module cards -->
         </div>
 
         <!-- Detailed Question-by-Question Review -->
@@ -963,6 +965,7 @@
       lucide.createIcons();
       applyFilters();
       updateHeaderStats();
+      renderExamLobbyHistory();
     });
 
     function saveProgress() {
@@ -978,8 +981,10 @@
         progress = {};
         srsState = {};
         sessionsState = {};
+        safeSetStorage('psat_exam_history', []);
         saveProgress();
         loadQuestion(currentIndex);
+        renderExamLobbyHistory();
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
           renderAnalytics();
         }
@@ -999,7 +1004,9 @@
       if (activeView) activeView.classList.remove('hidden');
       if (activeTab) activeTab.className = 'tab-active inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors';
 
-      if (tab === 'analytics') {
+      if (tab === 'exam') {
+        renderExamLobbyHistory();
+      } else if (tab === 'analytics') {
         renderAnalytics();
       } else if (tab === 'bank') {
         renderBankTable();
@@ -2167,12 +2174,53 @@
     function finishExamAndShowReport() {
       flushExamQuestionTime();
       currentExamReport = PSAT_ENGINE.scoreStandardExam(activeExam, examUserAnswers, examUserTimes);
+      
+      currentExamReport.examTitle = activeExam.title || 'Standard PSAT 8/9 Exam';
+      currentExamReport.examType = activeExam.type || 'standard_psat89';
+      currentExamReport.formattedDate = new Date(currentExamReport.completedAt).toLocaleString();
+
+      // Automatically persist all answered questions to practice progress & SRS
+      let savedCount = 0;
+      currentExamReport.moduleReports.forEach(m => {
+        m.questions.forEach(q => {
+          if (q.answered && q.userAnswer && q.userAnswer !== 'Unanswered') {
+            const existingProgress = progress[q.questionId] || {};
+            const timeSpent = q.timeSpentMs || 0;
+            const isReliable = timeSpent > 0;
+
+            progress[q.questionId] = {
+              answered: true,
+              selectedAnswer: q.userAnswer,
+              isCorrect: q.isCorrect,
+              timeSpentMs: timeSpent,
+              timingReliable: isReliable,
+              isFlagged: existingProgress.isFlagged || false,
+              timestamp: Date.now()
+            };
+
+            const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
+            srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now());
+            sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, isReliable);
+            savedCount++;
+          }
+        });
+      });
+      saveProgress();
+
+      // Automatically persist the full score report to Exam History (Last 50 exams)
+      let examHistory = safeGetStorage('psat_exam_history', []);
+      examHistory.unshift(currentExamReport);
+      if (examHistory.length > 50) examHistory = examHistory.slice(0, 50);
+      safeSetStorage('psat_exam_history', examHistory);
+
+      // Render score report and update lobby
+      renderExamLobbyHistory();
       renderExamReport(currentExamReport);
       showExamSubview('exam-report');
     }
 
     function renderExamReport(report) {
-      document.getElementById('report-date').innerText = new Date().toLocaleString();
+      document.getElementById('report-date').innerText = report.formattedDate || new Date(report.completedAt || Date.now()).toLocaleString();
       document.getElementById('report-total-score').innerText = report.scores.totalScaled;
       document.getElementById('report-accuracy-summary').innerText = `Overall Accuracy: ${report.overallAccuracyPercent}% (${report.totalCorrect} / ${report.totalQuestions} Correct)`;
       document.getElementById('report-rw-score').innerText = `${report.scores.rwScaled} / 720`;
@@ -2181,12 +2229,107 @@
       const totalMins = Math.round(report.totalTimeSpentMs / 60000);
       document.getElementById('report-total-time').innerText = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
 
-      if (report.moduleReports[0]) document.getElementById('report-m1-score').innerText = `${report.moduleReports[0].correct} / ${report.moduleReports[0].totalQuestions} (${report.moduleReports[0].accuracyPercent}%)`;
-      if (report.moduleReports[1]) document.getElementById('report-m2-score').innerText = `${report.moduleReports[1].correct} / ${report.moduleReports[1].totalQuestions} (${report.moduleReports[1].accuracyPercent}%)`;
-      if (report.moduleReports[2]) document.getElementById('report-m3-score').innerText = `${report.moduleReports[2].correct} / ${report.moduleReports[2].totalQuestions} (${report.moduleReports[2].accuracyPercent}%)`;
-      if (report.moduleReports[3]) document.getElementById('report-m4-score').innerText = `${report.moduleReports[3].correct} / ${report.moduleReports[3].totalQuestions} (${report.moduleReports[3].accuracyPercent}%)`;
+      // Dynamically render module cards
+      const modGrid = document.getElementById('report-modules-grid');
+      if (modGrid && Array.isArray(report.moduleReports)) {
+        modGrid.innerHTML = '';
+        report.moduleReports.forEach((m, idx) => {
+          const div = document.createElement('div');
+          div.className = 'bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1';
+          div.innerHTML = `
+            <span class="text-xs font-semibold text-slate-500 uppercase">${esc(m.name || `${m.section} • Module ${idx + 1}`)}</span>
+            <h4 class="text-xl font-bold text-slate-900">${m.correct} / ${m.totalQuestions} (${m.accuracyPercent}%)</h4>
+            <span class="text-[11px] text-slate-400 font-mono">${m.attempted} attempted</span>
+          `;
+          modGrid.appendChild(div);
+        });
+      }
+
+      const btn = document.getElementById('btn-save-exam');
+      if (btn) {
+        btn.innerText = '✓ Saved to Practice & Exam History';
+        btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default flex items-center justify-center';
+        btn.disabled = true;
+      }
 
       filterReportQuestions('all');
+    }
+
+    function renderExamLobbyHistory() {
+      const container = document.getElementById('exam-history-container');
+      const badge = document.getElementById('exam-history-count-badge');
+      if (!container) return;
+
+      const history = safeGetStorage('psat_exam_history', []);
+      if (badge) badge.innerText = `${history.length} Completed Test${history.length === 1 ? '' : 's'}`;
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2">
+            <i data-lucide="award" class="w-8 h-8 mx-auto text-slate-300"></i>
+            <p class="text-xs font-semibold text-slate-600">No exams completed yet.</p>
+            <p class="text-[11px] text-slate-400">Complete the standard PSAT 8/9 exam or a section test above to view score trends and diagnostic reviews here.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = '';
+      history.forEach((h, idx) => {
+        const div = document.createElement('div');
+        div.className = 'p-4 sm:p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-200 transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-xs';
+        
+        const totalMins = Math.round((h.totalTimeSpentMs || 0) / 60000);
+        const timeStr = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
+        const isStandard = (h.type === 'standard_psat89');
+
+        div.innerHTML = `
+          <div class="space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${isStandard ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+                ${esc(h.title || 'Practice Test')}
+              </span>
+              <span class="text-xs text-slate-400 font-mono">${esc(h.formattedDate || new Date(h.completedAt).toLocaleDateString())}</span>
+            </div>
+            <div class="text-xs text-slate-600 flex flex-wrap items-center gap-3">
+              <span><strong>Accuracy:</strong> ${h.overallAccuracyPercent}% (${h.totalCorrect}/${h.totalQuestions})</span>
+              <span>&bull;</span>
+              <span><strong>R&W:</strong> ${h.scores?.rwScaled || '—'}/720</span>
+              <span>&bull;</span>
+              <span><strong>Math:</strong> ${h.scores?.mathScaled || '—'}/720</span>
+              <span>&bull;</span>
+              <span><strong>Time:</strong> ${timeStr}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-3 shrink-0">
+            <div class="text-right">
+              <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Score</span>
+              <span class="text-2xl font-black text-indigo-900">${h.scores?.totalScaled || '—'}<span class="text-xs font-normal text-slate-400">/1440</span></span>
+            </div>
+            <button onclick="viewExamReportFromHistory('${h.examId}')" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
+              <i data-lucide="file-search" class="w-3.5 h-3.5 mr-1.5"></i> Review Test &rarr;
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      lucide.createIcons();
+    }
+
+    function viewExamReportFromHistory(examId) {
+      const history = safeGetStorage('psat_exam_history', []);
+      const found = history.find(h => h.examId === examId);
+      if (!found) {
+        alert('Exam report not found in history.');
+        return;
+      }
+      currentExamReport = found;
+      renderExamReport(currentExamReport);
+      showExamSubview('exam-report');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function filterReportQuestions(filter) {
@@ -2277,39 +2420,14 @@
     }
 
     function saveExamResultsToHistory() {
-      if (!currentExamReport) return;
-
-      let savedCount = 0;
-      currentExamReport.moduleReports.forEach(m => {
-        m.questions.forEach(q => {
-          if (q.answered && q.userAnswer && q.userAnswer !== 'Unanswered') {
-            const existingProgress = progress[q.questionId] || {};
-            const timeSpent = q.timeSpentMs || 0;
-            const isReliable = timeSpent > 0;
-
-            progress[q.questionId] = {
-              answered: true,
-              selectedAnswer: q.userAnswer,
-              isCorrect: q.isCorrect,
-              timeSpentMs: timeSpent,
-              timingReliable: isReliable,
-              isFlagged: existingProgress.isFlagged || false,
-              timestamp: Date.now()
-            };
-
-            const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
-            srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now());
-            sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, isReliable);
-            savedCount++;
-          }
-        });
-      });
-
+      // Re-trigger progress save
       saveProgress();
       const btn = document.getElementById('btn-save-exam');
-      btn.innerText = `✓ Saved ${savedCount} Answered Question${savedCount === 1 ? '' : 's'} to Practice History!`;
-      btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default';
-      btn.disabled = true;
+      if (btn) {
+        btn.innerText = '✓ Saved to Practice & Exam History';
+        btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default flex items-center justify-center';
+        btn.disabled = true;
+      }
     }
 
     // ============================================================

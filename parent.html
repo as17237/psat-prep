@@ -150,6 +150,23 @@
       </div>
     </div>
 
+    <!-- Completed Full-Length Exams & Test Reports -->
+    <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-2">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center">
+            <i data-lucide="award" class="w-5 h-5 mr-2 text-indigo-600"></i> Completed Full-Length Exams & Test Score Reports
+          </h3>
+          <p class="text-xs text-slate-500 font-medium">Detailed score diagnostic reports, module breakdowns, and full question reviews from student testing sessions.</p>
+        </div>
+        <span id="parent-exam-count-badge" class="px-3 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg self-start sm:self-auto">0 Completed Tests</span>
+      </div>
+
+      <div id="parent-exam-history-container" class="space-y-3">
+        <!-- Dynamically populated completed tests -->
+      </div>
+    </div>
+
     <!-- Domain Mastery Breakdown -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       
@@ -661,6 +678,209 @@
           mathContainer.appendChild(el);
         }
       });
+
+      // Render Completed Exams List
+      renderParentExamHistory();
+    }
+
+    function renderParentExamHistory() {
+      const container = document.getElementById('parent-exam-history-container');
+      const badge = document.getElementById('parent-exam-count-badge');
+      if (!container) return;
+
+      const history = safeGetStorage('psat_exam_history', []);
+      if (badge) badge.innerText = `${history.length} Completed Test${history.length === 1 ? '' : 's'}`;
+
+      if (history.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2">
+            <i data-lucide="award" class="w-8 h-8 mx-auto text-slate-300"></i>
+            <p class="text-xs font-semibold text-slate-600">No completed exams found yet.</p>
+            <p class="text-[11px] text-slate-400">When your student completes a standard PSAT 8/9 exam or practice drill, their score report and question analysis will appear here.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = '';
+      history.forEach((h, idx) => {
+        const div = document.createElement('div');
+        div.className = 'p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-200 transition-all flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-xs';
+
+        const totalMins = Math.round((h.totalTimeSpentMs || 0) / 60000);
+        const timeStr = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
+        const isStandard = (h.type === 'standard_psat89');
+
+        div.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${isStandard ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+                ${esc(h.title || 'Practice Exam')}
+              </span>
+              <span class="text-xs text-slate-400 font-mono"><i data-lucide="calendar" class="w-3.5 h-3.5 inline mr-1 text-slate-400"></i> ${esc(h.formattedDate || new Date(h.completedAt).toLocaleDateString())}</span>
+            </div>
+            
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-700 pt-1">
+              <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <span class="text-[10px] uppercase font-semibold text-slate-400 block">Overall Accuracy</span>
+                <span class="font-bold text-slate-900">${h.overallAccuracyPercent}% (${h.totalCorrect}/${h.totalQuestions})</span>
+              </div>
+              <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <span class="text-[10px] uppercase font-semibold text-slate-400 block">Reading & Writing</span>
+                <span class="font-bold text-indigo-700">${h.scores?.rwScaled || '—'} / 720</span>
+              </div>
+              <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <span class="text-[10px] uppercase font-semibold text-slate-400 block">Math Section</span>
+                <span class="font-bold text-emerald-700">${h.scores?.mathScaled || '—'} / 720</span>
+              </div>
+              <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
+                <span class="text-[10px] uppercase font-semibold text-slate-400 block">Total Exam Time</span>
+                <span class="font-bold font-mono text-slate-900">${timeStr}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center lg:flex-col lg:items-end justify-between lg:justify-center gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200">
+            <div class="text-left lg:text-right">
+              <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Scaled Score</span>
+              <span class="text-3xl font-black text-slate-900">${h.scores?.totalScaled || '—'}<span class="text-sm font-normal text-slate-400">/1440</span></span>
+            </div>
+            <button onclick="openParentExamReview('${h.examId}')" class="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center">
+              <i data-lucide="file-search" class="w-4 h-4 mr-1.5"></i> Inspect Full Test Review &rarr;
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      lucide.createIcons();
+    }
+
+    let parentActiveExamReport = null;
+    let parentExamFilterMode = 'all';
+
+    function openParentExamReview(examId) {
+      const history = safeGetStorage('psat_exam_history', []);
+      const found = history.find(h => h.examId === examId);
+      if (!found) {
+        alert('Exam report not found in history.');
+        return;
+      }
+      parentActiveExamReport = found;
+      
+      document.getElementById('pmod-exam-title').innerText = found.title || 'Practice Exam Score Report';
+      document.getElementById('pmod-exam-date').innerText = found.formattedDate || new Date(found.completedAt).toLocaleString();
+      document.getElementById('pmod-exam-score').innerHTML = `${found.scores?.totalScaled || '—'} <span class="text-xs font-normal text-slate-400">/ 1440</span>`;
+      document.getElementById('pmod-exam-stats').innerText = `Accuracy: ${found.overallAccuracyPercent}% (${found.totalCorrect} / ${found.totalQuestions})`;
+      document.getElementById('pmod-exam-rw').innerText = `R&W: ${found.scores?.rwScaled || '—'} / 720`;
+      document.getElementById('pmod-exam-math').innerText = `Math: ${found.scores?.mathScaled || '—'} / 720`;
+
+      filterParentExamQuestions('all');
+      document.getElementById('parent-exam-review-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeParentExamReview() {
+      document.getElementById('parent-exam-review-modal').classList.add('hidden');
+    }
+
+    function filterParentExamQuestions(filter) {
+      parentExamFilterMode = filter;
+      if (!parentActiveExamReport) return;
+
+      let allReviewedQs = [];
+      if (Array.isArray(parentActiveExamReport.moduleReports)) {
+        parentActiveExamReport.moduleReports.forEach(m => {
+          allReviewedQs = allReviewedQs.concat(m.questions || []);
+        });
+      }
+
+      const incorrectCount = allReviewedQs.filter(q => !q.isCorrect).length;
+      const correctCount = allReviewedQs.filter(q => q.isCorrect).length;
+
+      document.getElementById('pmod-cnt-all').innerText = allReviewedQs.length;
+      document.getElementById('pmod-cnt-inc').innerText = incorrectCount;
+      document.getElementById('pmod-cnt-cor').innerText = correctCount;
+
+      ['all', 'incorrect', 'correct'].forEach(f => {
+        const btn = document.getElementById(`pmod-rf-${f === 'incorrect' ? 'inc' : (f === 'correct' ? 'cor' : 'all')}`);
+        if (btn) {
+          btn.className = (f === filter) ?
+            'px-3 py-1 rounded-lg bg-white text-indigo-700 shadow-xs font-bold transition-all' :
+            'px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all';
+        }
+      });
+
+      const filteredList = allReviewedQs.filter(q => {
+        if (filter === 'incorrect') return !q.isCorrect;
+        if (filter === 'correct') return q.isCorrect;
+        return true;
+      });
+
+      const container = document.getElementById('parent-exam-questions-list');
+      container.innerHTML = '';
+
+      if (filteredList.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-slate-400 text-xs font-medium">
+            No questions matching the selected filter.
+          </div>
+        `;
+        return;
+      }
+
+      filteredList.forEach((q, idx) => {
+        const div = document.createElement('div');
+        div.className = 'pt-6 space-y-4';
+
+        const statusBadge = q.isCorrect ?
+          '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-md">✓ Correct</span>' :
+          '<span class="px-2.5 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-md">✗ Incorrect</span>';
+
+        const timeSec = Math.round((q.timeSpentMs || 0) / 1000);
+
+        div.innerHTML = `
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center space-x-2">
+              ${statusBadge}
+              <span class="font-mono text-xs text-slate-400">ID: ${esc(q.questionId)}</span>
+              <span class="text-xs font-semibold text-slate-700">${esc(q.section)} • ${esc(q.skill)}</span>
+            </div>
+            <span class="text-xs text-slate-400 font-mono"><i data-lucide="clock" class="w-3.5 h-3.5 inline mr-1"></i> ${timeSec}s spent</span>
+          </div>
+
+          <!-- Official Card / Prompt -->
+          ${q.image_url ? `
+            <div class="flex justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <img src="${esc(q.image_url)}" alt="Question Card" class="max-w-full w-auto h-auto object-contain rounded-xl">
+            </div>` : `
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-sm text-slate-800">${esc(q.question_text || q.prompt)}</div>
+          `}
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="p-3 rounded-xl ${q.isCorrect ? 'bg-emerald-50 border border-emerald-200 text-emerald-900' : 'bg-rose-50 border border-rose-200 text-rose-900'}">
+              <span class="font-bold block uppercase text-[10px] tracking-wider text-slate-500">Student Answer:</span>
+              <span class="font-mono font-bold text-sm">${esc(q.userAnswer)}</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-900">
+              <span class="font-bold block uppercase text-[10px] tracking-wider text-slate-500">Official Correct Answer:</span>
+              <span class="font-mono font-bold text-sm text-indigo-600">${esc(q.correctAnswer)}</span>
+            </div>
+          </div>
+
+          <details class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1.5">
+            <summary class="font-bold text-indigo-700 cursor-pointer flex items-center justify-between">
+              <span>View Official Step-by-Step Rationale</span>
+              <i data-lucide="chevron-down" class="w-4 h-4"></i>
+            </summary>
+            <div class="pt-2 text-slate-800 leading-relaxed">${esc(q.rationale)}</div>
+          </details>
+        `;
+        container.appendChild(div);
+      });
+
+      lucide.createIcons();
     }
 
     let selectedSkillsSet = new Set();
@@ -952,6 +1172,7 @@
       const progress = safeGetStorage('psat_progress', {});
       const srsState = safeGetStorage('psat_srs', {});
       const sessionsState = safeGetStorage('psat_sessions', {});
+      const examHistory = safeGetStorage('psat_exam_history', []);
       const feedback = safeGetStorage('psat_uat_feedback', []);
       const questions = window.QUESTIONS_DATA || [];
       const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
@@ -963,11 +1184,13 @@
         summary: {
           totalQuestionsInBank: questions.length,
           totalAttempted: scoreData.totalAttempted,
+          totalExamsCompleted: examHistory.length,
           estimatedScore: scoreData.isReady ? scoreData.totalScore : null,
           rwScore: scoreData.rwScore,
           mathScore: scoreData.mathScore,
           streakDays: PSAT_ENGINE.calculateStreak(sessionsState)
         },
+        examHistoryLog: examHistory,
         sessionsLog: sessionsState,
         questionAttempts: progress,
         spacedRepetitionCards: srsState,
@@ -1483,6 +1706,74 @@
       <button onclick="toggleReferenceSheet(false)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg text-xs transition-colors">
         Close
       </button>
+    </div>
+  </div>
+
+  <!-- PARENT EXAM QUESTION REVIEW MODAL -->
+  <div id="parent-exam-review-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-5 sm:px-8 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 shrink-0">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2.5">
+            <span id="pmod-exam-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
+              Official PSAT 8/9 Exam Report
+            </span>
+            <span id="pmod-exam-date" class="text-xs text-slate-400 font-mono">—</span>
+          </div>
+          <h3 id="pmod-exam-title" class="text-lg font-bold text-white">Full-Length PSAT 8/9 Exam Score Report</h3>
+        </div>
+
+        <div class="flex items-center space-x-4">
+          <div class="text-right">
+            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Score</span>
+            <span id="pmod-exam-score" class="text-2xl font-black text-white">— <span class="text-xs font-normal text-slate-400">/ 1440</span></span>
+          </div>
+          <button onclick="closeParentExamReview()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors" title="Close">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls & Stats Bar -->
+      <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center space-x-2 text-xs font-semibold">
+          <span id="pmod-exam-stats" class="text-slate-700">Accuracy: —</span>
+          <span class="text-slate-300">&bull;</span>
+          <span id="pmod-exam-rw" class="text-indigo-700">R&W: —</span>
+          <span class="text-slate-300">&bull;</span>
+          <span id="pmod-exam-math" class="text-emerald-700">Math: —</span>
+        </div>
+
+        <div class="flex bg-slate-200/80 p-0.5 rounded-xl text-xs">
+          <button onclick="filterParentExamQuestions('all')" id="pmod-rf-all" class="px-3 py-1 rounded-lg bg-white text-indigo-700 shadow-xs font-bold transition-all">
+            All (<span id="pmod-cnt-all">0</span>)
+          </button>
+          <button onclick="filterParentExamQuestions('incorrect')" id="pmod-rf-inc" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+            Incorrect (<span id="pmod-cnt-inc">0</span>)
+          </button>
+          <button onclick="filterParentExamQuestions('correct')" id="pmod-rf-cor" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+            Correct (<span id="pmod-cnt-cor">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- Question List (Scrollable) -->
+      <div id="parent-exam-questions-list" class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 divide-y divide-slate-100 custom-scrollbar">
+        <!-- Dynamically rendered question review items -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <button onclick="window.print()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors flex items-center">
+          <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Test Review
+        </button>
+        <button onclick="closeParentExamReview()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
+          Close Review
+        </button>
+      </div>
+
     </div>
   </div>
 </body>
