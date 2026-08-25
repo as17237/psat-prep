@@ -48,6 +48,10 @@
           <button onclick="exportAuditTrail()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center" title="Download complete audit log of attempts and testing">
             <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Export Audit Data
           </button>
+          <label class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center cursor-pointer" title="Import audit JSON file from student's device">
+            <i data-lucide="upload" class="w-4 h-4 mr-1.5"></i> Import Student Data
+            <input type="file" accept=".json" onchange="importAuditTrail(event)" class="hidden">
+          </label>
           <a href="index.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
             <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student App
           </a>
@@ -1363,6 +1367,31 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
+    }
+
+    function importAuditTrail(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.questionAttempts) safeSetStorage('psat_progress', data.questionAttempts);
+          if (data.spacedRepetitionCards) safeSetStorage('psat_srs', data.spacedRepetitionCards);
+          if (data.sessionsLog) safeSetStorage('psat_sessions', data.sessionsLog);
+          if (data.examHistoryLog) safeSetStorage('psat_exam_history', data.examHistoryLog);
+          if (data.summary && data.summary.isSampleData) {
+            localStorage.setItem('psat_sample_data_active', 'true');
+          } else {
+            localStorage.removeItem('psat_sample_data_active');
+          }
+          alert('Successfully imported student test history and audit data! Reloading dashboard...');
+          location.reload();
+        } catch (err) {
+          alert('Failed to import audit file: Invalid JSON structure.');
+        }
+      };
+      reader.readAsText(file);
     }
 
     // ============================================================
