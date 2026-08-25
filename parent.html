@@ -613,14 +613,21 @@
               renderParentMetrics();
               if (txt) txt.innerText = 'Cosmos DB Synced ✓';
               if (isManual) alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+            } else if (res.empty) {
+              if (txt) txt.innerText = 'Cosmos DB Connected';
+              if (isManual) alert('Cosmos DB is connected, but no student test attempts or reports have been submitted yet.');
             } else {
               if (txt) txt.innerText = 'Cosmos DB Synced ✓';
               if (isManual) alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
             }
           } else {
             if (txt) txt.innerText = 'Sync Failed ⚠';
-            const errMsg = (res && res.error) ? res.error : 'Could not connect to Cosmos DB server';
-            if (isManual) alert(`Sync Warning: ${errMsg}. Please check your internet connection.`);
+            if (res && res.quotaExceeded) {
+              if (isManual) alert('Sync Error: Local browser storage is full (quota exceeded). Please clear older test data or export audit data.');
+            } else {
+              const errMsg = (res && res.error) ? res.error : 'Could not connect to Cosmos DB server';
+              if (isManual) alert(`Sync Warning: ${errMsg}. Please check your internet connection.`);
+            }
           }
           lucide.createIcons();
         }).catch(err => {

@@ -1022,11 +1022,9 @@
       if (cDay && lDay) {
         merged[day] = {
           date: day,
-          totalAnswered: (cDay.totalAnswered || cDay.count || 0) + (lDay.totalAnswered || lDay.count || 0),
-          totalCorrect: (cDay.totalCorrect || cDay.correct || 0) + (lDay.totalCorrect || lDay.correct || 0),
-          totalTimeSpentMs: (cDay.totalTimeSpentMs || 0) + (lDay.totalTimeSpentMs || 0),
-          streakCount: Math.max(cDay.streakCount || 0, lDay.streakCount || 0),
-          lastAttemptTime: Math.max(cDay.lastAttemptTime || 0, lDay.lastAttemptTime || 0)
+          questionsAnswered: (cDay.questionsAnswered || cDay.totalAnswered || 0) + (lDay.questionsAnswered || lDay.totalAnswered || 0),
+          correct: (cDay.correct || cDay.totalCorrect || 0) + (lDay.correct || lDay.totalCorrect || 0),
+          totalTimeMs: (cDay.totalTimeMs || cDay.totalTimeSpentMs || 0) + (lDay.totalTimeMs || lDay.totalTimeSpentMs || 0)
         };
       } else if (cDay) {
         merged[day] = Object.assign({}, cDay);
@@ -1081,8 +1079,8 @@
       var l = local[qid];
 
       if (c && l) {
-        var cTime = Math.max(c.lastReviewedDate || 0, c.dueDate || 0, c.timestamp || 0);
-        var lTime = Math.max(l.lastReviewedDate || 0, l.dueDate || 0, l.timestamp || 0);
+        var cTime = Math.max(c.lastReviewedAt || 0, c.dueAt || 0, c.timestamp || 0);
+        var lTime = Math.max(l.lastReviewedAt || 0, l.dueAt || 0, l.timestamp || 0);
         merged[qid] = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
       } else if (c) {
         merged[qid] = Object.assign({}, c);
@@ -1193,10 +1191,15 @@
           }
           if (result.exists && result.data) {
             var cloud = result.data;
-            var localProg = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
-            var localHist = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
-            var localSess = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
-            var localSrs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
+            var localProgRaw = (store && store.getItem ? store.getItem('psat_progress') : null);
+            var localHistRaw = (store && store.getItem ? store.getItem('psat_exam_history') : null);
+            var localSessRaw = (store && store.getItem ? store.getItem('psat_sessions') : null);
+            var localSrsRaw = (store && store.getItem ? store.getItem('psat_srs') : null);
+
+            var localProg = JSON.parse(localProgRaw || '{}');
+            var localHist = JSON.parse(localHistRaw || '[]');
+            var localSess = JSON.parse(localSessRaw || '{}');
+            var localSrs = JSON.parse(localSrsRaw || '{}');
 
             var mergedProg = mergeProgress(cloud.progress, localProg);
             var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
@@ -1209,6 +1212,13 @@
             var ok4 = setter('psat_exam_history', mergedHist);
 
             if (!ok1 || !ok2 || !ok3 || !ok4) {
+              // Rollback to original uncorrupted state on partial quota write failure
+              if (store && store.setItem) {
+                if (localProgRaw !== null) store.setItem('psat_progress', localProgRaw);
+                if (localSrsRaw !== null) store.setItem('psat_srs', localSrsRaw);
+                if (localSessRaw !== null) store.setItem('psat_sessions', localSessRaw);
+                if (localHistRaw !== null) store.setItem('psat_exam_history', localHistRaw);
+              }
               return { success: false, error: 'Storage quota exceeded while writing merged data', quotaExceeded: true };
             }
 

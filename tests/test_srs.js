@@ -396,32 +396,36 @@ const mockFetch = async (url, opts) => {
 };
 
 (async () => {
-  // 1. Two devices, same-day work additive merge test
+  // 1. Two devices, same-day work additive merge test using real engine functions
   const morningTabletStore = new MockStorage();
-  morningTabletStore.setItem('psat_sessions', JSON.stringify({
-    '2026-08-25': { totalAnswered: 12, totalCorrect: 10, totalTimeSpentMs: 120000, lastAttemptTime: 1000 }
-  }));
+  let tabletSessions = {};
+  for (let i = 0; i < 10; i++) tabletSessions = PSAT_ENGINE.recordDailySession(tabletSessions, true, 10000, '2026-08-25', true);
+  for (let i = 0; i < 2; i++) tabletSessions = PSAT_ENGINE.recordDailySession(tabletSessions, false, 10000, '2026-08-25', true);
+  morningTabletStore.setItem('psat_sessions', JSON.stringify(tabletSessions));
+
   morningTabletStore.setItem('psat_progress', JSON.stringify({
     'q1': { answered: true, isCorrect: false, timeSpentMs: 25000, timestamp: 1000 }
   }));
-  morningTabletStore.setItem('psat_srs', JSON.stringify({
-    'q1': { repetitions: 1, easeFactor: 2.3, lastReviewedDate: 1000 }
-  }));
+
+  const tabletCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 2, 1000); // Fail at t=1000
+  morningTabletStore.setItem('psat_srs', JSON.stringify({ 'q1': tabletCard }));
 
   // Tablet pushes to cloud
   await PSAT_ENGINE.pushToCloud(morningTabletStore, mockFetch, 'default_student');
 
-  // Evening Laptop has 5 attempts (4 correct) on the same day, and re-attempted q1 at t=2000 (correct)
+  // Evening Laptop: 4 correct, 1 incorrect, and passed q1 at t=2000
   const eveningLaptopStore = new MockStorage();
-  eveningLaptopStore.setItem('psat_sessions', JSON.stringify({
-    '2026-08-25': { totalAnswered: 5, totalCorrect: 4, totalTimeSpentMs: 60000, lastAttemptTime: 2000 }
-  }));
+  let laptopSessions = {};
+  for (let i = 0; i < 4; i++) laptopSessions = PSAT_ENGINE.recordDailySession(laptopSessions, true, 10000, '2026-08-25', true);
+  for (let i = 0; i < 1; i++) laptopSessions = PSAT_ENGINE.recordDailySession(laptopSessions, false, 10000, '2026-08-25', true);
+  eveningLaptopStore.setItem('psat_sessions', JSON.stringify(laptopSessions));
+
   eveningLaptopStore.setItem('psat_progress', JSON.stringify({
     'q1': { answered: true, isCorrect: true, timeSpentMs: 20000, timestamp: 2000 }
   }));
-  eveningLaptopStore.setItem('psat_srs', JSON.stringify({
-    'q1': { repetitions: 2, easeFactor: 2.6, lastReviewedDate: 2000 }
-  }));
+
+  const laptopCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 5, 2000); // Pass at t=2000
+  eveningLaptopStore.setItem('psat_srs', JSON.stringify({ 'q1': laptopCard }));
 
   // Laptop pulls from cloud
   const pullRes1 = await PSAT_ENGINE.pullFromCloud(eveningLaptopStore, mockFetch, 'default_student');
@@ -429,16 +433,18 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(pullRes1.updated, true);
 
   const mergedSessions = JSON.parse(eveningLaptopStore.getItem('psat_sessions'));
-  assert.strictEqual(mergedSessions['2026-08-25'].totalAnswered, 17, 'Same-day session totalAnswered must be additive (12 + 5 = 17)');
-  assert.strictEqual(mergedSessions['2026-08-25'].totalCorrect, 14, 'Same-day session totalCorrect must be additive (10 + 4 = 14)');
-  assert.strictEqual(mergedSessions['2026-08-25'].totalTimeSpentMs, 180000);
+  assert.strictEqual(mergedSessions['2026-08-25'].questionsAnswered, 17, 'Same-day session questionsAnswered must be additive (12 + 5 = 17)');
+  assert.strictEqual(mergedSessions['2026-08-25'].correct, 14, 'Same-day session correct must be additive (10 + 4 = 14)');
+  assert.strictEqual(mergedSessions['2026-08-25'].totalTimeMs, 170000);
+  assert.strictEqual(PSAT_ENGINE.calculateStreak(mergedSessions, '2026-08-25'), 1, 'calculateStreak must find active streak from merged session');
 
   const mergedProgress = JSON.parse(eveningLaptopStore.getItem('psat_progress'));
   assert.strictEqual(mergedProgress['q1'].isCorrect, true, 'Newer attempt at t=2000 must win over older attempt at t=1000');
   assert.strictEqual(mergedProgress['q1'].timestamp, 2000);
 
   const mergedSrs = JSON.parse(eveningLaptopStore.getItem('psat_srs'));
-  assert.strictEqual(mergedSrs['q1'].easeFactor, 2.6, 'Newer SRS state at t=2000 must win');
+  assert.strictEqual(mergedSrs['q1'].lastReviewedAt, 2000, 'Newer SRS card at t=2000 must win');
+  assert.strictEqual(mergedSrs['q1'].easeFactor, 2.6);
 
   // 2. 120-exam cloud pull capped at 15 exams & local size test
   const manyExams = [];
