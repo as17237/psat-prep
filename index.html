@@ -70,9 +70,9 @@
             <div class="w-px h-3 bg-slate-300"></div>
             <div class="text-slate-600">Accuracy: <span id="hdr-accuracy" class="text-emerald-600 font-bold">0%</span></div>
           </div>
-          <div id="hdr-cloud-badge" class="hidden sm:flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200" title="Automatic Azure Cosmos DB cloud synchronization">
+          <button id="hdr-cloud-badge" onclick="manualTriggerCloudSync()" class="hidden sm:flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors" title="Click to synchronize with Azure Cosmos DB">
             <i data-lucide="cloud" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Cosmos DB: Connecting...
-          </div>
+          </button>
           <a href="feedback.html" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1"></i> Feedback
           </a>
@@ -1086,6 +1086,38 @@
       } else {
         alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
         return;
+      }
+    }
+
+    function manualTriggerCloudSync() {
+      const el = document.getElementById('hdr-cloud-badge');
+      if (el) {
+        el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
+        lucide.createIcons();
+      }
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+        PSAT_ENGINE.pushToCloud(localStorage).then(pushRes => {
+          if (pushRes && pushRes.success) {
+            return PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage);
+          }
+          return pushRes;
+        }).then(pullRes => {
+          if (el) {
+            if (pullRes && pullRes.success) {
+              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
+              alert('Successfully synchronized student test results with Cosmos DB!');
+            } else {
+              el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+              alert('Sync notice: Could not connect to Cosmos DB.');
+            }
+            lucide.createIcons();
+          }
+        }).catch(() => {
+          if (el) {
+            el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+            lucide.createIcons();
+          }
+        });
       }
     }
 
@@ -3075,6 +3107,10 @@
             if (el) {
               el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
               lucide.createIcons();
+            }
+            // Push local test history to Cosmos DB so offline/unsynced attempts are immediately published
+            if (typeof PSAT_ENGINE.pushToCloud === 'function') {
+              PSAT_ENGINE.pushToCloud(localStorage);
             }
           } else {
             if (el) {
