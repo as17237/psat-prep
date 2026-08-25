@@ -1319,31 +1319,11 @@
     function restoreRealStudentData() {
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
         PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+        location.reload();
       } else {
-        const backup = safeGetStorage('psat_pre_sample_backup', null);
-        if (backup) {
-          if (backup.progress) safeSetStorage('psat_progress', backup.progress);
-          else localStorage.removeItem('psat_progress');
-
-          if (backup.srsState) safeSetStorage('psat_srs', backup.srsState);
-          else localStorage.removeItem('psat_srs');
-
-          if (backup.sessionsState) safeSetStorage('psat_sessions', backup.sessionsState);
-          else localStorage.removeItem('psat_sessions');
-
-          if (backup.examHistory) safeSetStorage('psat_exam_history', backup.examHistory);
-          else localStorage.removeItem('psat_exam_history');
-        } else {
-          localStorage.removeItem('psat_progress');
-          localStorage.removeItem('psat_srs');
-          localStorage.removeItem('psat_sessions');
-          localStorage.removeItem('psat_exam_history');
-        }
-
-        localStorage.removeItem('psat_sample_data_active');
-        localStorage.removeItem('psat_pre_sample_backup');
+        alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
+        return;
       }
-      location.reload();
     }
 
     function exportAuditTrail() {

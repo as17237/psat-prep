@@ -1079,11 +1079,11 @@
     function restoreRealStudentData() {
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
         PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+        location.reload();
       } else {
-        localStorage.removeItem('psat_sample_data_active');
-        localStorage.removeItem('psat_pre_sample_backup');
+        alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
+        return;
       }
-      location.reload();
     }
 
     function saveProgress() {
