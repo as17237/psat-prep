@@ -595,8 +595,25 @@
     function safeSetStorage(key, val) {
       try {
         localStorage.setItem(key, JSON.stringify(val));
+        return true;
       } catch (e) {
         console.error('Storage write error for key:', key, e);
+        try {
+          // Self-healing: remove obsolete non-demo backup and prune exam history to lean format
+          if (localStorage.getItem('psat_sample_data_active') !== 'true') {
+            localStorage.removeItem('psat_pre_sample_backup');
+          }
+          let h = safeGetStorage('psat_exam_history', []);
+          if (Array.isArray(h) && h.length > 0) {
+            let leanH = h.slice(0, 5).map(item => (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.toLeanReport) ? PSAT_ENGINE.toLeanReport(item) : item);
+            localStorage.setItem('psat_exam_history', JSON.stringify(leanH));
+          }
+          localStorage.setItem(key, JSON.stringify(val));
+          return true;
+        } catch (e2) {
+          console.error('Self-healing storage pruning failed:', e2);
+          return false;
+        }
       }
     }
 

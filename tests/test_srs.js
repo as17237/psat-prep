@@ -495,10 +495,8 @@ const mockFetch = async (url, opts) => {
   rollbackStore.setItem('psat_progress', JSON.stringify({ 'orig_q': { isCorrect: true } }));
   // psat_srs does not exist initially
 
-  let writeCount = 0;
   const failingSetter = (key, val) => {
-    writeCount++;
-    if (writeCount === 3) return false; // Fail on 3rd write (sessions)
+    if (key === 'psat_sessions') return false; // Consistently fail on sessions write
     rollbackStore.setItem(key, JSON.stringify(val));
     return true;
   };
