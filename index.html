@@ -70,6 +70,9 @@
             <div class="w-px h-3 bg-slate-300"></div>
             <div class="text-slate-600">Accuracy: <span id="hdr-accuracy" class="text-emerald-600 font-bold">0%</span></div>
           </div>
+          <div id="hdr-cloud-badge" class="hidden sm:flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200" title="Automatic Azure Cosmos DB cloud synchronization">
+            <i data-lucide="cloud" class="w-3.5 h-3.5 text-indigo-500 mr-1"></i> Cosmos DB Active
+          </div>
           <a href="feedback.html" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1"></i> Feedback
           </a>
@@ -1086,6 +1089,22 @@
       }
     }
 
+    let cloudPushDebounce = null;
+    function triggerCloudSync() {
+      if (cloudPushDebounce) clearTimeout(cloudPushDebounce);
+      cloudPushDebounce = setTimeout(() => {
+        if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+          PSAT_ENGINE.pushToCloud(localStorage).then(res => {
+            const el = document.getElementById('hdr-cloud-badge');
+            if (el && res && res.success) {
+              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
+              lucide.createIcons();
+            }
+          }).catch(() => {});
+        }
+      }, 1500);
+    }
+
     function saveProgress() {
       const ok1 = safeSetStorage('psat_progress', progress);
       const ok2 = safeSetStorage('psat_srs', srsState);
@@ -1097,6 +1116,7 @@
 
       updateHeaderStats();
       renderPalette();
+      triggerCloudSync();
     }
 
     function showStorageWarningBanner() {
@@ -2371,6 +2391,11 @@
       if (examHistory.length > 15) examHistory = examHistory.slice(0, 15);
       safeSetStorage('psat_exam_history', examHistory);
 
+      // Instantly push completed exam report to Azure Cosmos DB
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+        PSAT_ENGINE.pushToCloud(localStorage);
+      }
+
       // Clear in-progress exam state once completed
       clearActiveExamState();
 
@@ -3022,6 +3047,25 @@
           count: countParam
         });
         startCustomTestDirect(filtered);
+      }
+
+      // Automatic cloud sync on app start
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+        PSAT_ENGINE.pullFromCloud(localStorage).then(res => {
+          if (res && res.success && res.updated) {
+            progress = safeGetStorage('psat_progress', {});
+            srsState = safeGetStorage('psat_srs', {});
+            sessionsState = safeGetStorage('psat_sessions', {});
+            updateHeaderStats();
+            renderPalette();
+            renderExamLobbyHistory();
+            const el = document.getElementById('hdr-cloud-badge');
+            if (el) {
+              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
+              lucide.createIcons();
+            }
+          }
+        }).catch(() => {});
       }
     });
   </script>

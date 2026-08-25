@@ -1003,6 +1003,87 @@
     return rehydrated;
   }
 
+  var CLOUD_SYNC_ENDPOINT = 'https://psat-api-4915.azurewebsites.net/api/sync';
+
+  /**
+   * Pushes progress and exam history to Cosmos DB cloud API.
+   */
+  function pushToCloud(store, customFetch, studentName) {
+    var sName = studentName || 'default_student';
+    var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!fetchFn) return Promise.resolve({ success: false, reason: 'no_fetch' });
+    if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+
+    var progress = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
+    var srs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
+    var sessions = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
+    var history = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
+
+    var payload = {
+      student_name: sName,
+      progress: progress,
+      srsState: srs,
+      sessionsState: sessions,
+      examHistory: history,
+      clientTimestamp: new Date().toISOString()
+    };
+
+    return fetchFn(CLOUD_SYNC_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function(res) {
+      return res.json();
+    }).catch(function(err) {
+      return { success: false, error: err.message };
+    });
+  }
+
+  /**
+   * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
+   */
+  function pullFromCloud(store, customFetch, studentName) {
+    var sName = studentName || 'default_student';
+    var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!fetchFn) return Promise.resolve({ success: false, reason: 'no_fetch' });
+    if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+
+    return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
+      .then(function(res) { return res.json(); })
+      .then(function(result) {
+        if (result && result.success && result.exists && result.data) {
+          var cloud = result.data;
+          var localProg = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
+          var localHist = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
+          var localSess = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
+          var localSrs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
+
+          var mergedProg = Object.assign({}, cloud.progress || {}, localProg);
+          var mergedSrs = Object.assign({}, cloud.srsState || {}, localSrs);
+          var mergedSess = Object.assign({}, cloud.sessionsState || {}, localSess);
+
+          var histMap = {};
+          (cloud.examHistory || []).forEach(function(h) { if (h && (h.examId || h.completedAt)) histMap[h.examId || h.completedAt] = h; });
+          localHist.forEach(function(h) { if (h && (h.examId || h.completedAt)) histMap[h.examId || h.completedAt] = h; });
+          var mergedHist = Object.values(histMap).sort(function(a, b) {
+            return (b.completedAt || 0) - (a.completedAt || 0);
+          });
+
+          if (store && store.setItem) {
+            store.setItem('psat_progress', JSON.stringify(mergedProg));
+            store.setItem('psat_srs', JSON.stringify(mergedSrs));
+            store.setItem('psat_sessions', JSON.stringify(mergedSess));
+            store.setItem('psat_exam_history', JSON.stringify(mergedHist));
+          }
+
+          return { success: true, updated: true, data: cloud, mergedHistoryCount: mergedHist.length };
+        }
+        return { success: true, updated: false };
+      }).catch(function(err) {
+        return { success: false, error: err.message };
+      });
+  }
+
   return {
     localDateKey: localDateKey,
     parseNumeric: parseNumeric,
@@ -1025,6 +1106,8 @@
     backupRealData: backupRealData,
     restoreRealData: restoreRealData,
     toLeanReport: toLeanReport,
-    rehydrateReport: rehydrateReport
+    rehydrateReport: rehydrateReport,
+    pushToCloud: pushToCloud,
+    pullFromCloud: pullFromCloud
   };
 });

@@ -42,6 +42,9 @@
           <a href="feedback.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1.5"></i> Feedback
           </a>
+          <button onclick="syncParentFromCloud(true)" id="btn-cloud-sync" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200" title="Fetch latest test results and attempts from Azure Cosmos DB">
+            <i data-lucide="cloud" class="w-4 h-4 mr-1.5 text-emerald-600"></i> <span id="cloud-sync-status-text">Cosmos DB Sync</span>
+          </button>
           <button id="btn-load-sample-data" onclick="loadSampleDiagnosticSession()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-amber-200" title="Instantly load sample practice and completed exam data to preview all dashboard analytics">
             <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-amber-600"></i> Load Sample Data
           </button>
@@ -599,11 +602,34 @@
 
     let currentGapCount = 20;
 
+    function syncParentFromCloud(isManual = false) {
+      const txt = document.getElementById('cloud-sync-status-text');
+      if (txt) txt.innerText = 'Syncing...';
+      
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+        PSAT_ENGINE.pullFromCloud(localStorage).then(res => {
+          if (res && res.success && res.updated) {
+            renderParentMetrics();
+            if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+            if (isManual) alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+          } else {
+            if (txt) txt.innerText = 'Cosmos DB Sync';
+            if (isManual) alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+          }
+          lucide.createIcons();
+        }).catch(err => {
+          if (txt) txt.innerText = 'Cosmos DB Sync';
+          console.warn('Sync failed:', err);
+        });
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       renderParentMetrics();
       initCustomDomainSkills();
       setGapCount(20);
+      syncParentFromCloud(false);
     });
 
     function renderParentMetrics() {

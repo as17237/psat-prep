@@ -361,7 +361,56 @@ assert.deepStrictEqual(JSON.parse(mockStore.getItem('psat_exam_history')), realI
 assert.strictEqual(mockStore.getItem('psat_sample_data_active'), null, 'psat_sample_data_active flag must be cleared');
 assert.strictEqual(mockStore.getItem('psat_pre_sample_backup'), null, 'psat_pre_sample_backup must be cleared');
 
-console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, and Scoring tests passed!');
+// L: Cloud Sync (Cosmos DB Sync Push & Pull Simulation)
+let mockCloudDb = {};
+const mockFetch = async (url, opts) => {
+  if (!opts || opts.method === 'GET' || !opts.method) {
+    return {
+      ok: true,
+      json: async () => ({
+        success: true,
+        exists: Boolean(mockCloudDb.default_student),
+        data: mockCloudDb.default_student || null
+      })
+    };
+  }
+  if (opts.method === 'POST') {
+    const body = JSON.parse(opts.body);
+    mockCloudDb[body.student_name || 'default_student'] = body;
+    return {
+      ok: true,
+      json: async () => ({ success: true, updatedAt: Date.now() })
+    };
+  }
+};
+
+(async () => {
+  // Device A (Student Laptop) completes a 20-question test and pushes to cloud
+  const studentStore = new MockStorage();
+  studentStore.setItem('psat_progress', JSON.stringify({ 'q_student_1': { answered: true, isCorrect: true, timeSpentMs: 30000 } }));
+  studentStore.setItem('psat_exam_history', JSON.stringify([{ examId: 'gap_drill_20q', overallAccuracyPercent: 90, totalQuestions: 20, totalCorrect: 18 }]));
+
+  const pushRes = await PSAT_ENGINE.pushToCloud(studentStore, mockFetch, 'default_student');
+  assert.strictEqual(pushRes.success, true, 'Student push to Cosmos DB cloud API must succeed');
+  assert.strictEqual(mockCloudDb.default_student.examHistory.length, 1, 'Cloud DB must receive the completed exam');
+
+  // Device B (Parent Computer) starts empty and pulls from cloud
+  const parentStore = new MockStorage();
+  const pullRes = await PSAT_ENGINE.pullFromCloud(parentStore, mockFetch, 'default_student');
+  assert.strictEqual(pullRes.success, true, 'Parent pull from Cosmos DB cloud API must succeed');
+  assert.strictEqual(pullRes.updated, true, 'Parent store must be updated with student work');
+  assert.strictEqual(pullRes.mergedHistoryCount, 1, 'Parent store must have 1 merged exam');
+
+  const parentHistory = JSON.parse(parentStore.getItem('psat_exam_history'));
+  assert.strictEqual(parentHistory[0].examId, 'gap_drill_20q');
+  assert.strictEqual(parentHistory[0].totalQuestions, 20);
+
+  const parentProgress = JSON.parse(parentStore.getItem('psat_progress'));
+  assert.strictEqual(parentProgress['q_student_1'].isCorrect, true);
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, Scoring, and Cosmos DB Cloud Sync tests passed!');
+})();
+
 
 
 

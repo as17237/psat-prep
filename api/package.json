@@ -1,0 +1,10 @@
+{
+  "name": "psat-api",
+  "version": "1.0.0",
+  "description": "PSAT Prep Cosmos DB Cloud Sync API",
+  "main": "src/functions/*.js",
+  "dependencies": {
+    "@azure/functions": "^4.6.0",
+    "@azure/cosmos": "^4.2.0"
+  }
+}
