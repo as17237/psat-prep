@@ -442,9 +442,16 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(mergedProgress['q1'].isCorrect, true, 'Newer attempt at t=2000 must win over older attempt at t=1000');
   assert.strictEqual(mergedProgress['q1'].timestamp, 2000);
 
-  const mergedSrs = JSON.parse(eveningLaptopStore.getItem('psat_srs'));
-  assert.strictEqual(mergedSrs['q1'].lastReviewedAt, 2000, 'Newer SRS card at t=2000 must win');
-  assert.strictEqual(mergedSrs['q1'].easeFactor, 2.6);
+  // Test newer failure vs older pass (where older pass had a much larger dueAt)
+  const monCardPass = PSAT_ENGINE.scheduleNext({ repetitions: 2, intervalDays: 6, easeFactor: 2.5 }, 5, 1000); // Mon pass: interval=15, dueAt=1000+15d
+  const tueCardFail = PSAT_ENGINE.scheduleNext(monCardPass, 1, 2000); // Tue fail: interval=1, dueAt=2000+1d
+  assert.ok(monCardPass.dueAt > tueCardFail.dueAt, 'Precondition: older pass dueAt dominates newer fail dueAt');
+
+  const mergedSrsDirect = PSAT_ENGINE.mergeSrsState({ 'q_fail': monCardPass }, { 'q_fail': tueCardFail });
+  assert.strictEqual(mergedSrsDirect['q_fail'].lastReviewedAt, 2000, 'Newer review timestamp must win');
+  assert.strictEqual(mergedSrsDirect['q_fail'].intervalDays, 1, 'Failed review interval of 1 day must not be overwritten by older 15-day pass');
+  assert.strictEqual(mergedSrsDirect['q_fail'].repetitions, 0, 'Repetitions must reset to 0 on failure');
+  assert.strictEqual(mergedSrsDirect['q_fail'].lastGrade, 1, 'Last grade must be failure (1)');
 
   // 2. 120-exam cloud pull capped at 15 exams & local size test
   const manyExams = [];
@@ -481,6 +488,27 @@ const mockFetch = async (url, opts) => {
   const failRes = await PSAT_ENGINE.pullFromCloud(testStore, mockFetch, 'default_student');
   assert.strictEqual(failRes.success, false, 'Failed server response must return success: false');
   assert.strictEqual(failRes.error, 'HTTP_500', 'Error code must report HTTP status');
+
+  // 4. Partial Quota Failure Rollback Test
+  mockServerFail = false;
+  const rollbackStore = new MockStorage();
+  rollbackStore.setItem('psat_progress', JSON.stringify({ 'orig_q': { isCorrect: true } }));
+  // psat_srs does not exist initially
+
+  let writeCount = 0;
+  const failingSetter = (key, val) => {
+    writeCount++;
+    if (writeCount === 3) return false; // Fail on 3rd write (sessions)
+    rollbackStore.setItem(key, JSON.stringify(val));
+    return true;
+  };
+
+  const quotaFailRes = await PSAT_ENGINE.pullFromCloud(rollbackStore, mockFetch, 'default_student', failingSetter);
+  assert.strictEqual(quotaFailRes.success, false);
+  assert.strictEqual(quotaFailRes.quotaExceeded, true);
+  // Assert original state is restored
+  assert.deepStrictEqual(JSON.parse(rollbackStore.getItem('psat_progress')), { 'orig_q': { isCorrect: true } }, 'Progress must be rolled back');
+  assert.strictEqual(rollbackStore.getItem('psat_srs'), null, 'Non-existent initial keys must be removed on rollback');
 
   console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, Scoring, and Cosmos DB Cloud Sync tests passed!');
 })();

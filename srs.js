@@ -1079,8 +1079,8 @@
       var l = local[qid];
 
       if (c && l) {
-        var cTime = Math.max(c.lastReviewedAt || 0, c.dueAt || 0, c.timestamp || 0);
-        var lTime = Math.max(l.lastReviewedAt || 0, l.dueAt || 0, l.timestamp || 0);
+        var cTime = (typeof c.lastReviewedAt === 'number') ? c.lastReviewedAt : (c.timestamp || 0);
+        var lTime = (typeof l.lastReviewedAt === 'number') ? l.lastReviewedAt : (l.timestamp || 0);
         merged[qid] = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
       } else if (c) {
         merged[qid] = Object.assign({}, c);
@@ -1213,11 +1213,22 @@
 
             if (!ok1 || !ok2 || !ok3 || !ok4) {
               // Rollback to original uncorrupted state on partial quota write failure
-              if (store && store.setItem) {
-                if (localProgRaw !== null) store.setItem('psat_progress', localProgRaw);
-                if (localSrsRaw !== null) store.setItem('psat_srs', localSrsRaw);
-                if (localSessRaw !== null) store.setItem('psat_sessions', localSessRaw);
-                if (localHistRaw !== null) store.setItem('psat_exam_history', localHistRaw);
+              try {
+                if (store) {
+                  if (localProgRaw !== null && store.setItem) store.setItem('psat_progress', localProgRaw);
+                  else if (store.removeItem) store.removeItem('psat_progress');
+
+                  if (localSrsRaw !== null && store.setItem) store.setItem('psat_srs', localSrsRaw);
+                  else if (store.removeItem) store.removeItem('psat_srs');
+
+                  if (localSessRaw !== null && store.setItem) store.setItem('psat_sessions', localSessRaw);
+                  else if (store.removeItem) store.removeItem('psat_sessions');
+
+                  if (localHistRaw !== null && store.setItem) store.setItem('psat_exam_history', localHistRaw);
+                  else if (store.removeItem) store.removeItem('psat_exam_history');
+                }
+              } catch (rollbackErr) {
+                console.error('Error during storage rollback:', rollbackErr);
               }
               return { success: false, error: 'Storage quota exceeded while writing merged data', quotaExceeded: true };
             }
