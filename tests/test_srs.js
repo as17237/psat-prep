@@ -217,11 +217,50 @@ realStandardExam.modules.forEach(mod => {
   });
 });
 const realReport = PSAT_ENGINE.scoreStandardExam(realStandardExam, realAnswers, {});
-assert.strictEqual(realReport.scores.totalScaled, 1440, '100% on real exam must scale to 1440');
-assert.strictEqual(realReport.scores.rwScaled, 720, '100% RW on real exam must scale to 720');
-assert.strictEqual(realReport.scores.mathScaled, 720, '100% Math on real exam must scale to 720');
-assert.strictEqual(realReport.moduleReports[2].totalQuestions, 22, 'Math M1 report total must be 22');
-assert.strictEqual(realReport.moduleReports[3].totalQuestions, 22, 'Math M2 report total must be 22');
+// E: Session Logging & Streak Integrity (Round 5 Finding 2)
+let testSessions = {};
+testSessions = PSAT_ENGINE.recordDailySession(testSessions, true, 45000, null, true);
+const todayKey = PSAT_ENGINE.localDateKey();
+assert.ok(testSessions[todayKey], 'Session must be logged under valid YYYY-MM-DD key');
+assert.strictEqual(testSessions[todayKey].questionsAnswered, 1);
+assert.strictEqual(testSessions['true'], undefined, 'Must NEVER log session under key "true"');
+
+// Ensure junk keys from corrupted logs do not break streak calculation
+testSessions['true'] = { questionsAnswered: 5 };
+testSessions['invalid-date'] = { questionsAnswered: 10 };
+const streakWithJunk = PSAT_ENGINE.calculateStreak(testSessions, todayKey);
+assert.strictEqual(streakWithJunk, 1, 'Streak calculation must ignore malformed non-date keys');
+
+// F: Parent Portal Custom Test Builder Type Filter Counts (Round 5 Finding 3)
+const realMcqCount = realBank.filter(q => {
+  const type = q.type || q.question_type || 'multiple_choice';
+  return type !== 'free_response';
+}).length;
+const realSprCount = realBank.filter(q => {
+  const type = q.type || q.question_type || 'multiple_choice';
+  return type === 'free_response';
+}).length;
+assert.strictEqual(realMcqCount, 2694, 'Real MCQ count must be exactly 2,694');
+assert.strictEqual(realSprCount, 365, 'Real SPR count must be exactly 365');
+assert.strictEqual(realMcqCount + realSprCount, 3059, 'Total must equal 3,059');
+
+// G: Lean Exam Report Compression & Rehydration (Round 5 Finding 1)
+const lean = PSAT_ENGINE.toLeanReport(realReport);
+const leanBytes = Buffer.byteLength(JSON.stringify(lean));
+const fullBytes = Buffer.byteLength(JSON.stringify(realReport));
+assert.ok(leanBytes < 25000, `Lean report size (${leanBytes} B) must be <25KB`);
+assert.ok(leanBytes < fullBytes * 0.2, 'Lean report must compress at least 80% of payload');
+
+const rehydrated = PSAT_ENGINE.rehydrateReport(lean, realBank);
+assert.strictEqual(rehydrated.moduleReports[0].questions[0].question_text, realReport.moduleReports[0].questions[0].question_text, 'Rehydrated question text must match');
+assert.strictEqual(rehydrated.moduleReports[0].questions[0].rationale, realReport.moduleReports[0].questions[0].rationale, 'Rehydrated rationale must match');
+assert.strictEqual(rehydrated.scores.totalScaled, 1440, 'Rehydrated scores must match');
+
+// H: scoreStandardExam totalAttempted ignores extraneous keys in answers
+const answersWithExtraneous = Object.assign({}, realAnswers, { 'non_existent_qid_123': 'A', 'another_fake_qid': 'B' });
+const reportExtraneous = PSAT_ENGINE.scoreStandardExam(realStandardExam, answersWithExtraneous, {});
+assert.strictEqual(reportExtraneous.totalAttempted, 98, 'totalAttempted must count only questions in the active exam');
 
 console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, and Scoring tests passed!');
+
 

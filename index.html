@@ -486,6 +486,27 @@
       <!-- Subview A: Exam Lobby / Selection Screen -->
       <div id="exam-lobby" class="space-y-6">
         
+        <!-- In-Progress Exam Resume Banner -->
+        <div id="exam-resume-banner" class="hidden bg-amber-500 text-slate-950 p-5 rounded-2xl shadow-lg border border-amber-400 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-in fade-in duration-200">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black">
+              <i data-lucide="play-circle" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 id="resume-exam-title" class="text-base font-black text-slate-950">In-Progress Exam Available</h3>
+              <p id="resume-exam-details" class="text-xs font-semibold text-slate-900">You have an unfinished test session saved.</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2.5 shrink-0">
+            <button onclick="discardActiveExamState()" class="px-3.5 py-2 bg-slate-900/10 hover:bg-slate-900/20 text-slate-950 font-bold text-xs rounded-xl transition-all">
+              Discard
+            </button>
+            <button onclick="resumeActiveExamState()" class="px-5 py-2 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all flex items-center">
+              Resume Test &rarr;
+            </button>
+          </div>
+        </div>
+
         <!-- Standard PSAT 8/9 Full-Length Simulation Card -->
         <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -805,7 +826,7 @@
         <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl space-y-6">
           <div class="flex flex-wrap items-center justify-between border-b border-indigo-800/60 pb-4 gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 px-3 py-1 rounded-full border border-emerald-800">
-              Official PSAT 8/9 Score Report
+              Estimated PSAT 8/9 Score Report (Practice-Based Scaled Projection)
             </span>
             <span id="report-date" class="text-xs text-slate-300 font-mono">—</span>
           </div>
@@ -814,12 +835,13 @@
             
             <!-- Composite Score -->
             <div class="space-y-1 border-b lg:border-b-0 lg:border-r border-indigo-800/60 pb-6 lg:pb-0 lg:pr-8">
-              <span class="text-xs font-semibold text-slate-400 uppercase">Composite Scaled Score</span>
+              <span class="text-xs font-semibold text-slate-400 uppercase">Composite Scaled Score (240–1440)</span>
               <div class="flex items-baseline space-x-3 pt-1">
                 <h2 id="report-total-score" class="text-5xl font-black text-white">1390</h2>
                 <span class="text-xl font-semibold text-slate-400">/ 1440</span>
               </div>
               <p id="report-accuracy-summary" class="text-xs text-emerald-400 font-medium">Overall Accuracy: 94% (92 / 98 Correct)</p>
+              <p class="text-[11px] text-slate-400 leading-tight pt-1">Score estimated from section accuracy scaled to the 240–1440 PSAT 8/9 composite range.</p>
             </div>
 
             <!-- Section Scores -->
@@ -910,8 +932,23 @@
     function safeSetStorage(key, val) {
       try {
         localStorage.setItem(key, JSON.stringify(val));
+        return true;
       } catch (e) {
         console.error('Storage write or quota error for key:', key, e);
+        // If quota exceeded and we have exam history, prune older exam history to rescue critical progress
+        if (key !== 'psat_exam_history') {
+          try {
+            let h = safeGetStorage('psat_exam_history', []);
+            if (h.length > 5) {
+              localStorage.setItem('psat_exam_history', JSON.stringify(h.slice(0, 5)));
+              localStorage.setItem(key, JSON.stringify(val));
+              return true;
+            }
+          } catch (e2) {
+            console.error('Recovery pruning failed:', e2);
+          }
+        }
+        return false;
       }
     }
 
@@ -1912,6 +1949,7 @@
 
       renderExamPalettePills();
       setExamViewMode(examViewMode);
+      persistActiveExamState();
       lucide.createIcons();
     }
 
@@ -1951,18 +1989,21 @@
       examUserAnswers[q.id] = choice;
       renderExamMcqOptions(q);
       renderExamPalettePills();
+      persistActiveExamState();
     }
 
     function recordExamSprAnswer(val) {
       const q = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
       examUserAnswers[q.id] = val.trim();
       renderExamPalettePills();
+      persistActiveExamState();
     }
 
     function toggleExamMarkForReview() {
       const q = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
       examMarkedForReview[q.id] = document.getElementById('exam-mark-review').checked;
       renderExamPalettePills();
+      persistActiveExamState();
     }
 
     function setExamViewMode(mode) {
@@ -2200,18 +2241,22 @@
 
             const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
             srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now());
-            sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, isReliable);
+            sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, null, isReliable);
             savedCount++;
           }
         });
       });
       saveProgress();
 
-      // Automatically persist the full score report to Exam History (Last 50 exams)
+      // Automatically persist lean score report to Exam History (Capped at 15 exams to protect localStorage quota)
+      const leanReport = PSAT_ENGINE.toLeanReport(currentExamReport);
       let examHistory = safeGetStorage('psat_exam_history', []);
-      examHistory.unshift(currentExamReport);
-      if (examHistory.length > 50) examHistory = examHistory.slice(0, 50);
+      examHistory.unshift(leanReport);
+      if (examHistory.length > 15) examHistory = examHistory.slice(0, 15);
       safeSetStorage('psat_exam_history', examHistory);
+
+      // Clear in-progress exam state once completed
+      clearActiveExamState();
 
       // Render score report and update lobby
       renderExamLobbyHistory();
@@ -2220,20 +2265,23 @@
     }
 
     function renderExamReport(report) {
-      document.getElementById('report-date').innerText = report.formattedDate || new Date(report.completedAt || Date.now()).toLocaleString();
-      document.getElementById('report-total-score').innerText = report.scores.totalScaled;
-      document.getElementById('report-accuracy-summary').innerText = `Overall Accuracy: ${report.overallAccuracyPercent}% (${report.totalCorrect} / ${report.totalQuestions} Correct)`;
-      document.getElementById('report-rw-score').innerText = `${report.scores.rwScaled} / 720`;
-      document.getElementById('report-math-score').innerText = `${report.scores.mathScaled} / 720`;
+      const fullReport = PSAT_ENGINE.rehydrateReport(report, window.QUESTIONS_DATA || questions);
+      currentExamReport = fullReport;
 
-      const totalMins = Math.round(report.totalTimeSpentMs / 60000);
+      document.getElementById('report-date').innerText = fullReport.formattedDate || new Date(fullReport.completedAt || Date.now()).toLocaleString();
+      document.getElementById('report-total-score').innerText = fullReport.scores.totalScaled;
+      document.getElementById('report-accuracy-summary').innerText = `Overall Accuracy: ${fullReport.overallAccuracyPercent}% (${fullReport.totalCorrect} / ${fullReport.totalQuestions} Correct)`;
+      document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwScaled} / 720`;
+      document.getElementById('report-math-score').innerText = `${fullReport.scores.mathScaled} / 720`;
+
+      const totalMins = Math.round(fullReport.totalTimeSpentMs / 60000);
       document.getElementById('report-total-time').innerText = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
 
       // Dynamically render module cards
       const modGrid = document.getElementById('report-modules-grid');
-      if (modGrid && Array.isArray(report.moduleReports)) {
+      if (modGrid && Array.isArray(fullReport.moduleReports)) {
         modGrid.innerHTML = '';
-        report.moduleReports.forEach((m, idx) => {
+        fullReport.moduleReports.forEach((m, idx) => {
           const div = document.createElement('div');
           div.className = 'bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-1';
           div.innerHTML = `
@@ -2256,6 +2304,7 @@
     }
 
     function renderExamLobbyHistory() {
+      checkActiveExamResume();
       const container = document.getElementById('exam-history-container');
       const badge = document.getElementById('exam-history-count-badge');
       if (!container) return;
@@ -2326,11 +2375,108 @@
         alert('Exam report not found in history.');
         return;
       }
-      currentExamReport = found;
+      const fullReport = PSAT_ENGINE.rehydrateReport(found, window.QUESTIONS_DATA || questions);
+      currentExamReport = fullReport;
       renderExamReport(currentExamReport);
       showExamSubview('exam-report');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+    // ============================================================
+    // IN-PROGRESS EXAM STATE PERSISTENCE & RECOVERY CONTROLLERS
+    // ============================================================
+    function persistActiveExamState() {
+      if (!activeExam || document.getElementById('view-exam').classList.contains('hidden')) return;
+      const snapshot = {
+        activeExam: activeExam,
+        currentModuleIndex: currentModuleIndex,
+        currentExamQIndex: currentExamQIndex,
+        examModuleDeadline: examModuleDeadline,
+        examUserAnswers: examUserAnswers,
+        examUserTimes: examUserTimes,
+        examMarkedForReview: examMarkedForReview,
+        examViewMode: examViewMode,
+        savedAt: Date.now()
+      };
+      safeSetStorage('psat_active_exam_state', snapshot);
+    }
+
+    function clearActiveExamState() {
+      try {
+        localStorage.removeItem('psat_active_exam_state');
+      } catch (e) {}
+    }
+
+    function checkActiveExamResume() {
+      const saved = safeGetStorage('psat_active_exam_state', null);
+      const banner = document.getElementById('exam-resume-banner');
+      if (!banner) return;
+      if (saved && saved.activeExam && saved.examModuleDeadline > Date.now()) {
+        const titleEl = document.getElementById('resume-exam-title');
+        const detailsEl = document.getElementById('resume-exam-details');
+        if (titleEl) titleEl.innerText = saved.activeExam.title || 'In-Progress Exam Available';
+        const minsLeft = Math.max(1, Math.round((saved.examModuleDeadline - Date.now()) / 60000));
+        if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${saved.activeExam.modules.length} • ~${minsLeft} min remaining before module expires.`;
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+        if (saved && saved.examModuleDeadline <= Date.now()) {
+          clearActiveExamState();
+        }
+      }
+    }
+
+    function resumeActiveExamState() {
+      const saved = safeGetStorage('psat_active_exam_state', null);
+      if (!saved || !saved.activeExam) return;
+
+      activeExam = saved.activeExam;
+      currentModuleIndex = saved.currentModuleIndex || 0;
+      currentExamQIndex = saved.currentExamQIndex || 0;
+      examUserAnswers = saved.examUserAnswers || {};
+      examUserTimes = saved.examUserTimes || {};
+      examMarkedForReview = saved.examMarkedForReview || {};
+      examModuleDeadline = saved.examModuleDeadline || (Date.now() + 30 * 60000);
+      examViewMode = saved.examViewMode || 'card';
+
+      showExamSubview('exam-active');
+      
+      const mod = activeExam.modules[currentModuleIndex];
+      document.getElementById('exam-active-module-title').innerText = `${esc(mod.section)} — ${esc(mod.name || `Module ${currentModuleIndex + 1}`)}`;
+
+      if (examTimerInterval) clearInterval(examTimerInterval);
+      updateExamTimerDisplay();
+      examTimerInterval = setInterval(() => {
+        const remainingMs = examModuleDeadline - Date.now();
+        if (remainingMs <= 0) {
+          clearInterval(examTimerInterval);
+          updateExamTimerDisplay();
+          showExamToast('Time is up for this module! Directing to module review.');
+          showModuleReviewScreen();
+        } else {
+          updateExamTimerDisplay();
+        }
+      }, 1000);
+
+      loadExamQuestion(currentExamQIndex);
+      lucide.createIcons();
+    }
+
+    function discardActiveExamState() {
+      if (confirm('Are you sure you want to discard your unfinished exam session?')) {
+        clearActiveExamState();
+        checkActiveExamResume();
+      }
+    }
+
+    window.addEventListener('beforeunload', function (e) {
+      if (activeExam && !document.getElementById('view-exam').classList.contains('hidden') && !document.getElementById('exam-active').classList.contains('hidden')) {
+        persistActiveExamState();
+        e.preventDefault();
+        e.returnValue = 'You have an active exam in progress. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    });
 
     function filterReportQuestions(filter) {
       reportFilterMode = filter;

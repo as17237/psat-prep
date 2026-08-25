@@ -222,7 +222,7 @@
    * Appends or updates a daily practice session log in localStorage using local calendar date.
    */
   function recordDailySession(sessionsMap, isCorrect, timeSpentMs, dateStr, timingReliable) {
-    var today = dateStr || localDateKey();
+    var today = (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) ? dateStr : localDateKey();
     var map = sessionsMap || {};
     var entry = map[today] || { date: today, questionsAnswered: 0, correct: 0, totalTimeMs: 0 };
 
@@ -245,7 +245,7 @@
    */
   function calculateStreak(sessionsMap, todayKey) {
     if (!sessionsMap) return 0;
-    var refDate = todayKey || localDateKey();
+    var refDate = (typeof todayKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(todayKey)) ? todayKey : localDateKey();
 
     function parseLocalDayNumber(dStr) {
       var parts = dStr.split('-').map(Number);
@@ -254,9 +254,9 @@
 
     var todayDayNum = parseLocalDayNumber(refDate);
 
-    // Filter to valid past/present dates with answered questions (ignore future-dated entries)
+    // Filter to valid past/present dates with answered questions (ignore future-dated and invalid entries)
     var dates = Object.keys(sessionsMap).filter(function (d) {
-      return sessionsMap[d] && sessionsMap[d].questionsAnswered > 0 && parseLocalDayNumber(d) <= todayDayNum;
+      return /^\d{4}-\d{2}-\d{2}$/.test(d) && sessionsMap[d] && sessionsMap[d].questionsAnswered > 0 && parseLocalDayNumber(d) <= todayDayNum;
     }).sort();
 
     if (dates.length === 0) return 0;
@@ -628,18 +628,26 @@
       });
     });
 
-    // Official PSAT 8/9 Scaled Score Mapping (120 to 720 per section, 240 to 1440 composite)
+    // Practice-based scaled score projection (120 to 720 per section, 240 to 1440 composite)
     var rwScaled = rwTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600))) : 120;
     var mathScaled = mathTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600))) : 120;
     var totalScaled = rwScaled + mathScaled;
     var overallAcc = totalQuestionsCount > 0 ? Math.round(((rwCorrect + mathCorrect) / totalQuestionsCount) * 100) : 0;
+
+    var allExamQIds = {};
+    exam.modules.forEach(function(mod) {
+      mod.questions.forEach(function(q) { allExamQIds[q.id] = true; });
+    });
+    var totalExamAttempted = Object.keys(answers).filter(function(k) {
+      return allExamQIds[k] && answers[k] !== undefined && answers[k] !== null && String(answers[k]).trim() !== '' && String(answers[k]).trim() !== 'Unanswered';
+    }).length;
 
     return {
       examId: exam.id,
       completedAt: Date.now(),
       totalQuestions: totalQuestionsCount,
       totalCorrect: rwCorrect + mathCorrect,
-      totalAttempted: Object.keys(answers).filter(function(k) { return answers[k] !== undefined && answers[k] !== null && String(answers[k]).trim() !== '' && String(answers[k]).trim() !== 'Unanswered'; }).length,
+      totalAttempted: totalExamAttempted,
       overallAccuracyPercent: overallAcc,
       scores: {
         totalScaled: totalScaled, // 240 to 1440
@@ -653,6 +661,81 @@
       totalTimeSpentMs: totalTimeSpentMs,
       moduleReports: moduleReports
     };
+  }
+
+  /**
+   * Strips redundant question payloads (text, rationales, images) to store lean records in localStorage.
+   * Compresses ~200KB full reports to ~8KB per exam (~96% storage reduction).
+   */
+  function toLeanReport(report) {
+    if (!report) return report;
+    return {
+      examId: report.examId,
+      title: report.title || report.examTitle,
+      type: report.type || report.examType,
+      completedAt: report.completedAt,
+      formattedDate: report.formattedDate,
+      totalQuestions: report.totalQuestions,
+      totalCorrect: report.totalCorrect,
+      totalAttempted: report.totalAttempted,
+      overallAccuracyPercent: report.overallAccuracyPercent,
+      scores: report.scores,
+      totalTimeSpentMs: report.totalTimeSpentMs,
+      moduleReports: (report.moduleReports || []).map(function(m) {
+        return {
+          id: m.id,
+          name: m.name,
+          section: m.section,
+          totalQuestions: m.totalQuestions,
+          attempted: m.attempted,
+          correct: m.correct,
+          accuracyPercent: m.accuracyPercent,
+          questions: (m.questions || []).map(function(q) {
+            return {
+              questionId: q.questionId,
+              userAnswer: q.userAnswer,
+              isCorrect: q.isCorrect,
+              answered: q.answered,
+              timeSpentMs: q.timeSpentMs
+            };
+          })
+        };
+      })
+    };
+  }
+
+  /**
+   * Rehydrates a lean exam report with full question text, options, image URLs, and rationales from QUESTIONS_DATA.
+   */
+  function rehydrateReport(leanReport, questionsData) {
+    if (!leanReport) return leanReport;
+    var qMap = {};
+    if (Array.isArray(questionsData)) {
+      questionsData.forEach(function(q) { qMap[q.id] = q; });
+    }
+    var rehydrated = JSON.parse(JSON.stringify(leanReport));
+    if (Array.isArray(rehydrated.moduleReports)) {
+      rehydrated.moduleReports.forEach(function(m) {
+        if (Array.isArray(m.questions)) {
+          m.questions.forEach(function(q) {
+            var original = qMap[q.questionId] || {};
+            q.question_text = original.question_text || original.prompt || q.question_text || '';
+            q.prompt = q.question_text;
+            q.rationale = original.rationale || q.rationale || '';
+            q.image_url = original.image_url || (original.question_image ? 'data/' + original.question_image : '') || q.image_url || '';
+            q.options = original.options || q.options || [];
+            q.correctAnswer = original.correct_answer || q.correctAnswer || '';
+            q.domain = original.domain || q.domain || '';
+            q.skill = original.skill || q.skill || '';
+            q.difficulty = original.difficulty || q.difficulty || '';
+            q.section = original.test || m.section || q.section || '';
+            q.type = original.type || original.question_type || q.type || 'multiple_choice';
+            q.questionType = q.type;
+          });
+        }
+      });
+    }
+    return rehydrated;
   }
 
   return {
@@ -670,6 +753,8 @@
     generateStandardPSAT89Exam: generateStandardPSAT89Exam,
     generateGapTargetedDrill: generateGapTargetedDrill,
     generateCustomTest: generateCustomTest,
-    scoreStandardExam: scoreStandardExam
+    scoreStandardExam: scoreStandardExam,
+    toLeanReport: toLeanReport,
+    rehydrateReport: rehydrateReport
   };
 });

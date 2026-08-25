@@ -767,7 +767,7 @@
         alert('Exam report not found in history.');
         return;
       }
-      parentActiveExamReport = found;
+      parentActiveExamReport = PSAT_ENGINE.rehydrateReport(found, window.QUESTIONS_DATA || []);
       
       document.getElementById('pmod-exam-title').innerText = found.title || 'Practice Exam Score Report';
       document.getElementById('pmod-exam-date').innerText = found.formattedDate || new Date(found.completedAt).toLocaleString();
@@ -1077,8 +1077,9 @@
       questions.forEach(q => {
         if (!selectedSkillsSet.has(q.skill)) return;
         if (diffVal !== 'All' && q.difficulty !== diffVal) return;
-        if (qtypeVal === 'mcq' && q.question_type === 'free_response') return false;
-        if (qtypeVal === 'spr' && q.question_type !== 'free_response') return false;
+        const qType = q.type || q.question_type || 'multiple_choice';
+        if (qtypeVal === 'mcq' && qType === 'free_response') return;
+        if (qtypeVal === 'spr' && qType !== 'free_response') return;
 
         matchingCount++;
         if (q.test === 'Reading and Writing') matchingELA++;
@@ -1718,11 +1719,11 @@
         <div class="space-y-1">
           <div class="flex items-center space-x-2.5">
             <span id="pmod-exam-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-              Official PSAT 8/9 Exam Report
+              Estimated PSAT 8/9 Score Report (Practice-Based Scaled Projection)
             </span>
             <span id="pmod-exam-date" class="text-xs text-slate-400 font-mono">—</span>
           </div>
-          <h3 id="pmod-exam-title" class="text-lg font-bold text-white">Full-Length PSAT 8/9 Exam Score Report</h3>
+          <h3 id="pmod-exam-title" class="text-lg font-bold text-white">PSAT 8/9 Exam Score & Diagnostic Report</h3>
         </div>
 
         <div class="flex items-center space-x-4">
