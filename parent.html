@@ -62,6 +62,24 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
+    <!-- Demo Mode Active Warning Banner -->
+    <div id="parent-demo-mode-banner" class="hidden p-4 sm:p-5 rounded-2xl bg-amber-500 text-slate-950 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2 border-amber-400 animate-in fade-in">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0">
+          <i data-lucide="info" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-black text-slate-950">DEMO MODE ACTIVE — Viewing Synthetic Sample Data</h3>
+          <p class="text-xs font-semibold text-slate-900">Dashboard numbers, streak, and completed reports shown below are sample data. Real student records remain safely archived in local backup.</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <button onclick="restoreRealStudentData()" class="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all">
+          Restore My Real Data &rarr;
+        </button>
+      </div>
+    </div>
+
     <!-- Hero Card: Target Score & Empirical Trajectory -->
     <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
       <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
@@ -585,6 +603,13 @@
     });
 
     function renderParentMetrics() {
+      const isSampleActive = (localStorage.getItem('psat_sample_data_active') === 'true');
+      const demoBanner = document.getElementById('parent-demo-mode-banner');
+      if (demoBanner) {
+        if (isSampleActive) demoBanner.classList.remove('hidden');
+        else demoBanner.classList.add('hidden');
+      }
+
       const questions = window.QUESTIONS_DATA || [];
       const progress = safeGetStorage('psat_progress', {});
       const srsState = safeGetStorage('psat_srs', {});
@@ -766,6 +791,15 @@
         const timeStr = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
         const isStandard = (h.type === 'standard_psat89');
 
+        const hasScaled = (h.scores?.isScaledReady !== false && h.scores?.totalScaled !== null && h.scores?.totalScaled !== undefined);
+        const rwText = hasScaled ? `${h.scores?.rwScaled} / 720` : `${h.scores?.rwCorrect || 0}/${h.scores?.rwTotal || 0} Correct`;
+        const mathText = hasScaled ? `${h.scores?.mathScaled} / 720` : `${h.scores?.mathCorrect || 0}/${h.scores?.mathTotal || 0} Correct`;
+        const scoreBlock = hasScaled ?
+          `<span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Scaled Score</span>
+           <span class="text-3xl font-black text-slate-900">${h.scores?.totalScaled}<span class="text-sm font-normal text-slate-400">/1440</span></span>` :
+          `<span class="text-[10px] text-slate-400 uppercase font-semibold block">Practice Accuracy</span>
+           <span class="text-2xl font-black text-indigo-900">${h.totalCorrect}/${h.totalQuestions} <span class="text-xs font-semibold text-slate-500">(${h.overallAccuracyPercent}%)</span></span>`;
+
         div.innerHTML = `
           <div class="space-y-2">
             <div class="flex flex-wrap items-center gap-2">
@@ -782,11 +816,11 @@
               </div>
               <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
                 <span class="text-[10px] uppercase font-semibold text-slate-400 block">Reading & Writing</span>
-                <span class="font-bold text-indigo-700">${h.scores?.rwScaled || '—'} / 720</span>
+                <span class="font-bold text-indigo-700">${rwText}</span>
               </div>
               <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
                 <span class="text-[10px] uppercase font-semibold text-slate-400 block">Math Section</span>
-                <span class="font-bold text-emerald-700">${h.scores?.mathScaled || '—'} / 720</span>
+                <span class="font-bold text-emerald-700">${mathText}</span>
               </div>
               <div class="bg-white p-2.5 rounded-xl border border-slate-200/80">
                 <span class="text-[10px] uppercase font-semibold text-slate-400 block">Total Exam Time</span>
@@ -797,8 +831,7 @@
 
           <div class="flex flex-col sm:flex-row items-center lg:flex-col lg:items-end justify-between lg:justify-center gap-3 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200">
             <div class="text-left lg:text-right">
-              <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Scaled Score</span>
-              <span class="text-3xl font-black text-slate-900">${h.scores?.totalScaled || '—'}<span class="text-sm font-normal text-slate-400">/1440</span></span>
+              ${scoreBlock}
             </div>
             <button onclick="openParentExamReview('${h.examId}')" class="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center">
               <i data-lucide="file-search" class="w-4 h-4 mr-1.5"></i> Inspect Full Test Review &rarr;
@@ -823,12 +856,15 @@
       }
       parentActiveExamReport = PSAT_ENGINE.rehydrateReport(found, window.QUESTIONS_DATA || []);
       
+      const hasScaled = (found.scores?.isScaledReady !== false && found.scores?.totalScaled !== null && found.scores?.totalScaled !== undefined);
       document.getElementById('pmod-exam-title').innerText = found.title || 'Practice Exam Score Report';
       document.getElementById('pmod-exam-date').innerText = found.formattedDate || new Date(found.completedAt).toLocaleString();
-      document.getElementById('pmod-exam-score').innerHTML = `${found.scores?.totalScaled || '—'} <span class="text-xs font-normal text-slate-400">/ 1440</span>`;
+      document.getElementById('pmod-exam-score').innerHTML = hasScaled ?
+        `${found.scores?.totalScaled} <span class="text-xs font-normal text-slate-400">/ 1440</span>` :
+        `${found.totalCorrect} / ${found.totalQuestions} <span class="text-xs font-normal text-slate-400">(${found.overallAccuracyPercent}%)</span>`;
       document.getElementById('pmod-exam-stats').innerText = `Accuracy: ${found.overallAccuracyPercent}% (${found.totalCorrect} / ${found.totalQuestions})`;
-      document.getElementById('pmod-exam-rw').innerText = `R&W: ${found.scores?.rwScaled || '—'} / 720`;
-      document.getElementById('pmod-exam-math').innerText = `Math: ${found.scores?.mathScaled || '—'} / 720`;
+      document.getElementById('pmod-exam-rw').innerText = hasScaled ? `R&W: ${found.scores?.rwScaled} / 720` : `R&W: ${found.scores?.rwCorrect || 0}/${found.scores?.rwTotal || 0} Correct`;
+      document.getElementById('pmod-exam-math').innerText = hasScaled ? `Math: ${found.scores?.mathScaled} / 720` : `Math: ${found.scores?.mathCorrect || 0}/${found.scores?.mathTotal || 0} Correct`;
 
       filterParentExamQuestions('all');
       document.getElementById('parent-exam-review-modal').classList.remove('hidden');
@@ -1231,10 +1267,22 @@
     }
 
     function loadSampleDiagnosticSession() {
-      if (!confirm('Load realistic sample diagnostic session data? This will populate 24 practice attempts across R&W and Math and 1 completed Mini PSAT 8/9 exam to demonstrate the full parent analytics experience.')) return;
+      const msg = 'Load realistic sample diagnostic session data?\n\n' +
+                  '⚠️ NOTE: Your existing practice attempts and exam reports will be safely archived into a local backup, allowing you to restore your real data at any time with one click.';
+      if (!confirm(msg)) return;
 
       const questions = window.QUESTIONS_DATA || [];
       if (questions.length === 0) return;
+
+      // 1. Back up existing user data before writing sample records
+      const existingBackup = {
+        progress: safeGetStorage('psat_progress', {}),
+        srsState: safeGetStorage('psat_srs', {}),
+        sessionsState: safeGetStorage('psat_sessions', {}),
+        examHistory: safeGetStorage('psat_exam_history', [])
+      };
+      safeSetStorage('psat_pre_sample_backup', existingBackup);
+      localStorage.setItem('psat_sample_data_active', 'true');
 
       const sampleProgress = {};
       const sampleSrs = {};
@@ -1247,11 +1295,28 @@
 
       for (let i = 0; i < shuffled.length && (rwCount < 12 || mathCount < 12); i++) {
         const q = shuffled[i];
+        const isFreeResponse = ((q.type || q.question_type) === 'free_response');
+        
         if (q.test === 'Reading and Writing' && rwCount < 12) {
           rwCount++;
           const isCorrect = (rwCount % 4 !== 0); // 75% accuracy
           const time = isCorrect ? 42000 : 75000;
-          sampleProgress[q.id] = { answered: true, selectedAnswer: isCorrect ? q.correct_answer : 'B', isCorrect: isCorrect, timeSpentMs: time, timingReliable: true, timestamp: Date.now() - (12 - rwCount) * 3600000 };
+          
+          let chosenAnswer = q.correct_answer;
+          if (!isCorrect) {
+            const wrongChoice = ['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A';
+            chosenAnswer = wrongChoice;
+          }
+
+          sampleProgress[q.id] = {
+            answered: true,
+            selectedAnswer: chosenAnswer,
+            isCorrect: isCorrect,
+            timeSpentMs: time,
+            timingReliable: true,
+            isSample: true,
+            timestamp: Date.now() - (12 - rwCount) * 3600000
+          };
           const grade = PSAT_ENGINE.gradeAttempt(isCorrect, time, true);
           sampleSrs[q.id] = PSAT_ENGINE.scheduleNext(null, grade, Date.now() - 3600000);
           sampleSessions[todayKey] = PSAT_ENGINE.recordDailySession(sampleSessions, isCorrect, time, todayKey, true)[todayKey];
@@ -1259,7 +1324,26 @@
           mathCount++;
           const isCorrect = (mathCount % 3 !== 0); // ~67% accuracy
           const time = isCorrect ? 55000 : 90000;
-          sampleProgress[q.id] = { answered: true, selectedAnswer: isCorrect ? q.correct_answer : 'C', isCorrect: isCorrect, timeSpentMs: time, timingReliable: true, timestamp: Date.now() - (12 - mathCount) * 3600000 };
+
+          let chosenAnswer = q.correct_answer;
+          if (!isCorrect) {
+            if (isFreeResponse) {
+              chosenAnswer = '999999'; // Genuine invalid answer
+            } else {
+              const wrongChoice = ['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A';
+              chosenAnswer = wrongChoice;
+            }
+          }
+
+          sampleProgress[q.id] = {
+            answered: true,
+            selectedAnswer: chosenAnswer,
+            isCorrect: isCorrect,
+            timeSpentMs: time,
+            timingReliable: true,
+            isSample: true,
+            timestamp: Date.now() - (12 - mathCount) * 3600000
+          };
           const grade = PSAT_ENGINE.gradeAttempt(isCorrect, time, true);
           sampleSrs[q.id] = PSAT_ENGINE.scheduleNext(null, grade, Date.now() - 3600000);
           sampleSessions[todayKey] = PSAT_ENGINE.recordDailySession(sampleSessions, isCorrect, time, todayKey, true)[todayKey];
@@ -1274,7 +1358,8 @@
         mod.questions.forEach((q, qIdx) => {
           mockTimes[q.id] = 48000;
           if (qIdx === 0 && mIdx === 1) {
-            mockAnswers[q.id] = 'INCORRECT_ATTEMPT'; // 1 intentional incorrect for review
+            const isSpr = ((q.type || q.question_type) === 'free_response');
+            mockAnswers[q.id] = isSpr ? '999999' : (['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A');
           } else {
             const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
             mockAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
@@ -1286,6 +1371,7 @@
       examReport.title = 'Mini PSAT 8/9 Quick Simulation (Sample Test)';
       examReport.type = 'mini_psat89';
       examReport.formattedDate = new Date().toLocaleString();
+      examReport.isSample = true;
 
       const leanReport = PSAT_ENGINE.toLeanReport(examReport);
 
@@ -1294,7 +1380,32 @@
       safeSetStorage('psat_sessions', sampleSessions);
       safeSetStorage('psat_exam_history', [leanReport]);
 
-      // Reload page to refresh all analytics
+      location.reload();
+    }
+
+    function restoreRealStudentData() {
+      const backup = safeGetStorage('psat_pre_sample_backup', null);
+      if (backup) {
+        if (backup.progress) safeSetStorage('psat_progress', backup.progress);
+        else localStorage.removeItem('psat_progress');
+
+        if (backup.srsState) safeSetStorage('psat_srs', backup.srsState);
+        else localStorage.removeItem('psat_srs');
+
+        if (backup.sessionsState) safeSetStorage('psat_sessions', backup.sessionsState);
+        else localStorage.removeItem('psat_sessions');
+
+        if (backup.examHistory) safeSetStorage('psat_exam_history', backup.examHistory);
+        else localStorage.removeItem('psat_exam_history');
+      } else {
+        localStorage.removeItem('psat_progress');
+        localStorage.removeItem('psat_srs');
+        localStorage.removeItem('psat_sessions');
+        localStorage.removeItem('psat_exam_history');
+      }
+
+      localStorage.removeItem('psat_sample_data_active');
+      localStorage.removeItem('psat_pre_sample_backup');
       location.reload();
     }
 
@@ -1318,7 +1429,8 @@
           estimatedScore: scoreData.isReady ? scoreData.totalScore : null,
           rwScore: scoreData.rwScore,
           mathScore: scoreData.mathScore,
-          streakDays: PSAT_ENGINE.calculateStreak(sessionsState)
+          streakDays: PSAT_ENGINE.calculateStreak(sessionsState),
+          isSampleData: (localStorage.getItem('psat_sample_data_active') === 'true')
         },
         examHistoryLog: examHistory,
         sessionsLog: sessionsState,

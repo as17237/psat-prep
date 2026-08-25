@@ -867,13 +867,13 @@
             
             <!-- Composite Score -->
             <div class="space-y-1 border-b lg:border-b-0 lg:border-r border-indigo-800/60 pb-6 lg:pb-0 lg:pr-8">
-              <span class="text-xs font-semibold text-slate-400 uppercase">Composite Scaled Score (240–1440)</span>
+              <span id="report-score-label" class="text-xs font-semibold text-slate-400 uppercase">Composite Scaled Score (240–1440)</span>
               <div class="flex items-baseline space-x-3 pt-1">
                 <h2 id="report-total-score" class="text-5xl font-black text-white">1390</h2>
-                <span class="text-xl font-semibold text-slate-400">/ 1440</span>
+                <span id="report-scale-denom" class="text-xl font-semibold text-slate-400">/ 1440</span>
               </div>
               <p id="report-accuracy-summary" class="text-xs text-emerald-400 font-medium">Overall Accuracy: 94% (92 / 98 Correct)</p>
-              <p class="text-[11px] text-slate-400 leading-tight pt-1">Score estimated from section accuracy scaled to the 240–1440 PSAT 8/9 composite range.</p>
+              <p id="report-scaling-note" class="text-[11px] text-slate-400 leading-tight pt-1">Score estimated from section accuracy scaled to the 240–1440 PSAT 8/9 composite range.</p>
             </div>
 
             <!-- Section Scores -->
@@ -1038,11 +1038,24 @@
     });
 
     function saveProgress() {
-      safeSetStorage('psat_progress', progress);
-      safeSetStorage('psat_srs', srsState);
-      safeSetStorage('psat_sessions', sessionsState);
+      const ok1 = safeSetStorage('psat_progress', progress);
+      const ok2 = safeSetStorage('psat_srs', srsState);
+      const ok3 = safeSetStorage('psat_sessions', sessionsState);
+
+      if (!ok1 || !ok2 || !ok3) {
+        showStorageWarningBanner();
+      }
+
       updateHeaderStats();
       renderPalette();
+    }
+
+    function showStorageWarningBanner() {
+      const el = document.getElementById('storage-quota-warning');
+      if (el) {
+        el.classList.remove('hidden');
+        setTimeout(() => { if (el) el.classList.add('hidden'); }, 9000);
+      }
     }
 
     function resetAllProgress() {
@@ -2322,10 +2335,26 @@
       currentExamReport = fullReport;
 
       document.getElementById('report-date').innerText = fullReport.formattedDate || new Date(fullReport.completedAt || Date.now()).toLocaleString();
-      document.getElementById('report-total-score').innerText = fullReport.scores.totalScaled;
+      
+      const isScaledReady = fullReport.scores && fullReport.scores.isScaledReady !== false && fullReport.scores.totalScaled !== null;
+      
+      if (isScaledReady) {
+        document.getElementById('report-score-label').innerText = 'Composite Scaled Score (240–1440)';
+        document.getElementById('report-total-score').innerText = fullReport.scores.totalScaled;
+        document.getElementById('report-scale-denom').innerText = '/ 1440';
+        document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwScaled} / 720`;
+        document.getElementById('report-math-score').innerText = `${fullReport.scores.mathScaled} / 720`;
+        document.getElementById('report-scaling-note').innerText = 'Score estimated from section accuracy scaled to the 240–1440 PSAT 8/9 composite range.';
+      } else {
+        document.getElementById('report-score-label').innerText = 'Practice Check Score (Raw)';
+        document.getElementById('report-total-score').innerText = `${fullReport.totalCorrect} / ${fullReport.totalQuestions}`;
+        document.getElementById('report-scale-denom').innerText = `(${fullReport.overallAccuracyPercent}%)`;
+        document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwCorrect} / ${fullReport.scores.rwTotal} Correct`;
+        document.getElementById('report-math-score').innerText = `${fullReport.scores.mathCorrect} / ${fullReport.scores.mathTotal} Correct`;
+        document.getElementById('report-scaling-note').innerText = 'Scaled 240–1440 projection requires a standard full-length test (≥15 questions per section).';
+      }
+
       document.getElementById('report-accuracy-summary').innerText = `Overall Accuracy: ${fullReport.overallAccuracyPercent}% (${fullReport.totalCorrect} / ${fullReport.totalQuestions} Correct)`;
-      document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwScaled} / 720`;
-      document.getElementById('report-math-score').innerText = `${fullReport.scores.mathScaled} / 720`;
 
       const totalMins = Math.round(fullReport.totalTimeSpentMs / 60000);
       document.getElementById('report-total-time').innerText = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
@@ -2440,8 +2469,28 @@
     // ============================================================
     function persistActiveExamState() {
       if (!activeExam || document.getElementById('view-exam').classList.contains('hidden')) return;
+
+      const leanModules = (activeExam.modules || []).map(m => ({
+        id: m.id,
+        section: m.section,
+        moduleNumber: m.moduleNumber,
+        name: m.name,
+        questionsCount: m.questionsCount || (m.questions ? m.questions.length : 0),
+        timeLimitSeconds: m.timeLimitSeconds,
+        questionIds: (m.questions || []).map(q => q.id)
+      }));
+
       const snapshot = {
-        activeExam: activeExam,
+        activeExamMeta: {
+          id: activeExam.id,
+          title: activeExam.title,
+          type: activeExam.type,
+          totalQuestions: activeExam.totalQuestions,
+          totalTimeMinutes: activeExam.totalTimeMinutes,
+          breakMinutes: activeExam.breakMinutes,
+          createdAt: activeExam.createdAt,
+          modules: leanModules
+        },
         currentModuleIndex: currentModuleIndex,
         currentExamQIndex: currentExamQIndex,
         examModuleDeadline: examModuleDeadline,
@@ -2464,12 +2513,14 @@
       const saved = safeGetStorage('psat_active_exam_state', null);
       const banner = document.getElementById('exam-resume-banner');
       if (!banner) return;
-      if (saved && saved.activeExam && saved.examModuleDeadline > Date.now()) {
+      const meta = saved ? (saved.activeExamMeta || saved.activeExam) : null;
+      if (saved && meta && saved.examModuleDeadline > Date.now()) {
         const titleEl = document.getElementById('resume-exam-title');
         const detailsEl = document.getElementById('resume-exam-details');
-        if (titleEl) titleEl.innerText = saved.activeExam.title || 'In-Progress Exam Available';
+        if (titleEl) titleEl.innerText = meta.title || 'In-Progress Exam Available';
         const minsLeft = Math.max(1, Math.round((saved.examModuleDeadline - Date.now()) / 60000));
-        if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${saved.activeExam.modules.length} • ~${minsLeft} min remaining before module expires.`;
+        const totalMods = (meta.modules && meta.modules.length) || 1;
+        if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${totalMods} • ~${minsLeft} min remaining before module expires.`;
         banner.classList.remove('hidden');
       } else {
         banner.classList.add('hidden');
@@ -2481,9 +2532,35 @@
 
     function resumeActiveExamState() {
       const saved = safeGetStorage('psat_active_exam_state', null);
-      if (!saved || !saved.activeExam) return;
+      if (!saved || (!saved.activeExamMeta && !saved.activeExam)) return;
 
-      activeExam = saved.activeExam;
+      const qMap = {};
+      (window.QUESTIONS_DATA || questions).forEach(q => { qMap[q.id] = q; });
+
+      if (saved.activeExamMeta) {
+        const meta = saved.activeExamMeta;
+        activeExam = {
+          id: meta.id,
+          title: meta.title,
+          type: meta.type,
+          totalQuestions: meta.totalQuestions,
+          totalTimeMinutes: meta.totalTimeMinutes,
+          breakMinutes: meta.breakMinutes,
+          createdAt: meta.createdAt,
+          modules: (meta.modules || []).map(m => ({
+            id: m.id,
+            section: m.section,
+            moduleNumber: m.moduleNumber,
+            name: m.name,
+            questionsCount: m.questionsCount,
+            timeLimitSeconds: m.timeLimitSeconds,
+            questions: (m.questionIds || []).map(qid => qMap[qid]).filter(Boolean)
+          }))
+        };
+      } else {
+        activeExam = saved.activeExam;
+      }
+
       currentModuleIndex = saved.currentModuleIndex || 0;
       currentExamQIndex = saved.currentExamQIndex || 0;
       examUserAnswers = saved.examUserAnswers || {};

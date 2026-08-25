@@ -283,7 +283,12 @@ miniExam.modules.forEach(m => {
 const miniReport = PSAT_ENGINE.scoreStandardExam(miniExam, miniAnswers, {});
 assert.strictEqual(miniReport.totalQuestions, 8);
 assert.strictEqual(miniReport.totalCorrect, 8);
-assert.strictEqual(miniReport.scores.totalScaled, 1440);
+assert.strictEqual(miniReport.scores.isScaledReady, false, 'Mini exam (<15 Qs per section) must NOT mark scaled score ready');
+assert.strictEqual(miniReport.scores.totalScaled, null, 'Mini exam must have totalScaled null');
+assert.strictEqual(miniReport.scores.provisionalScaled, 1440, 'Provisional scaled score should be available for internal reference');
+
+assert.strictEqual(realReport.scores.isScaledReady, true, 'Full exam (98 Qs) must mark scaled score ready');
+assert.strictEqual(realReport.scores.totalScaled, 1440, 'Full exam must report 1440 scaled score');
 
 const miniLean = PSAT_ENGINE.toLeanReport(miniReport);
 const miniRehydrated = PSAT_ENGINE.rehydrateReport(miniLean, realBank);

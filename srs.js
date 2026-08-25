@@ -679,7 +679,12 @@
       });
     });
 
-    // Practice-based scaled score projection (120 to 720 per section, 240 to 1440 composite)
+    // Practice-based scaled score projection (requires >=15 questions per section for reliable scaling)
+    var MIN_PER_SECTION = 15;
+    var rwReady = rwTotal >= MIN_PER_SECTION;
+    var mathReady = mathTotal >= MIN_PER_SECTION;
+    var isScaledReady = rwReady && mathReady;
+
     var rwScaled = rwTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600))) : 120;
     var mathScaled = mathTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600))) : 120;
     var totalScaled = rwScaled + mathScaled;
@@ -701,13 +706,16 @@
       totalAttempted: totalExamAttempted,
       overallAccuracyPercent: overallAcc,
       scores: {
-        totalScaled: totalScaled, // 240 to 1440
-        rwScaled: rwScaled,       // 120 to 720
-        mathScaled: mathScaled,   // 120 to 720
+        isScaledReady: isScaledReady,
+        totalScaled: isScaledReady ? totalScaled : null,
+        provisionalScaled: totalScaled,
+        rwScaled: rwReady ? rwScaled : null,
+        mathScaled: mathReady ? mathScaled : null,
         rwCorrect: rwCorrect,
         rwTotal: rwTotal,
         mathCorrect: mathCorrect,
-        mathTotal: mathTotal
+        mathTotal: mathTotal,
+        minRequiredPerSection: MIN_PER_SECTION
       },
       totalTimeSpentMs: totalTimeSpentMs,
       moduleReports: moduleReports
