@@ -398,6 +398,57 @@
   }
 
   /**
+   * Generates an 8-question Mini PSAT 8/9 Simulation for rapid ~10-minute end-to-end testing.
+   * Section 1: Reading & Writing (4 Qs, 5 min)
+   * Break: 1 minute quick pause (with early resume)
+   * Section 2: Math (4 Qs: 3 MCQs + 1 Grid-In, 5 min)
+   */
+  function generateMiniPSAT89Exam(allQuestions) {
+    var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
+    var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+
+    var shuffledRw = _shuffle(rwPool);
+    var shuffledMath = _shuffle(mathPool);
+
+    var rwM1Qs = shuffledRw.slice(0, 4);
+
+    var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
+    var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
+
+    var mathM1Qs = _shuffle(mathMcqs.slice(0, 3).concat(mathSprs.slice(0, 1)));
+
+    return {
+      id: 'exam_mini_' + Date.now(),
+      title: 'Mini PSAT 8/9 Quick Simulation (8 Qs)',
+      type: 'mini_psat89',
+      totalQuestions: 8,
+      totalTimeMinutes: 10,
+      breakMinutes: 1,
+      createdAt: Date.now(),
+      modules: [
+        {
+          id: 'mini_rw_m1',
+          section: 'Reading and Writing',
+          moduleNumber: 1,
+          name: 'Section 1: Reading and Writing',
+          questionsCount: 4,
+          timeLimitSeconds: 5 * 60,
+          questions: rwM1Qs
+        },
+        {
+          id: 'mini_math_m1',
+          section: 'Math',
+          moduleNumber: 2,
+          name: 'Section 2: Math',
+          questionsCount: 4,
+          timeLimitSeconds: 5 * 60,
+          questions: mathM1Qs
+        }
+      ]
+    };
+  }
+
+  /**
    * Generates an AI/Spaced-Repetition Gap-Targeted Practice Drill.
    * Prioritizes:
    * 1. Due / Overdue Spaced Repetition cards (memory decay)
@@ -751,6 +802,7 @@
     calculateStreak: calculateStreak,
     PSAT_89_SPECS: PSAT_89_SPECS,
     generateStandardPSAT89Exam: generateStandardPSAT89Exam,
+    generateMiniPSAT89Exam: generateMiniPSAT89Exam,
     generateGapTargetedDrill: generateGapTargetedDrill,
     generateCustomTest: generateCustomTest,
     scoreStandardExam: scoreStandardExam,

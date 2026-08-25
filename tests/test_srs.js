@@ -261,6 +261,36 @@ const answersWithExtraneous = Object.assign({}, realAnswers, { 'non_existent_qid
 const reportExtraneous = PSAT_ENGINE.scoreStandardExam(realStandardExam, answersWithExtraneous, {});
 assert.strictEqual(reportExtraneous.totalAttempted, 98, 'totalAttempted must count only questions in the active exam');
 
-console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, and Scoring tests passed!');
+// I: Mini PSAT 8/9 Quick Simulation (8 Qs End-to-End Test Mode)
+const miniExam = PSAT_ENGINE.generateMiniPSAT89Exam(realBank);
+assert.strictEqual(miniExam.totalQuestions, 8, 'Mini exam must have 8 questions');
+assert.strictEqual(miniExam.totalTimeMinutes, 10, 'Mini exam duration must be 10 minutes');
+assert.strictEqual(miniExam.breakMinutes, 1, 'Mini exam break must be 1 minute');
+assert.strictEqual(miniExam.modules.length, 2, 'Mini exam must have 2 modules (RW & Math)');
+assert.strictEqual(miniExam.modules[0].questions.length, 4, 'RW module must have 4 questions');
+assert.strictEqual(miniExam.modules[1].questions.length, 4, 'Math module must have 4 questions');
+
+const miniMathSprCount = miniExam.modules[1].questions.filter(q => (q.type || q.question_type) === 'free_response').length;
+assert.strictEqual(miniMathSprCount, 1, 'Mini Math module must have exactly 1 free-response SPR item');
+
+const miniAnswers = {};
+miniExam.modules.forEach(m => {
+  m.questions.forEach(q => {
+    const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
+    miniAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
+  });
+});
+const miniReport = PSAT_ENGINE.scoreStandardExam(miniExam, miniAnswers, {});
+assert.strictEqual(miniReport.totalQuestions, 8);
+assert.strictEqual(miniReport.totalCorrect, 8);
+assert.strictEqual(miniReport.scores.totalScaled, 1440);
+
+const miniLean = PSAT_ENGINE.toLeanReport(miniReport);
+const miniRehydrated = PSAT_ENGINE.rehydrateReport(miniLean, realBank);
+assert.strictEqual(miniRehydrated.totalQuestions, 8);
+assert.strictEqual(miniRehydrated.moduleReports[0].questions[0].question_text.length > 0, true);
+
+console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, and Scoring tests passed!');
+
 
 

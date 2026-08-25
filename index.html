@@ -507,11 +507,43 @@
           </div>
         </div>
 
+        <!-- Mini PSAT 8/9 Quick Simulation Card (10 min End-to-End Test) -->
+        <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border-2 border-indigo-500/30 relative overflow-hidden space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-600/50 flex items-center">
+              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Recommended For Quick Testing & UAT
+            </span>
+            <span class="text-xs font-mono text-slate-300">8 Questions &bull; ~10 Minutes &bull; 240–1440 Scale</span>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+            <div class="lg:col-span-2 space-y-2">
+              <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight">Mini PSAT 8/9 Quick Simulation</h2>
+              <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Test the complete official PSAT 8/9 testing experience in just 10 minutes: <strong>Reading & Writing (4 Qs)</strong> &rarr; <strong>Scheduled Break</strong> &rarr; <strong>Math with Desmos & Formula Sheet (4 Qs: 3 MCQ + 1 Grid-In)</strong> &rarr; <strong>Diagnostic Score Report & Instant Parent Portal Analytics</strong>.
+              </p>
+              <div class="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-300">
+                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Locked Modules</span>
+                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Desmos Calculator</span>
+                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Math Reference Sheet</span>
+                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Full Question Review</span>
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-3 justify-center items-start lg:items-end">
+              <button onclick="startMiniExam()" class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center">
+                <i data-lucide="play" class="w-5 h-5 mr-2"></i> Start 10-Min Mini Exam
+              </button>
+              <span class="text-[11px] text-slate-400 text-center lg:text-right">Generates real score report & parent analytics</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Standard PSAT 8/9 Full-Length Simulation Card -->
         <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/60 px-3 py-1 rounded-full border border-emerald-700">
-              Official Bluebook Format
+              Official Full-Length Bluebook Format
             </span>
             <span class="text-xs font-mono text-slate-300">Total Scale: 240–1440 Composite</span>
           </div>
@@ -800,8 +832,8 @@
             <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950 px-3 py-1 rounded-full border border-emerald-800">
               Section 1 Complete
             </span>
-            <h2 class="text-2xl sm:text-3xl font-black text-white mt-3">Scheduled 10-Minute Break</h2>
-            <p class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mt-2">
+            <h2 id="break-title" class="text-2xl sm:text-3xl font-black text-white mt-3">Scheduled 10-Minute Break</h2>
+            <p id="break-description" class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mt-2">
               Take a breath, stretch, and relax before starting Section 2: Math (44 Questions / 70 Minutes).
             </p>
           </div>
@@ -1744,6 +1776,11 @@
       initExamSession();
     }
 
+    function startMiniExam() {
+      activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions);
+      initExamSession();
+    }
+
     function startGapDrillFromLobby() {
       const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: 20 });
       startCustomTestDirect(drill);
@@ -2169,9 +2206,13 @@
 
       if (examTimerInterval) clearInterval(examTimerInterval);
 
-      // Check if this was Section 1 (Module 2 of standard PSAT 8/9), which triggers the 10-minute break
+      // Check if this was Section 1 (Module 2 of standard PSAT 8/9, or Module 1 of mini PSAT 8/9), which triggers the break
       if (activeExam.type === 'standard_psat89' && currentModuleIndex === 1) {
-        startBreakTimer();
+        startBreakTimer(10 * 60);
+        return;
+      }
+      if (activeExam.type === 'mini_psat89' && currentModuleIndex === 0) {
+        startBreakTimer(60); // 1-minute quick break for mini exam
         return;
       }
 
@@ -2183,9 +2224,17 @@
       }
     }
 
-    function startBreakTimer() {
-      let breakSeconds = 10 * 60;
+    function startBreakTimer(breakSecs) {
+      let breakSeconds = typeof breakSecs === 'number' ? breakSecs : 10 * 60;
       showExamSubview('exam-break');
+
+      const isMini = (activeExam && activeExam.type === 'mini_psat89');
+      const breakTitle = document.getElementById('break-title');
+      const breakDesc = document.getElementById('break-description');
+      if (breakTitle) breakTitle.innerText = isMini ? 'Scheduled Quick Break' : 'Scheduled 10-Minute Break';
+      if (breakDesc) breakDesc.innerText = isMini ?
+        'Take a breath before starting Section 2: Math (4 Questions / 5 Minutes).' :
+        'Take a breath, stretch, and relax before starting Section 2: Math (44 Questions / 70 Minutes).';
 
       function updateBreakDisplay() {
         const m = Math.floor(breakSeconds / 60);
@@ -2201,7 +2250,7 @@
           updateBreakDisplay();
         } else {
           clearInterval(breakTimerInterval);
-          showExamToast('10-Minute Break is over! Starting Section 2: Math.');
+          showExamToast('Break is over! Starting Section 2: Math.');
           resumeExamAfterBreak();
         }
       }, 1000);
@@ -2209,7 +2258,11 @@
 
     function resumeExamAfterBreak() {
       if (breakTimerInterval) clearInterval(breakTimerInterval);
-      loadExamModule(2); // Start Section 2: Math Module 1
+      if (activeExam && activeExam.type === 'mini_psat89') {
+        loadExamModule(1); // Start Section 2: Math Module
+      } else {
+        loadExamModule(2); // Start Section 2: Math Module 1
+      }
     }
 
     function finishExamAndShowReport() {
@@ -2787,6 +2840,8 @@
 
       if (mode === 'psat89') {
         startStandardExam();
+      } else if (mode === 'mini_psat89' || mode === 'mini') {
+        startMiniExam();
       } else if (mode === 'gap_drill') {
         const countParam = parseInt(urlParams.get('count') || '20', 10);
         const focusParam = urlParams.get('focus') || 'all';
