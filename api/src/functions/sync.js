@@ -30,16 +30,45 @@ app.http('sync', {
 
     if (request.method === 'GET') {
       try {
-        const docId = `student_${studentName}`;
-        const { resource } = await c.item(docId, studentName).read();
-        if (!resource) {
+        const querySpec = {
+          query: 'SELECT * FROM c WHERE c.student_name = @student',
+          parameters: [{ name: '@student', value: studentName }]
+        };
+        const { resources } = await c.items.query(querySpec).fetchAll();
+
+        let masterDoc = null;
+        const examDocs = [];
+
+        (resources || []).forEach(doc => {
+          if (doc.id === `student_${studentName}`) {
+            masterDoc = doc;
+          } else if (doc.doc_type === 'exam_session') {
+            examDocs.push(doc);
+          }
+        });
+
+        if (!masterDoc && examDocs.length === 0) {
           return { status: 200, jsonBody: { success: true, exists: false, data: null } };
         }
-        return { status: 200, jsonBody: { success: true, exists: true, data: resource } };
+
+        // Merge all historical exams across master and individual immutable session docs
+        const examMap = {};
+        (masterDoc?.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
+        examDocs.forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
+        const mergedExams = Object.values(examMap).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
+        const compositeData = {
+          id: `student_${studentName}`,
+          student_name: studentName,
+          progress: masterDoc?.progress || {},
+          srsState: masterDoc?.srsState || {},
+          sessionsState: masterDoc?.sessionsState || {},
+          examHistory: mergedExams,
+          updatedAt: masterDoc?.updatedAt || Date.now()
+        };
+
+        return { status: 200, jsonBody: { success: true, exists: true, data: compositeData } };
       } catch (err) {
-        if (err.statusCode === 404) {
-          return { status: 200, jsonBody: { success: true, exists: false, data: null } };
-        }
         context.error('Error reading from Cosmos DB:', err);
         return { status: 500, jsonBody: { error: err.message } };
       }
@@ -49,21 +78,40 @@ app.http('sync', {
       try {
         const body = await request.json();
         const targetStudent = body.student_name || studentName;
-        const docId = `student_${targetStudent}`;
+        const now = Date.now();
 
-        const doc = {
-          id: docId,
+        // 1. Master state document
+        const masterDocId = `student_${targetStudent}`;
+        const masterDoc = {
+          id: masterDocId,
           student_name: targetStudent,
+          doc_type: 'student_master_profile',
           progress: body.progress || {},
           srsState: body.srsState || {},
           sessionsState: body.sessionsState || {},
-          examHistory: body.examHistory || [],
-          updatedAt: Date.now(),
+          examHistory: (body.examHistory || []).slice(0, 30),
+          updatedAt: now,
           clientTimestamp: body.clientTimestamp || new Date().toISOString()
         };
+        await c.items.upsert(masterDoc);
 
-        await c.items.upsert(doc);
-        return { status: 200, jsonBody: { success: true, updatedAt: doc.updatedAt } };
+        // 2. Immutable individual exam records for long-term longitudinal persistence
+        if (Array.isArray(body.examHistory)) {
+          for (const exam of body.examHistory) {
+            if (exam && exam.examId) {
+              const examDocId = `exam_${targetStudent}_${exam.examId}`;
+              const examDoc = Object.assign({}, exam, {
+                id: examDocId,
+                student_name: targetStudent,
+                doc_type: 'exam_session',
+                persistedAt: now
+              });
+              await c.items.upsert(examDoc);
+            }
+          }
+        }
+
+        return { status: 200, jsonBody: { success: true, updatedAt: now } };
       } catch (err) {
         context.error('Error writing to Cosmos DB:', err);
         return { status: 500, jsonBody: { error: err.message } };
