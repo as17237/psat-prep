@@ -217,17 +217,27 @@
       feedbackEntries.unshift(entry);
       localStorage.setItem('psat_uat_feedback', JSON.stringify(feedbackEntries));
 
+      document.getElementById('feedback-form').reset();
+      const msg = document.getElementById('form-msg');
+      msg.innerText = '⏳ Syncing feedback to Cosmos DB...';
+
       // Push to Azure Cosmos DB UATFeedback container
       fetch('https://psat-api-4915.azurewebsites.net/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(entry)
-      }).catch(err => console.warn('Cosmos feedback sync error:', err));
-
-      document.getElementById('feedback-form').reset();
-      const msg = document.getElementById('form-msg');
-      msg.innerText = '✓ Feedback entry logged & synced to Cosmos DB successfully!';
-      setTimeout(() => { msg.innerText = ''; }, 3000);
+      }).then(res => {
+        if (res.ok) {
+          msg.innerText = '✓ Feedback entry logged & synced to Cosmos DB successfully!';
+        } else {
+          msg.innerText = '✓ Feedback saved locally (Cosmos DB offline)';
+        }
+        setTimeout(() => { msg.innerText = ''; }, 3500);
+      }).catch(err => {
+        console.warn('Cosmos feedback sync error:', err);
+        msg.innerText = '✓ Feedback saved locally (Cosmos DB offline)';
+        setTimeout(() => { msg.innerText = ''; }, 3500);
+      });
 
       renderFeedbackList();
     }

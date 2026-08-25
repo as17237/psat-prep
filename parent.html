@@ -607,19 +607,26 @@
       if (txt) txt.innerText = 'Syncing...';
       
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage).then(res => {
-          if (res && res.success && res.updated) {
-            renderParentMetrics();
-            if (txt) txt.innerText = 'Cosmos DB Synced ✓';
-            if (isManual) alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
+          if (res && res.success) {
+            if (res.updated) {
+              renderParentMetrics();
+              if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+              if (isManual) alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+            } else {
+              if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+              if (isManual) alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+            }
           } else {
-            if (txt) txt.innerText = 'Cosmos DB Sync';
-            if (isManual) alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+            if (txt) txt.innerText = 'Sync Failed ⚠';
+            const errMsg = (res && res.error) ? res.error : 'Could not connect to Cosmos DB server';
+            if (isManual) alert(`Sync Warning: ${errMsg}. Please check your internet connection.`);
           }
           lucide.createIcons();
         }).catch(err => {
-          if (txt) txt.innerText = 'Cosmos DB Sync';
+          if (txt) txt.innerText = 'Sync Failed ⚠';
           console.warn('Sync failed:', err);
+          if (isManual) alert('Sync failed: Could not reach Cosmos DB sync endpoint.');
         });
       }
     }

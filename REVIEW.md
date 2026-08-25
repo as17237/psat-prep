@@ -461,3 +461,539 @@ Verified independently against real dataset (`data/*.json` = 3,059 records; `que
 | 7 | 8 — blob container divergence | `migrate_to_cosmos.py:82` vs `upload_to_azure.py:39` | Production 404 (depends which provisioner ran) |
 | 8 | 7 — phantom `prompt` | `srs.js:573`, `index.html:1796`, `:2149` | Exam Text Mode empty; score report blank |
 | 9 | 6 — minors batch | `index.html:1662-1674`, `parent.html:243-244`, `srs.js`, `upload_to_azure.py` | Biased shuffle; ignored drill options; partial `innerHTML`; retry `None`; gap params lost |
+
+---
+---
+# Re-review — round 5
+
+**Reviewed:** 2026-08-24 · commits `cee88a6`..`0f2ee8e` (6 commits, ~4,800 lines) vs `1ba85fd`
+**New since round 4's fixes:** on-demand Desmos calculator, official math reference sheet, auto-save of completed exams, persistent Exam History and full Score Reports with Question Review in both the student app and parent portal.
+
+**Verdict:** the round-4 fix commit (`9d3f587`) landed and holds — but **one of its fixes was applied to the wrong parameter slot, and another was applied everywhere except one file**. Both are proven below by execution. Three further defects come from the new exam-history feature. All 12 tests still pass, and the dataset is unchanged (3,059 valid / 2,158 text-complete).
+
+## Round-4 items: verified
+
+| Round-4 finding | Status |
+| :--- | :--- |
+| 1 — `q.options['A']` array lookup | **Fixed.** `q.options.find(o => o.key === letter)` (`index.html:1929`) |
+| 2 — phantom `question_type` | **Mostly fixed.** `q.type \|\| q.question_type` in `srs.js` and `index.html`; exam now generates a true 98 (27/27/22/22), verified by execution. **Missed in `parent.html` — see finding 3 below.** |
+| 3 — `currentGapCount` undeclared | **Fixed.** `let currentGapCount = 20;` (`parent.html:524`) |
+| 4 — timer dilation / expiry | **Fixed.** Wall-clock `examModuleDeadline` (`index.html:1826`), expiry forces module review |
+| 5 — save loop corrupts analytics | **Partly fixed.** Now gated on `q.answered && q.userAnswer !== 'Unanswered'` (`index.html:2186`) — but the `recordDailySession` reliability argument was reintroduced in the wrong position. **See finding 2 below.** |
+| 7 — phantom `prompt` | **Fixed.** `q.question_text \|\| q.prompt` at all three sites |
+| 8 — blob container divergence | **Fixed.** `migrate_to_cosmos.py:82` now uses `blob_container_name` |
+| 9 — time flush + storage crash | **Fixed.** `flushExamQuestionTime()` before review/submit/finish; `safeGetStorage`/`safeSetStorage` wrappers added — but the quota problem they were meant to solve is now *worse*. **See finding 1 below.** |
+| Round-3 item 5 — git purge | **Still pending** (3,059 images tracked, `.git` 267 MB) |
+
+## Top 5 round-5 findings
+
+### 1. Exam history overruns the localStorage quota and silently destroys all progress
+
+Round-4 finding 9 added `safeSetStorage` to stop corrupt storage white-screening the app. It catches the error — but the new exam-history feature now guarantees that error, and the catch makes it invisible.
+
+`scoreStandardExam` embeds full question text, rationale, and image path for all 98 questions in every report. Measured: **one report is 209 KB**. `index.html:2213` caps history at 50 → **10.2 MB against a ~5 MB budget**; quota blows around the **24th exam**.
+
+`safeSetStorage` (`index.html:910-917`) catches `QuotaExceededError`, logs to console, and returns normally — the caller believes the write succeeded. Because `saveProgress()` writes `psat_progress`, `psat_srs`, and `psat_sessions` through the same helper into the same budget, once exam history fills it **every subsequent answer, SRS update, and session silently fails to persist** while the UI keeps confirming success. The round-4 fix converted a loud crash into silent data loss.
+
+**Fix:** store reports lean — question **IDs** plus `userAnswer`/`isCorrect`/`timeMs`, rehydrating text and rationale from `QUESTIONS_DATA` at render time (already loaded on both pages). ~95% smaller. Lower the cap to ~10, make `safeSetStorage` return a boolean, and surface a real error to the user on failure instead of swallowing it.
+
+### 2. The round-4 reliability fix went into the wrong argument slot — exams corrupt the session log
+
+Round-4 finding 5 flagged that `recordDailySession` was called without `timingReliable`. The argument was added — one position too early. `index.html:2203`:
+
+```js
+PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, isReliable);
+```
+
+The signature is `(sessionsMap, isCorrect, timeSpentMs, dateStr, timingReliable)` — so `isReliable` lands in **`dateStr`**. Verified by execution: the session is filed under the literal key **`"true"`**, with `date: true` in the record.
+
+So the exam's study minutes never reach the parent portal's "Past 7 Days" total (it reads date keys), and the exam day never counts as a practice day — a student whose only activity today was a full 134-minute exam sees their streak stay at **2 instead of advancing to 3** (confirmed by execution). A junk `"true"` key also accumulates. The practice path 900 lines earlier (`index.html:1280`) passes `null` for `dateStr` correctly, which is what makes this a pure slip.
+
+**Fix:** `recordDailySession(sessionsState, q.isCorrect, timeSpent, null, isReliable)`. Then harden the function — reject a `dateStr` that isn't `YYYY-MM-DD` — and have `calculateStreak` ignore malformed keys so existing corrupted logs self-heal. Add a test asserting the exam path files under today's date.
+
+### 3. Round-4's `question_type` fix missed the parent portal — the grid-in filter still returns zero
+
+Round-4 finding 2 listed `parent.html:831-832` among the sites to fix. Every other site was corrected; this one was not. It now sits at `parent.html:1080-1081`, still reading the phantom field with **no `q.type` fallback**:
+
+```js
+if (qtypeVal === 'mcq' && q.question_type === 'free_response') return false;
+if (qtypeVal === 'spr' && q.question_type !== 'free_response') return false;
+```
+
+`question_type` exists on **0 of 3,059** records. Verified by executing the exact predicate against the real bundle:
+
+| Builder setting | Returns | Should return |
+| :--- | ---: | ---: |
+| Free-Response Only | **0** | 365 |
+| MCQ Only | **3,059** | 2,694 |
+
+So a parent building a grid-in drill gets an empty test, and an "MCQ Only" test silently includes all 365 grid-ins. **Fix:** `(q.type \|\| q.question_type)` at both lines, matching the pattern used everywhere else, and add a Node test that runs the parent builder's filters against the real bundle and asserts the counts.
+
+### 4. A 134-minute exam is lost completely on refresh, crash, or accidental tab close
+
+`activeExam`, `examUserAnswers`, `examUserTimes`, and `examModuleDeadline` live only in memory (`index.html:1680+`). Nothing persists in-progress exam state — `psat_active_exam` does not exist — and there is no `beforeunload` handler anywhere in the file. A student 130 minutes into a full-length exam who reloads loses every answer, with no warning beforehand and no way to resume.
+
+Round 4 correctly made the timer deadline-based, so the mechanism for a trustworthy resume already exists — it just isn't saved.
+
+**Fix:** persist a compact snapshot (exam ID + question IDs, answers, times, `currentModuleIndex`, absolute `examModuleDeadline`) on each answer and module transition; offer "Resume exam in progress" on load, honouring the stored wall-clock deadline so time keeps running as it would have. Add a `beforeunload` guard while an exam is active.
+
+### 5. "Official PSAT 8/9 Score Report" is built on an invented linear mapping
+
+`srs.js:631` labels `120 + (correct/total) × 600` as the *"Official PSAT 8/9 Scaled Score Mapping"*, and the UI presents the result under **"Official PSAT 8/9 Score Report"** (`index.html:808`, `parent.html:1721`). The 240–1440 range is correct, but College Board scaling is a nonlinear equating table, not a linear function of raw accuracy.
+
+The exam undercuts the claim further: the real digital PSAT 8/9 is **multistage adaptive** (Module 2 difficulty is selected from Module 1 performance), while `generateStandardPSAT89Exam` draws Module 2 at random from the same shuffled pool (`srs.js:350-352`). A linear map over a non-adaptive random draw cannot reproduce official scaling.
+
+This is the honesty problem rounds 1–2 removed from the parent portal, reintroduced with a stronger word attached — and it now carries more weight, because it sits on a full-length score report a parent will read as a predicted exam result.
+
+**Fix:** drop "Official" from the code comment and both headings, label it "Estimated score (practice-based)", and state the method in one line beside the number. If closer fidelity is wanted, implement adaptive Module 2 selection — and still say plainly that the mapping is an approximation.
+
+## Also worth noting
+
+- **The UAT feedback form never delivers feedback.** `feedback.html` writes only to `localStorage['psat_uat_feedback']` (`:218`, `:273`, `:280`) — no network call — while `migrate_to_cosmos.py` provisions a `UATFeedback` container nothing writes to. Testers see a success state; their feedback stays in their own browser. It also uses raw `localStorage.setItem` with no quota guard, so finding 1 will make it throw mid-submit. Either wire it to an Azure Function endpoint (a browser must not hold a Cosmos key), or state on the page that it is local-only and add an export button.
+- **`.cosmos_account_name` / `.storage_account_name` are committed** (`psat-cosmos-15958`, `psatprep4915`). Not credentials, but infrastructure identifiers that belong in a gitignored `.env` or CI variables.
+- **`scoreStandardExam`'s `totalAttempted`** counts every key in the answers map (`srs.js:645`) rather than only this exam's questions — over-counts if the map is reused.
+- **Git purge** (rounds 1–3) still pending, still unblocked.
+
+## Suggested order for round 5
+
+1. Finding 2 — one line, actively corrupting the session log on every exam.
+2. Finding 3 — two lines, a parent-facing feature that currently returns nothing.
+3. Finding 1 — the most damaging; silent loss of all practice progress.
+4. Finding 4 — protects the 134-minute investment.
+5. Finding 5 — wording plus an honest method line.
+
+**Process note:** findings 2 and 3 are both round-4 fixes that were applied imprecisely — one to the wrong parameter, one to all sites but one. Both would have been caught by a test executing the real path against the real bundle. Round 4's own suggestion 7 ("add Node tests that generate exams/drills from the real bundle and assert counts") is still the highest-leverage item on this list; adding it would close this class of defect permanently.
+
+---
+---
+
+# Re-review — round 6
+
+**Reviewed:** 2026-08-24 · commits `6c132d4` (round-5 fixes) and `82d0231` (new feature) vs `0f2ee8e`
+**New feature reviewed:** 10-minute Mini PSAT 8/9 simulation exam + "Load Sample Data" diagnostic generator.
+
+**Verdict:** all five round-5 findings are properly fixed — the lean-storage fix in particular is excellent (201 KB → 9.8 KB per report, a 95% reduction). **The new feature, however, ships a data-destruction bug on the parent portal and reintroduces the round-1 fabricated-metrics problem through a new door.** All 12 tests pass; dataset unchanged.
+
+## Round-5 items: all verified fixed
+
+| Round-5 finding | Status |
+| :--- | :--- |
+| 1 — exam history quota cascade | **Fixed.** `toLeanReport` strips text/rationale/images; measured **9.8 KB** per report (was 201 KB). Cap lowered to 15 → ~147 KB total. `safeSetStorage` now returns a boolean and prunes old history to rescue critical writes. |
+| 2 — `recordDailySession` argument slot | **Fixed.** Both call sites pass `null` for `dateStr` (`index.html:1349`, `:2297`). |
+| 3 — parent portal `question_type` residual | **Fixed.** `const qType = q.type \|\| q.question_type \|\| 'multiple_choice'` (`parent.html:1139`); SPR filter now returns 365, MCQ 2,694. |
+| 4 — no exam resume | **Fixed in behaviour.** `psat_active_exam_state` snapshot + restore prompt + `beforeunload` guard (`index.html:2440-2525`). **But see finding 5 below for how it stores state.** |
+| 5 — "Official" score mapping | **Fixed.** No occurrences of "Official PSAT 8/9 Score/Scaled" remain in any page or in `srs.js`. |
+
+## Round-6 findings
+
+### 1. "Load Sample Data" silently destroys all real student data — parent portal, production UI
+
+`loadSampleDiagnosticSession()` (`parent.html:1233`) ends with four **whole-key overwrites**:
+
+```js
+safeSetStorage('psat_progress',      sampleProgress);
+safeSetStorage('psat_srs',           sampleSrs);
+safeSetStorage('psat_sessions',      sampleSessions);
+safeSetStorage('psat_exam_history',  [leanReport]);
+location.reload();
+```
+
+These replace, not merge. A parent who clicks this on the browser where their child actually practises **instantly loses every attempt, every SRS schedule, the entire streak/session history, and all completed exams** — replaced by 24 synthetic attempts and one sample report. There is no backup, no undo, and `location.reload()` makes it final before anything can be reconsidered.
+
+The confirmation text does not warn about any of this. It reads: *"Load realistic sample diagnostic session data? This will populate 24 practice attempts… to demonstrate the full parent analytics experience."* — "populate" implies addition, not replacement. And the button (`parent.html:45`, **"Load Sample Data"**) sits permanently in the parent-portal header between *Feedback* and *Export Audit Trail* — not behind a dev flag, not hidden, one click plus one misleading confirm from irreversible loss.
+
+**Fix (in order):** back up all four keys to `psat_pre_sample_backup` before writing and offer a one-click "Restore my real data"; rewrite the confirm to state plainly that existing progress will be **erased and replaced**; refuse to run when real data is present unless the parent types a confirmation; and gate the button behind a URL flag (`?demo=1`) or a UAT build so it cannot be reached by accident in normal use.
+
+### 2. Sample data is indistinguishable from real data once loaded — round-1 regression
+
+Nothing marks the synthetic records as synthetic. `sampleProgress[q.id] = { answered: true, isCorrect, timeSpentMs, timingReliable: true, … }` is byte-identical in shape to a genuine attempt, and it flows through the same analytics pipeline. After the reload the parent portal shows a scaled score, a streak, mastery bars, and a weakness ranking — **all computed from fabricated attempts and presented exactly as real measurements.** The only trace is the words "(Sample Test)" inside one exam-history title.
+
+This is the defect round 1 existed to remove — a parent dashboard showing numbers that are not measurements. It is now *harder* to detect than the original hardcoded HTML, because the numbers are rendered through the legitimate pipeline and look fully earned.
+
+**Fix:** stamp every synthetic record (`isSample: true`) and every affected key with a `sampleDataLoaded` marker; render a persistent, dismissible banner across the parent portal and student app — *"Showing sample data — not real practice results"* — for as long as that marker is present; and expose a "Clear sample data" control that restores the backup from finding 1. `exportAuditTrail` should carry the flag too, so an exported audit can never be mistaken for genuine history.
+
+### 3. An 8-question, 10-minute quiz produces a full 240–1440 "scaled score"
+
+`generateMiniPSAT89Exam` (`srs.js:406`) builds 4 R&W + 4 Math questions, and its report is scored by the same `scoreStandardExam` used for the 98-question exam. Because the mapping is `120 + (correct / total) × 600` per section, **each single question is worth 150 composite points.** Verified by execution against the real bundle:
+
+| Mini-exam result | Composite shown |
+| :--- | ---: |
+| 7 of 8 correct (the sample generator's own data) | **1290 / 1440** |
+| 6 of 8 correct | **1140 / 1440** |
+
+One question swings the reported score by 150 points, and this lands in exam history rendered by the same score-report UI as a full-length exam — a parent has no visual cue that this "PSAT 8/9 score" came from ten minutes of work.
+
+This also contradicts the project's own established rule: `calculateScaledScore` refuses to report anything below `MIN_PER_SECTION = 15` attempts (`srs.js`), a gate added in round 2 for exactly this reason. `scoreStandardExam` has no such gate.
+
+**Fix:** suppress the scaled score for any exam below a minimum per-section count — show raw "7 of 8 correct" plus per-skill feedback instead — or label mini-exam output unmistakably as a practice check with no score projection. Apply the same `MIN_PER_SECTION` rule both engines already agree on elsewhere.
+
+### 4. The resume snapshot re-creates the storage-bloat bug round 5 just fixed
+
+`persistActiveExamState()` (`index.html:2441`) stores `activeExam: activeExam` — **the entire exam object including all 98 full question records** with text, options, and rationales. Measured: **193 KB per snapshot**, written on every answer and every module transition (~100+ writes per exam). An ID-only snapshot carrying the same information is **1.1 KB — 175× smaller**.
+
+This is the same payload-duplication that made exam history blow the quota; `toLeanReport` was written days ago for precisely this problem and is not used here. Worse, when this 193 KB write fails, `safeSetStorage`'s new recovery path **prunes the student's exam history down to 5 entries** to make room — so a bloated resume snapshot can silently delete completed exam reports.
+
+**Fix:** persist `examId`, the module question **IDs**, answers, times, marked-for-review, indices, and the deadline; rehydrate the question objects from `QUESTIONS_DATA` on resume, exactly as `rehydrateLeanReport` already does.
+
+### 5. `safeSetStorage`'s return value is ignored at every call site
+
+Round 5's fix correctly made `safeSetStorage` return `true`/`false` so failures could surface. No caller checks it — all six sites (`index.html:1041-1043`, `:1053`, `:2309`, `:2454`) discard the result:
+
+```js
+safeSetStorage('psat_progress', progress);   // returns false on failure; nobody looks
+```
+
+So after the recovery-pruning path also fails, the student still gets a silent no-op with a UI that confirms success. The mechanism to fix this is now in place and simply isn't wired up.
+
+**Fix:** have `saveProgress()` check the results and surface one visible, non-blocking warning — *"Your progress could not be saved (storage full)"* — with a link to export or clear old exams.
+
+### 6. ~23% of synthetic "incorrect" records contradict themselves
+
+The generator marks wrong answers with a hardcoded letter: `selectedAnswer: isCorrect ? q.correct_answer : 'B'` for R&W and `'C'` for Math (`parent.html:1252`, `:1261`). When the real key *is* that letter — measured at **~23% of sampled R&W items** — the record claims `isCorrect: false` while `selectedAnswer === correct_answer`. The question-review UI then shows *"Your answer: B | Correct: B"* flagged incorrect.
+
+**Fix:** pick a wrong letter relative to the key, e.g. `['A','B','C','D'].find(l => l !== q.correct_answer)`, and for free-response items use a value that is genuinely not in `extractAcceptedForms(q.correct_answer)`.
+
+## Suggested order for round 6
+
+1. Finding 1 — backup, honest confirm text, and gate the button. Irreversible data loss, reachable in one click today.
+2. Finding 2 — mark and banner sample data. Restores the round-1 guarantee.
+3. Finding 4 — lean resume snapshot; also stops history from being pruned away.
+4. Finding 3 — gate the mini-exam scaled score.
+5. Finding 5 — wire up the return value that already exists.
+6. Finding 6 — one-line fix to the synthetic wrong-answer picker.
+
+**Process note:** findings 1, 2, and 3 are all the same root cause — a testing convenience was built directly on the production data path and the production score report, with no separation between demo state and real state. Whatever ships, the invariant worth holding is the one this project has been converging on for six rounds: **a number on the parent dashboard is either a real measurement or it is visibly labelled as not one.**
+
+---
+---
+
+# Re-review — round 7
+
+**Reviewed:** 2026-08-24 · commit `641e387` (round-6 fixes) vs `82d0231`
+
+**Verdict:** five of six round-6 findings are fully fixed, and two of the fixes are excellent — the resume snapshot dropped **193 KB → 1.9 KB** (100×) and the scaled-score gate now works in both engines. **Two gaps remain, and both are instances of the failure modes this project keeps repeating:** the sample-data backup can still destroy real data (mode 7), and the demo banner was added to one of the two surfaces that need it (mode 2). All 12 tests pass; dataset unchanged.
+
+## Round-6 items: verified
+
+| Round-6 finding | Status |
+| :--- | :--- |
+| 1 — sample data destroys real data | **Partly fixed.** Backup to `psat_pre_sample_backup`, a restore button in the demo banner, and honest confirm text. **But the backup is unguarded — see finding 1 below.** |
+| 2 — sample data indistinguishable from real | **Partly fixed.** `isSample: true` on every record, `psat_sample_data_active` flag, demo banner + restore button in `parent.html`, and `isSampleData` in the audit export. **Missing from the student app — see finding 2 below.** |
+| 3 — mini exam yields a full scaled score | **Fixed.** `MIN_PER_SECTION = 15` now enforced in `scoreStandardExam` (`srs.js:683-685`). Verified: mini at 100% returns `totalScaled: null, isScaledReady: false`; full exam returns 1440. |
+| 4 — resume snapshot bloat | **Fixed.** Stores `questionIds` and rehydrates from `QUESTIONS_DATA`. Measured **1.9 KB, down from 193 KB**. Legacy `activeExam` snapshots still restore. |
+| 5 — `safeSetStorage` return ignored | **Fixed.** `saveProgress()` checks all three writes and calls `showStorageWarningBanner()` (`index.html:1041-1046`). |
+| 6 — self-contradictory sample records | **Fixed.** Wrong answer is now chosen relative to the key: `['A','B','C','D'].find(l => l !== correct)`. |
+
+## Round-7 findings
+
+### 1. Clicking "Load Sample Data" twice permanently destroys the student's real data
+
+`loadSampleDiagnosticSession()` (`parent.html:1268`) backs up unconditionally — there is no check for whether sample data is already loaded:
+
+```js
+const existingBackup = {
+  progress:      safeGetStorage('psat_progress', {}),      // ← sample data on the 2nd call
+  srsState:      safeGetStorage('psat_srs', {}),
+  sessionsState: safeGetStorage('psat_sessions', {}),
+  examHistory:   safeGetStorage('psat_exam_history', [])
+};
+safeSetStorage('psat_pre_sample_backup', existingBackup);   // ← overwrites the real backup
+```
+
+The `psat_sample_data_active` flag needed to prevent this is set on the very next line but never read here. Simulated against the exact sequence:
+
+| Step | `psat_pre_sample_backup` holds |
+| :--- | :--- |
+| After 1st "Load Sample Data" | the student's **real** progress ✅ |
+| After 2nd "Load Sample Data" | the **sample** progress ❌ |
+| After "Restore my real data" | restores sample data; real work unrecoverable ❌ |
+
+The demo banner sits at the top of the page with **both** buttons available while sample data is active, so a second click is an easy mistake — and the confirm text now explicitly promises *"allowing you to restore your real data at any time with one click"*, a guarantee that becomes false the moment it is clicked twice. A promise of recoverability that silently expires is worse than no promise.
+
+**Fix:** guard the backup — only write it when `localStorage.getItem('psat_sample_data_active') !== 'true'`. If sample data is already active, either no-op with a message ("Sample data is already loaded") or regenerate the samples **without** touching the backup. Hide or disable the "Load Sample Data" button while the demo banner is showing. Add a test that runs load → load → restore and asserts the real data comes back.
+
+### 2. The demo banner never reaches the student app
+
+`psat_sample_data_active`, the `isSample` markers, the banner, and the restore button exist only in `parent.html`. `index.html` contains no reference to any of them (verified by grep).
+
+So after sample data is loaded, the student app shows 24 fabricated attempts as genuine practice history: the header accuracy figure, the Strengths / Focus Areas / In Progress panels, the domain and difficulty charts, the SRS due queue, and the question palette all render synthetic records as real measurements with nothing to indicate otherwise. Round-6 finding 2 asked for the banner "across the parent portal **and student app**"; it landed on one.
+
+The data needed is already there — every synthetic record carries `isSample: true` and the flag is in `localStorage`, so `index.html` can detect it in one line.
+
+**Fix:** read `psat_sample_data_active` on load in `index.html` and render the same persistent banner with the same restore control. Better: extract the banner into a shared helper in `srs.js` (or a tiny `demo-mode.js`) that both pages call, so this cannot diverge again — the same remedy prescribed for `MIN_PER_SECTION`, which is why finding 3 of round 6 stayed fixed this time.
+
+### 3. Minor
+
+- **`provisionalScaled` is a gated score left in the payload.** `srs.js:711` returns the ungated composite alongside `totalScaled: null`. Nothing displays it today (verified), but it is precisely the shape of the round-2 defect where the hero was gated and the section badges were not — an ungated number sitting one `.provisionalScaled` away from a template. Remove it, or rename to `_ungatedInternalOnly` so any use is obviously wrong.
+- **Resume can silently shorten an exam.** Rehydration maps `questionIds` through `qMap` and ends with `.filter(Boolean)` (`index.html:~2545`). If any ID is missing from the current bundle, the module comes back shorter, and `scoreStandardExam` divides by `mod.questions.length` — scoring a 27-question module out of however many survived, with no warning. Compare the rehydrated count against `questionsCount` and refuse to resume (or warn) on mismatch.
+- **Git purge** (rounds 1–3) still pending: 3,059 images tracked, `.git` 267 MB.
+
+## Suggested order for round 7
+
+1. Finding 1 — guard the backup and disable the button while demo mode is active. Still irreversible data loss, now two clicks away.
+2. Finding 2 — shared banner helper used by both pages.
+3. Finding 3 minors — batch together.
+
+**Process note.** Both findings are textbook instances of modes already documented in `CLAUDE.md`: *destructive action without a guard* (mode 7) and *a rule applied in one place but not its twin* (mode 2). The round-6 fixes were correct in substance — what slipped was coverage, not comprehension. The checklist question that would have caught both is the same one: **"did I grep for every other site of this rule and fix them all?"**
+
+---
+---
+
+# Re-review — round 8
+
+**Reviewed:** 2026-08-24 · commit `d66b2a0` (round-7 fixes) vs `641e387`
+
+**Verdict: all four round-7 items are fixed, and the approach taken was the right one — the demo-mode logic was extracted into `srs.js` as a testable, storage-injectable module rather than duplicated across the two pages.** All 12 tests pass, including a new "Demo Backup Guard" suite. **One finding remains: a fallback branch in `index.html` deletes the backup instead of restoring from it** — the same two-surfaces divergence pattern, this time in error-handling code.
+
+## Round-7 items: verified by execution
+
+| Round-7 finding | Status |
+| :--- | :--- |
+| 1 — double-load destroys the backup | **Fixed, with defence in depth.** `backupRealData()` (`srs.js:849`) refuses to write when demo mode is active, and `loadSampleDiagnosticSession()` (`parent.html:1278`) refuses outright with a message pointing at the restore button. |
+| 2 — banner missing from student app | **Fixed correctly.** `isDemoModeActive()`/`backupRealData()`/`restoreRealData()` extracted into `srs.js` with injectable storage; both pages call the shared helpers. Student app now has its own banner (`index.html:105-116`) with a restore control. |
+| 3a — `provisionalScaled` | **Removed.** Zero occurrences repo-wide. |
+| 3b — resume can silently shorten an exam | **Fixed, and it fails loudly.** Rehydration compares against `expectedCount`, and on mismatch warns the user, clears the state, and returns to the lobby rather than scoring a short exam (`index.html:2595-2622`). |
+
+The decisive test — the sequence that previously destroyed real data — now passes:
+
+```
+load #1: backupRealData -> true  | backup holds: REAL STUDENT WORK
+load #2: backupRealData -> false | backup holds: REAL STUDENT WORK
+load #3: backupRealData -> false | backup holds: REAL STUDENT WORK
+after restore -> progress: REAL STUDENT WORK ✅   history: REAL EXAM ✅
+demo flag cleared: true   backup key cleared: true
+restore with no backup at all: returns true, no crash
+```
+
+## Round-8 finding
+
+### 1. `index.html`'s restore fallback deletes the backup without restoring it
+
+Both pages guard the shared helper the same way, but the fallback branches differ. `parent.html` (`:1386-1412`) correctly reads `psat_pre_sample_backup` and writes each key back before clearing. `index.html` (`:1079-1086`) does not:
+
+```js
+function restoreRealStudentData() {
+  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
+    PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+  } else {
+    localStorage.removeItem('psat_sample_data_active');
+    localStorage.removeItem('psat_pre_sample_backup');   // ← deletes the only copy
+  }
+  location.reload();
+}
+```
+
+If `PSAT_ENGINE` is unavailable, this removes the backup **without writing it back** — the sample data stays in `psat_progress`, the demo flag is cleared so nothing indicates it any more, and the student's real work is unrecoverable. A student clicking "Restore My Real Data" gets the exact opposite of what the button promises.
+
+The trigger is unlikely (it needs `srs.js` to fail to load, which breaks much of the app anyway), so this is low-probability — but the severity is total, permanent data loss, and it sits in the one code path whose entire purpose is preventing that.
+
+**Fix — do not mirror `parent.html`'s fallback.** Deleting a backup can never be the safe response to "the restore code is missing." Make the fallback a no-op that reports the problem:
+
+```js
+} else {
+  alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
+  return;   // change nothing, delete nothing
+}
+```
+
+Then apply the same reasoning to `parent.html`: its fallback duplicates ~20 lines of `restoreRealData` and will drift from it. Replace it with the same no-op-and-report.
+
+**Rule worth adding to `CLAUDE.md` mode 7:** *a fallback path may never be more destructive than the primary path.* When the safe operation is unavailable, do nothing and say so — never "clean up".
+
+## Also worth noting
+
+- **`validate.md` is untracked** (`git status`). It reports a full extraction audit claiming 3,059/3,059 validated by a deterministic layer plus an LLM map-reduce pass. I have not verified its claims — it was not part of this review. Either commit it or remove it; an untracked report making 100% claims is the kind of artifact that gets cited later as if it were reviewed.
+- **Git purge** (rounds 1–3) still pending: 3,059 images tracked, `.git` 267 MB.
+
+## Assessment
+
+This is the cleanest round so far. Round 7 asked for a shared helper rather than a copied banner, and that is what was built — `isDemoModeActive` and friends now live in `srs.js` with injectable storage, which is both the correct architecture and directly unit-testable; the new "Demo Backup Guard" test proves the guard rather than asserting it. The rehydration fix chose to fail loudly instead of silently, which is the right instinct and the opposite of the swallowed-failure pattern from rounds 1, 5, and 6.
+
+The one remaining finding is a fallback branch — the least-travelled code in the file. That is a meaningful change in where the defects are landing.
+
+---
+---
+
+# Re-review — round 9
+
+**Reviewed:** 2026-08-24 · commit `9741e00` (round-8 fix) vs `d66b2a0`
+
+**Verdict: the round-8 fix is correct on both pages and the demo-mode subsystem is now sound.** But `validate.md` — committed in this same commit — reports a defect neither my reviews nor the project's validator caught, and **I independently confirmed it: 6 answer keys are wrong, and students are being graded against them.** That is now the most important open item in the project.
+
+## Round-8 item: verified fixed
+
+Both `restoreRealStudentData()` implementations now reload only on success and fall back to a non-destructive message:
+
+```js
+if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
+  PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+  location.reload();
+} else {
+  alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
+  return;
+}
+```
+
+`parent.html`'s duplicated 20-line fallback is gone, so the two pages can no longer drift. Swept the repo for the pattern: the only remaining `removeItem` calls are `clearActiveExamState()` (legitimate) and the internal helper inside `restoreRealData`. All 12 tests pass. End-to-end demo flow re-run: repeat "load sample" clicks leave the backup intact, and restore returns the real progress and exam history with both flags cleared.
+
+## Round-9 finding
+
+### 1. Six answer keys are wrong — students are graded against them *(confirmed independently)*
+
+`validate.md` reports 5 SPR keys truncated at the decimal point. **I verified this against the source PDFs and the claim is accurate.**
+
+`extractor.py:183`'s rationale fallback `The\s+correct\s+answer\s+is\s+([^.\n]+)` stops at the first period. These 5 questions have **no explicit `Correct Answer:` line** in the PDF text layer, so the fallback fired and cut the decimal off:
+
+| ID | Stored key | Rationale in the PDF actually says | Verified |
+| :--- | :--- | :--- | :--- |
+| `7a026c5b` | `1` | `1.3.` | ✓ no explicit key line |
+| `a602f738` | `2` | `2.6.` | ✓ no explicit key line |
+| `d9281ab5` | `1` | `1.5.` | ✓ no explicit key line |
+| `e83a38d3` | `1` | `1.2.` | ✓ no explicit key line |
+| `ebe77ad7` | `4` | `4.44.` | ✓ no explicit key line |
+
+A student entering the correct `1.3` is marked **wrong**; a student entering `1` is marked **right**. All five are Math, Hard, SPR.
+
+An independent sentence-aware scan of all 365 SPR records — written without reusing the extractor's regex — returns **exactly these 5, no others**. The count is confirmed.
+
+**A sixth key is wrong from a different cause.** `2c14fa19` asks for 20,300 mph in yards/hour given 1 mi = 1,760 yd. The arithmetic is 20,300 × 1,760 = **35,728,000**; the PDF's own key line reads `35728`, and the extractor faithfully stored that. Confirmed: the explicit key line really does say `35728`. Extraction is correct; the source is wrong. Either way the student is graded against a value off by a factor of 1,000.
+
+**Fix.**
+1. Correct the regex to capture to the sentence end: `The\s+correct\s+answer\s+is\s+(.+?)\.(?:\s|$)` — this prevents recurrence on any future bank.
+2. **Do not re-run full extraction** to apply it — that regenerates 325 MB of images for a text-only change. Patch the five keys in `data/*.json` with a small script, add `2c14fa19` as an explicit source-override (with a UI caveat like the existing `rationale_letter_mismatch` treatment), then `python3 rebuild_bundle.py`.
+3. Add a validator rule: for any SPR record whose rationale contains `The correct answer is <number>`, assert the stored key equals that number exactly. That converts this class into a permanent check.
+
+**Why every existing check missed it — including mine.** `validator.py` only tests presence and format. A re-extraction diff reuses the same regex, comparing the implementation to itself. And my own round-1 audit tested `correct_answer not in rationale` — a **substring** test: `"1"` is a substring of `"1.3"`, so all five passed silently. That is mode 4 in `CLAUDE.md` — *a test that cannot fail* — committed in the review layer rather than the code. My round-1 statement that "extraction is correct and complete" was wrong on these six records, and I'm correcting it here.
+
+## Housekeeping
+
+- **`validate.md` was committed, then deleted from the working tree and moved to `agent-review/` (untracked).** Right now the report is in git history but not on disk, and an untracked copy exists outside version control. Pick one location and commit it — its BUG-1 finding is the most valuable thing produced this round and should not live in an untracked folder.
+- Its other claims that I spot-checked hold up: the two `rationale_letter_mismatch` records match what I found in round 1, and the 900-placeholder / 72-multi-form figures match my own counts exactly.
+- **Git purge** (rounds 1–3) still pending: 3,059 images tracked, `.git` 267 MB.
+
+## Assessment
+
+The demo-mode work is finished and the code-level defect rate has dropped sharply — round 8's finding was in a fallback branch, and round 9 found nothing new in the application code at all.
+
+The open item is now a **data** defect, not a code one, and it is the most consequential kind this project can have: a prep app that marks a correct answer wrong. It also demonstrates the value of the validation pass — six rounds of code review did not find it, because every check involved, mine included, was structural rather than semantic.
+
+---
+
+# Re-review — round 10
+
+Reviewed commits `0ce0c53` (Cosmos DB cloud sync across student app + parent portal) and `ea5c2ee` (immutable longitudinal exam tracking). All findings below were produced by executing the shipped code.
+
+**Scope: this app serves one student.** Findings are assessed against that, not against a multi-tenant deployment. Multi-user concerns raised in the first pass of this round are withdrawn — see the note under finding 1.
+
+## Status of round 9
+
+**Not fixed.** The six wrong answer keys are still in the dataset:
+
+```
+7a026c5b -> '1'      (should be 1.3)
+a602f738 -> '2'      (should be 2.6)
+d9281ab5 -> '1'      (should be 1.5)
+e83a38d3 -> '1'      (should be 1.2)
+ebe77ad7 -> '4'      (should be 4.44)
+2c14fa19 -> '35728'  (source defect; true value 35728000)
+```
+
+`extractor.py:183` still carries the truncating regex. This remains the highest-priority item in the repository: the student is graded wrong on real questions today, and no cloud feature changes that.
+
+## What is right in this round
+
+- The new cloud-sync test **can fail.** I broke the `mergedHistoryCount` assertion on purpose and got `AssertionError` with `EXIT=1` — the async IIFE surfaces as an unhandled rejection and Node 24 exits non-zero. This is the first new test in ten rounds I did not have to reject under mode 4.
+- `pushToCloud`/`pullFromCloud` both short-circuit on `isDemoModeActive`. Sample data cannot reach the cloud — the mode-7 rule was correctly applied to a brand-new surface.
+- No secrets are committed. `COSMOS_CONNECTION_STRING` comes from the environment, there is no `local.settings.json` in the tree, and no account key appears in any tracked file.
+
+## Finding 1 — Two devices, one student: the newest work is destroyed, permanently
+
+This is the top finding of the round. It is not a multi-user problem — it happens with one student and two devices, which is the setup the feature exists to serve.
+
+`pullFromCloud` merges local over cloud unconditionally, with no timestamp comparison:
+
+```js
+var mergedProg = Object.assign({}, cloud.progress || {}, localProg);
+var mergedSess = Object.assign({}, cloud.sessionsState || {}, localSess);
+```
+
+`sessionsState` is keyed by **date**, so two study sittings on the same day from two devices collide on one key and one replaces the other rather than combining. And because `index.html` both pulls (line 3054) and pushes (line 1097), the loss round-trips back into the cloud and becomes permanent.
+
+Executed — tablet in the morning, laptop at night, same date:
+
+```
+cloud after tablet : {"2026-08-25":{"count":12,"correct":10}}
+laptop after pull  : {"2026-08-25":{"count":5,"correct":4}}   <- expected count:17 correct:14
+cloud after laptop : {"2026-08-25":{"count":5,"correct":4}}   <- morning work now gone from the cloud
+```
+
+Twelve questions of real work erased from both devices and the cloud. The same rule applies to `progress` for any question answered on both devices, and to `srsState` — the SM-2 scheduling state silently reverts to whichever device happened to sync last, so review intervals regress.
+
+The shipped test only covers an **empty** parent store, where local-wins is indistinguishable from correct. The conflict case — the only case where the merge rule matters — is untested.
+
+**Fix.** Make `sessionsState` additive per day key rather than last-write-wins. For `progress` and `srsState`, compare a per-record timestamp and keep the newer. Add a test for the same-day two-device case and watch it fail before fixing it.
+
+### Withdrawn: multi-tenant concerns
+
+My first pass flagged that every client writes to a single `default_student` record and that families would overwrite each other. With one student that is not a defect — it is the design, and the fixed record id is a reasonable simplification. I withdraw that half of the finding.
+
+What remains, at much lower severity: the endpoint is `authLevel: 'anonymous'` on the public internet, so anyone who learns the hostname can read the student's practice record or `POST` garbage over it. With one obscure URL and a child's practice scores the exposure is small, and it is your call whether it is worth anything. If you want it closed cheaply, validate an `x-sync-key` header against an app-setting secret — about ten lines in each function, no change to the data model. The write side is the part I would weigh: an unauthenticated `POST` combined with the merge rule above means a stray request can corrupt the record with no way to tell it happened.
+
+Note `api/src/functions/feedback.js` is the same shape and stores `name` and `email`.
+
+## Finding 2 — A server error is reported to the parent as "everything is synchronized" (mode 1, mode 5)
+
+When Cosmos is unreachable, `sync.js` returns HTTP 500 with `{error: "..."}`. That body has no `success` field, so `pullFromCloud` falls through to its trailing `return { success: true, updated: false }`. Executed:
+
+```
+server 500 -> pullFromCloud returns {"success":true,"updated":false}
+parent.html branch taken: ELSE -> alert("Cosmos DB is up to date — all attempts and reports are currently synchronized.")
+```
+
+A parent is told, in plain words, that everything is synced at the exact moment the sync failed. This is mode 1 and mode 5 in one line: a failure swallowed and rendered as a positive measurement.
+
+Two more instances of the same class in this commit:
+
+- `index.html` ships a static badge reading **"Cosmos DB Active"** in the markup, before any request is made. It is not a measurement of anything.
+- `feedback.html` prints `"✓ Feedback entry logged & synced to Cosmos DB successfully!"` **synchronously**, before the `fetch` resolves; the failure path is a bare `.catch(err => console.warn(...))`.
+
+**Fix.** `pullFromCloud` must return `{success:false}` when the response carries an `error` field or a non-2xx status; every call site must distinguish "up to date" from "could not reach the server" and say which. Start the badge in an unknown state and let a real response move it.
+
+## Finding 3 — Cloud pull re-creates the storage bloat rounds 5–7 removed (mode 6)
+
+`pullFromCloud` writes four keys with `store.setItem` directly. It does not use `safeSetStorage`, so there is no quota guard and no return flag to check — the exact mechanism rounds 5 and 6 existed to install. The merged history is also unbounded: local caps at 15, the cloud master doc caps at 30, but the GET handler merges every immutable `exam_session` doc on top with no limit. Executed with a year of testing (120 exams):
+
+```
+merged history entries written to localStorage: 120   (local cap is 15)
+psat_exam_history size: 533.7 KB                       (localStorage quota ~5120 KB total)
+```
+
+533 KB in one key, written through an unguarded `setItem`, inside a promise chain whose `.catch` converts `QuotaExceededError` into a silent `{success:false}` that no call site inspects. One student accumulates this just as fast as many — it is driven by exams taken over time, not by user count.
+
+**Fix.** Route every write through `safeSetStorage` and check the flag; cap the merged history at the same 15 the local path uses.
+
+## Finding 4 — "Immutable" is `upsert`, and sync fires on every answered question
+
+The commit message and code comment call the per-exam records immutable, but the handler uses `upsert`, which overwrites:
+
+```js
+for (const exam of body.examHistory) { ... await c.items.upsert(examDoc); }
+```
+
+Nothing enforces immutability — a POST carrying an altered payload for an existing `examId` replaces the historical record, which defeats the stated point of longitudinal tracking. Either enforce it (`items.create`, ignore the conflict) or stop calling it immutable. Mode 1 applies to labels as much as to numbers.
+
+The efficiency half is minor at one student and I am not asking for it: `saveProgress()` → `triggerCloudSync()` means every answered question POSTs the full payload and re-upserts every exam document sequentially. At one student the RU cost is negligible and throttling is unlikely. Worth knowing only because a 429 would arrive as the silent failure in finding 2.
+
+## Finding 5 — 8,133 dependency files committed to a repo already at 267 MB
+
+`0ce0c53` added `api/node_modules` to version control: **8,133 files, 266,694 insertions**. `.gitignore` has no `node_modules/` entry. There is also an untracked 9 MB `api.zip` deployment artifact in the project root.
+
+The git-purge item has been open since round 1 (3,059 tracked images); this makes it materially worse and is trivially avoidable.
+
+**Fix.** Add `node_modules/` and `*.zip` to `.gitignore`, `git rm -r --cached api/node_modules`, and commit. Fold the rest into the history rewrite when it happens.
+
+## Housekeeping still open
+
+- `validate.md` is committed in `9741e00` but deleted from the working tree, with an untracked copy in `agent-review/`. Its BUG-1 finding is the most valuable output of round 8 and should live in one canonical, tracked location.
+- Git purge of 3,059 images + `api/node_modules`. Needs explicit sign-off; rewrites history.
+- `COSMOS_CONNECTION_STRING` is a connection string. Round 1 flagged the same pattern for the storage account and recommended `DefaultAzureCredential`; the rule was not applied to its twin here (mode 2).

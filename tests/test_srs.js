@@ -363,10 +363,20 @@ assert.strictEqual(mockStore.getItem('psat_pre_sample_backup'), null, 'psat_pre_
 
 // L: Cloud Sync (Cosmos DB Sync Push & Pull Simulation)
 let mockCloudDb = {};
+let mockServerFail = false;
+
 const mockFetch = async (url, opts) => {
+  if (mockServerFail) {
+    return {
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'Internal Cosmos DB Error' })
+    };
+  }
   if (!opts || opts.method === 'GET' || !opts.method) {
     return {
       ok: true,
+      status: 200,
       json: async () => ({
         success: true,
         exists: Boolean(mockCloudDb.default_student),
@@ -379,37 +389,96 @@ const mockFetch = async (url, opts) => {
     mockCloudDb[body.student_name || 'default_student'] = body;
     return {
       ok: true,
+      status: 200,
       json: async () => ({ success: true, updatedAt: Date.now() })
     };
   }
 };
 
 (async () => {
-  // Device A (Student Laptop) completes a 20-question test and pushes to cloud
-  const studentStore = new MockStorage();
-  studentStore.setItem('psat_progress', JSON.stringify({ 'q_student_1': { answered: true, isCorrect: true, timeSpentMs: 30000 } }));
-  studentStore.setItem('psat_exam_history', JSON.stringify([{ examId: 'gap_drill_20q', overallAccuracyPercent: 90, totalQuestions: 20, totalCorrect: 18 }]));
+  // 1. Two devices, same-day work additive merge test
+  const morningTabletStore = new MockStorage();
+  morningTabletStore.setItem('psat_sessions', JSON.stringify({
+    '2026-08-25': { totalAnswered: 12, totalCorrect: 10, totalTimeSpentMs: 120000, lastAttemptTime: 1000 }
+  }));
+  morningTabletStore.setItem('psat_progress', JSON.stringify({
+    'q1': { answered: true, isCorrect: false, timeSpentMs: 25000, timestamp: 1000 }
+  }));
+  morningTabletStore.setItem('psat_srs', JSON.stringify({
+    'q1': { repetitions: 1, easeFactor: 2.3, lastReviewedDate: 1000 }
+  }));
 
-  const pushRes = await PSAT_ENGINE.pushToCloud(studentStore, mockFetch, 'default_student');
-  assert.strictEqual(pushRes.success, true, 'Student push to Cosmos DB cloud API must succeed');
-  assert.strictEqual(mockCloudDb.default_student.examHistory.length, 1, 'Cloud DB must receive the completed exam');
+  // Tablet pushes to cloud
+  await PSAT_ENGINE.pushToCloud(morningTabletStore, mockFetch, 'default_student');
 
-  // Device B (Parent Computer) starts empty and pulls from cloud
-  const parentStore = new MockStorage();
-  const pullRes = await PSAT_ENGINE.pullFromCloud(parentStore, mockFetch, 'default_student');
-  assert.strictEqual(pullRes.success, true, 'Parent pull from Cosmos DB cloud API must succeed');
-  assert.strictEqual(pullRes.updated, true, 'Parent store must be updated with student work');
-  assert.strictEqual(pullRes.mergedHistoryCount, 1, 'Parent store must have 1 merged exam');
+  // Evening Laptop has 5 attempts (4 correct) on the same day, and re-attempted q1 at t=2000 (correct)
+  const eveningLaptopStore = new MockStorage();
+  eveningLaptopStore.setItem('psat_sessions', JSON.stringify({
+    '2026-08-25': { totalAnswered: 5, totalCorrect: 4, totalTimeSpentMs: 60000, lastAttemptTime: 2000 }
+  }));
+  eveningLaptopStore.setItem('psat_progress', JSON.stringify({
+    'q1': { answered: true, isCorrect: true, timeSpentMs: 20000, timestamp: 2000 }
+  }));
+  eveningLaptopStore.setItem('psat_srs', JSON.stringify({
+    'q1': { repetitions: 2, easeFactor: 2.6, lastReviewedDate: 2000 }
+  }));
 
-  const parentHistory = JSON.parse(parentStore.getItem('psat_exam_history'));
-  assert.strictEqual(parentHistory[0].examId, 'gap_drill_20q');
-  assert.strictEqual(parentHistory[0].totalQuestions, 20);
+  // Laptop pulls from cloud
+  const pullRes1 = await PSAT_ENGINE.pullFromCloud(eveningLaptopStore, mockFetch, 'default_student');
+  assert.strictEqual(pullRes1.success, true);
+  assert.strictEqual(pullRes1.updated, true);
 
-  const parentProgress = JSON.parse(parentStore.getItem('psat_progress'));
-  assert.strictEqual(parentProgress['q_student_1'].isCorrect, true);
+  const mergedSessions = JSON.parse(eveningLaptopStore.getItem('psat_sessions'));
+  assert.strictEqual(mergedSessions['2026-08-25'].totalAnswered, 17, 'Same-day session totalAnswered must be additive (12 + 5 = 17)');
+  assert.strictEqual(mergedSessions['2026-08-25'].totalCorrect, 14, 'Same-day session totalCorrect must be additive (10 + 4 = 14)');
+  assert.strictEqual(mergedSessions['2026-08-25'].totalTimeSpentMs, 180000);
+
+  const mergedProgress = JSON.parse(eveningLaptopStore.getItem('psat_progress'));
+  assert.strictEqual(mergedProgress['q1'].isCorrect, true, 'Newer attempt at t=2000 must win over older attempt at t=1000');
+  assert.strictEqual(mergedProgress['q1'].timestamp, 2000);
+
+  const mergedSrs = JSON.parse(eveningLaptopStore.getItem('psat_srs'));
+  assert.strictEqual(mergedSrs['q1'].easeFactor, 2.6, 'Newer SRS state at t=2000 must win');
+
+  // 2. 120-exam cloud pull capped at 15 exams & local size test
+  const manyExams = [];
+  for (let i = 0; i < 120; i++) {
+    manyExams.push({
+      examId: `exam_${i}`,
+      title: `Test #${i}`,
+      completedAt: 1700000000000 + i * 86400000,
+      totalQuestions: 20,
+      totalCorrect: 18,
+      overallAccuracyPercent: 90,
+      scores: { rwCorrect: 9, rwTotal: 10, mathCorrect: 9, mathTotal: 10 },
+      moduleReports: [
+        { name: 'RW', totalQuestions: 10, correct: 9, questions: [{ questionId: 'q1', userAnswer: 'A', isCorrect: true }] },
+        { name: 'Math', totalQuestions: 10, correct: 9, questions: [{ questionId: 'q2', userAnswer: '1.5', isCorrect: true }] }
+      ]
+    });
+  }
+
+  mockCloudDb.default_student.examHistory = manyExams;
+
+  const testStore = new MockStorage();
+  const pullRes2 = await PSAT_ENGINE.pullFromCloud(testStore, mockFetch, 'default_student');
+  assert.strictEqual(pullRes2.success, true);
+  const localHistory = JSON.parse(testStore.getItem('psat_exam_history'));
+  assert.strictEqual(localHistory.length, 15, 'Merged local exam history must be capped at 15 items');
+  assert.strictEqual(localHistory[0].examId, 'exam_119', 'Latest exam must be at index 0');
+
+  const historyByteSize = Buffer.byteLength(testStore.getItem('psat_exam_history'), 'utf8');
+  assert.ok(historyByteSize < 25000, `psat_exam_history size (${historyByteSize} B) must be well under 25KB`);
+
+  // 3. Error Handling Test (500 Server Error)
+  mockServerFail = true;
+  const failRes = await PSAT_ENGINE.pullFromCloud(testStore, mockFetch, 'default_student');
+  assert.strictEqual(failRes.success, false, 'Failed server response must return success: false');
+  assert.strictEqual(failRes.error, 'HTTP_500', 'Error code must report HTTP status');
 
   console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, Scoring, and Cosmos DB Cloud Sync tests passed!');
 })();
+
 
 
 

@@ -179,8 +179,8 @@ def parse_question_text(full_text: str, qid: str) -> Dict[str, Any]:
             if m_note:
                 correct_ans = m_note.group(1).strip()
             else:
-                # Fallback 3: Free response in rationale (e.g. "The correct answer is 40.")
-                m_rat_fr = re.search(r"The\s+correct\s+answer\s+is\s+([^.\n]+)", rationale, re.IGNORECASE)
+                # Fallback 3: Free response in rationale (e.g. "The correct answer is 40." or "The correct answer is 1.3.")
+                m_rat_fr = re.search(r"The\s+correct\s+answer\s+is\s+(.+?)\.(?:\s|$)", rationale, re.IGNORECASE)
                 if m_rat_fr and m_rat_fr.group(1).strip():
                     correct_ans = m_rat_fr.group(1).strip()
 

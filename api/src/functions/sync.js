@@ -106,7 +106,14 @@ app.http('sync', {
                 doc_type: 'exam_session',
                 persistedAt: now
               });
-              await c.items.upsert(examDoc);
+              try {
+                await c.items.create(examDoc);
+              } catch (err) {
+                // HTTP 409 (Conflict) means the immutable record is already safely stored
+                if (err.statusCode !== 409) {
+                  context.warn(`Warning creating immutable exam doc ${examDocId}:`, err.message);
+                }
+              }
             }
           }
         }

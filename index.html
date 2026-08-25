@@ -71,7 +71,7 @@
             <div class="text-slate-600">Accuracy: <span id="hdr-accuracy" class="text-emerald-600 font-bold">0%</span></div>
           </div>
           <div id="hdr-cloud-badge" class="hidden sm:flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200" title="Automatic Azure Cosmos DB cloud synchronization">
-            <i data-lucide="cloud" class="w-3.5 h-3.5 text-indigo-500 mr-1"></i> Cosmos DB Active
+            <i data-lucide="cloud" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Cosmos DB: Connecting...
           </div>
           <a href="feedback.html" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1"></i> Feedback
@@ -1096,11 +1096,21 @@
         if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
           PSAT_ENGINE.pushToCloud(localStorage).then(res => {
             const el = document.getElementById('hdr-cloud-badge');
-            if (el && res && res.success) {
-              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
+            if (el) {
+              if (res && res.success) {
+                el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
+              } else {
+                el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+              }
               lucide.createIcons();
             }
-          }).catch(() => {});
+          }).catch(() => {
+            const el = document.getElementById('hdr-cloud-badge');
+            if (el) {
+              el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+              lucide.createIcons();
+            }
+          });
         }
       }, 1500);
     }
@@ -3051,21 +3061,34 @@
 
       // Automatic cloud sync on app start
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage).then(res => {
-          if (res && res.success && res.updated) {
-            progress = safeGetStorage('psat_progress', {});
-            srsState = safeGetStorage('psat_srs', {});
-            sessionsState = safeGetStorage('psat_sessions', {});
-            updateHeaderStats();
-            renderPalette();
-            renderExamLobbyHistory();
-            const el = document.getElementById('hdr-cloud-badge');
+        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
+          const el = document.getElementById('hdr-cloud-badge');
+          if (res && res.success) {
+            if (res.updated) {
+              progress = safeGetStorage('psat_progress', {});
+              srsState = safeGetStorage('psat_srs', {});
+              sessionsState = safeGetStorage('psat_sessions', {});
+              updateHeaderStats();
+              renderPalette();
+              renderExamLobbyHistory();
+            }
             if (el) {
               el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
               lucide.createIcons();
             }
+          } else {
+            if (el) {
+              el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+              lucide.createIcons();
+            }
           }
-        }).catch(() => {});
+        }).catch(() => {
+          const el = document.getElementById('hdr-cloud-badge');
+          if (el) {
+            el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
+            lucide.createIcons();
+          }
+        });
       }
     });
   </script>

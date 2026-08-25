@@ -78,6 +78,46 @@ def validate_question(q: Dict[str, Any], base_image_dir: Optional[str] = None) -
         m_rat_mc = re.search(r"Choice\s+([A-D])\s+is\s+(?:the\s+best\s+answer|correct)", rat, re.IGNORECASE)
         if m_rat_mc and m_rat_mc.group(1).upper() != ans:
             warnings.append(f"[{qid}] Source contradiction: Correct Answer is '{ans}' but rationale states 'Choice {m_rat_mc.group(1).upper()} is correct'")
+    elif qtype == "free_response" and ans:
+        # Known source defect override where rationale or key in PDF was defective
+        KNOWN_SPR_OVERRIDES = {
+            "2c14fa19": "35728000"  # 20,300 mph × 1,760 yd/mi = 35,728,000 (PDF key erroneously omitted ,000)
+        }
+        if qid in KNOWN_SPR_OVERRIDES:
+            if str(ans).strip() != KNOWN_SPR_OVERRIDES[qid]:
+                errors.append(f"[{qid}] Expected known SPR override '{KNOWN_SPR_OVERRIDES[qid]}', found '{ans}'")
+        else:
+            # Check sentence-aware free response rationale consistency
+            m_rat_fr = re.search(r"The\s+correct\s+answer\s+is\s+(?:either\s+)?([^.\n]+(?:\.[0-9]+)?)\.(?:\s|$)", rat, re.IGNORECASE)
+            if m_rat_fr:
+                expected_raw = m_rat_fr.group(1).strip()
+                ans_clean = str(ans).strip()
+                accepted_tokens = [t.strip() for t in ans_clean.split(",")]
+                
+                # If rationale mentions 'either A or B' or 'A, B, or C'
+                parts = re.split(r"\s+or\s+|\s*,\s*", expected_raw)
+                parts = [p.strip() for p in parts if p.strip() and p.strip().lower() not in ("either", "and", "or")]
+                
+                if parts:
+                    # Check that every extracted numeric part matches an accepted token
+                    for p in parts:
+                        is_match = (p in accepted_tokens)
+                        if not is_match:
+                            try:
+                                is_match = any(abs(float(p) - float(tok)) < 1e-6 for tok in accepted_tokens)
+                            except Exception:
+                                pass
+                        if not is_match and re.match(r"^-?[0-9]+(?:\.[0-9]+)?$", p):
+                            errors.append(f"[{qid}] Free-response key '{ans}' does not match sentence rationale component '{p}'")
+                elif expected_raw and expected_raw.lower() not in ("either or", "either , or", "either , , or"):
+                    is_match = (expected_raw in accepted_tokens)
+                    if not is_match:
+                        try:
+                            is_match = any(abs(float(expected_raw) - float(tok)) < 1e-6 for tok in accepted_tokens)
+                        except Exception:
+                            pass
+                    if not is_match and re.match(r"^-?[0-9]+(?:\.[0-9]+)?$", expected_raw):
+                        errors.append(f"[{qid}] Free-response key '{ans}' does not match sentence rationale '{expected_raw}'")
 
     # 6. Image / Visual Asset Check
     if q.get("has_image", False):

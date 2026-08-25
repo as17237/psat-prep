@@ -1006,12 +1006,125 @@
   var CLOUD_SYNC_ENDPOINT = 'https://psat-api-4915.azurewebsites.net/api/sync';
 
   /**
+   * Merges sessions additively across devices for each day key.
+   */
+  function mergeSessionsState(cloudSessions, localSessions) {
+    var cloud = cloudSessions || {};
+    var local = localSessions || {};
+    var merged = {};
+
+    var allDays = Object.keys(cloud).concat(Object.keys(local));
+    allDays.forEach(function(day) {
+      if (merged[day]) return;
+      var cDay = cloud[day];
+      var lDay = local[day];
+
+      if (cDay && lDay) {
+        merged[day] = {
+          date: day,
+          totalAnswered: (cDay.totalAnswered || cDay.count || 0) + (lDay.totalAnswered || lDay.count || 0),
+          totalCorrect: (cDay.totalCorrect || cDay.correct || 0) + (lDay.totalCorrect || lDay.correct || 0),
+          totalTimeSpentMs: (cDay.totalTimeSpentMs || 0) + (lDay.totalTimeSpentMs || 0),
+          streakCount: Math.max(cDay.streakCount || 0, lDay.streakCount || 0),
+          lastAttemptTime: Math.max(cDay.lastAttemptTime || 0, lDay.lastAttemptTime || 0)
+        };
+      } else if (cDay) {
+        merged[day] = Object.assign({}, cDay);
+      } else if (lDay) {
+        merged[day] = Object.assign({}, lDay);
+      }
+    });
+
+    return merged;
+  }
+
+  /**
+   * Merges progress maps by choosing the newer record timestamp per question.
+   */
+  function mergeProgress(cloudProgress, localProgress) {
+    var cloud = cloudProgress || {};
+    var local = localProgress || {};
+    var merged = {};
+
+    var allQids = Object.keys(cloud).concat(Object.keys(local));
+    allQids.forEach(function(qid) {
+      if (merged[qid]) return;
+      var c = cloud[qid];
+      var l = local[qid];
+
+      if (c && l) {
+        var cTime = c.timestamp || c.lastAttemptTime || 0;
+        var lTime = l.timestamp || l.lastAttemptTime || 0;
+        merged[qid] = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
+      } else if (c) {
+        merged[qid] = Object.assign({}, c);
+      } else if (l) {
+        merged[qid] = Object.assign({}, l);
+      }
+    });
+
+    return merged;
+  }
+
+  /**
+   * Merges SRS card states by choosing the newer review record per question.
+   */
+  function mergeSrsState(cloudSrs, localSrs) {
+    var cloud = cloudSrs || {};
+    var local = localSrs || {};
+    var merged = {};
+
+    var allQids = Object.keys(cloud).concat(Object.keys(local));
+    allQids.forEach(function(qid) {
+      if (merged[qid]) return;
+      var c = cloud[qid];
+      var l = local[qid];
+
+      if (c && l) {
+        var cTime = Math.max(c.lastReviewedDate || 0, c.dueDate || 0, c.timestamp || 0);
+        var lTime = Math.max(l.lastReviewedDate || 0, l.dueDate || 0, l.timestamp || 0);
+        merged[qid] = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
+      } else if (c) {
+        merged[qid] = Object.assign({}, c);
+      } else if (l) {
+        merged[qid] = Object.assign({}, l);
+      }
+    });
+
+    return merged;
+  }
+
+  /**
+   * Merges exam histories, deduplicating by examId and capping at maxCap (default 15).
+   */
+  function mergeExamHistory(cloudHistory, localHistory, maxCap) {
+    var cap = (typeof maxCap === 'number') ? maxCap : 15;
+    var histMap = {};
+    (cloudHistory || []).forEach(function(h) {
+      if (h && (h.examId || h.completedAt)) {
+        histMap[h.examId || h.completedAt] = h;
+      }
+    });
+    (localHistory || []).forEach(function(h) {
+      if (h && (h.examId || h.completedAt)) {
+        histMap[h.examId || h.completedAt] = h;
+      }
+    });
+
+    var merged = Object.values(histMap).sort(function(a, b) {
+      return (b.completedAt || 0) - (a.completedAt || 0);
+    });
+
+    return merged.slice(0, cap);
+  }
+
+  /**
    * Pushes progress and exam history to Cosmos DB cloud API.
    */
   function pushToCloud(store, customFetch, studentName) {
     var sName = studentName || 'default_student';
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
-    if (!fetchFn) return Promise.resolve({ success: false, reason: 'no_fetch' });
+    if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
     var progress = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
@@ -1033,7 +1146,15 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }).then(function(res) {
-      return res.json();
+      if (!res || !res.ok) {
+        return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
+      }
+      return res.json().then(function(result) {
+        if (!result || !result.success || result.error) {
+          return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
+        }
+        return { success: true, updatedAt: result.updatedAt };
+      });
     }).catch(function(err) {
       return { success: false, error: err.message };
     });
@@ -1042,43 +1163,65 @@
   /**
    * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
    */
-  function pullFromCloud(store, customFetch, studentName) {
+  function pullFromCloud(store, customFetch, studentName, safeSetStorageFn) {
     var sName = studentName || 'default_student';
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
-    if (!fetchFn) return Promise.resolve({ success: false, reason: 'no_fetch' });
+    if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
-    return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
-      .then(function(res) { return res.json(); })
-      .then(function(result) {
-        if (result && result.success && result.exists && result.data) {
-          var cloud = result.data;
-          var localProg = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
-          var localHist = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
-          var localSess = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
-          var localSrs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
-
-          var mergedProg = Object.assign({}, cloud.progress || {}, localProg);
-          var mergedSrs = Object.assign({}, cloud.srsState || {}, localSrs);
-          var mergedSess = Object.assign({}, cloud.sessionsState || {}, localSess);
-
-          var histMap = {};
-          (cloud.examHistory || []).forEach(function(h) { if (h && (h.examId || h.completedAt)) histMap[h.examId || h.completedAt] = h; });
-          localHist.forEach(function(h) { if (h && (h.examId || h.completedAt)) histMap[h.examId || h.completedAt] = h; });
-          var mergedHist = Object.values(histMap).sort(function(a, b) {
-            return (b.completedAt || 0) - (a.completedAt || 0);
-          });
-
-          if (store && store.setItem) {
-            store.setItem('psat_progress', JSON.stringify(mergedProg));
-            store.setItem('psat_srs', JSON.stringify(mergedSrs));
-            store.setItem('psat_sessions', JSON.stringify(mergedSess));
-            store.setItem('psat_exam_history', JSON.stringify(mergedHist));
-          }
-
-          return { success: true, updated: true, data: cloud, mergedHistoryCount: mergedHist.length };
+    var setter = safeSetStorageFn || function(key, val) {
+      try {
+        if (store && store.setItem) {
+          store.setItem(key, JSON.stringify(val));
+          return true;
         }
-        return { success: true, updated: false };
+        return false;
+      } catch (e) {
+        console.error('Storage quota write error for key:', key, e);
+        return false;
+      }
+    };
+
+    return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
+      .then(function(res) {
+        if (!res || !res.ok) {
+          return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
+        }
+        return res.json().then(function(result) {
+          if (!result || !result.success || result.error) {
+            return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
+          }
+          if (result.exists && result.data) {
+            var cloud = result.data;
+            var localProg = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
+            var localHist = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
+            var localSess = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
+            var localSrs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
+
+            var mergedProg = mergeProgress(cloud.progress, localProg);
+            var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
+            var mergedSess = mergeSessionsState(cloud.sessionsState, localSess);
+            var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
+
+            var ok1 = setter('psat_progress', mergedProg);
+            var ok2 = setter('psat_srs', mergedSrs);
+            var ok3 = setter('psat_sessions', mergedSess);
+            var ok4 = setter('psat_exam_history', mergedHist);
+
+            if (!ok1 || !ok2 || !ok3 || !ok4) {
+              return { success: false, error: 'Storage quota exceeded while writing merged data', quotaExceeded: true };
+            }
+
+            return {
+              success: true,
+              updated: true,
+              data: cloud,
+              mergedHistoryCount: mergedHist.length,
+              totalAttempts: Object.keys(mergedProg).length
+            };
+          }
+          return { success: true, updated: false, empty: true };
+        });
       }).catch(function(err) {
         return { success: false, error: err.message };
       });
@@ -1107,6 +1250,10 @@
     restoreRealData: restoreRealData,
     toLeanReport: toLeanReport,
     rehydrateReport: rehydrateReport,
+    mergeSessionsState: mergeSessionsState,
+    mergeProgress: mergeProgress,
+    mergeSrsState: mergeSrsState,
+    mergeExamHistory: mergeExamHistory,
     pushToCloud: pushToCloud,
     pullFromCloud: pullFromCloud
   };

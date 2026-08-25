@@ -18,3 +18,8 @@ Thumbs.db
 # Logs & Temp
 *.log
 scratch/
+# Node
+node_modules/
+api/node_modules/
+*.zip
+
