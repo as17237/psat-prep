@@ -285,17 +285,84 @@ assert.strictEqual(miniReport.totalQuestions, 8);
 assert.strictEqual(miniReport.totalCorrect, 8);
 assert.strictEqual(miniReport.scores.isScaledReady, false, 'Mini exam (<15 Qs per section) must NOT mark scaled score ready');
 assert.strictEqual(miniReport.scores.totalScaled, null, 'Mini exam must have totalScaled null');
-assert.strictEqual(miniReport.scores.provisionalScaled, 1440, 'Provisional scaled score should be available for internal reference');
+assert.strictEqual(miniReport.scores.provisionalScaled, undefined, 'provisionalScaled must be removed to prevent gate bypass');
 
 assert.strictEqual(realReport.scores.isScaledReady, true, 'Full exam (98 Qs) must mark scaled score ready');
 assert.strictEqual(realReport.scores.totalScaled, 1440, 'Full exam must report 1440 scaled score');
+assert.strictEqual(realReport.scores.provisionalScaled, undefined, 'provisionalScaled must be removed from full exam too');
 
 const miniLean = PSAT_ENGINE.toLeanReport(miniReport);
 const miniRehydrated = PSAT_ENGINE.rehydrateReport(miniLean, realBank);
 assert.strictEqual(miniRehydrated.totalQuestions, 8);
 assert.strictEqual(miniRehydrated.moduleReports[0].questions[0].question_text.length > 0, true);
 
-console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, and Scoring tests passed!');
+// J: Sample Diagnostic Generator Payload & Integrity
+const samplePayload = PSAT_ENGINE.generateSampleDiagnosticPayload(realBank, '2026-08-24');
+const sampleProgressKeys = Object.keys(samplePayload.progress);
+assert.strictEqual(sampleProgressKeys.length, 24, 'Sample payload must contain exactly 24 practice attempts');
+
+let sampleCollisionCount = 0;
+sampleProgressKeys.forEach(qid => {
+  const attempt = samplePayload.progress[qid];
+  assert.strictEqual(attempt.isSample, true, 'Every sample attempt must be stamped isSample: true');
+  const q = realBank.find(item => item.id === qid);
+  if (!attempt.isCorrect) {
+    if ((q.type || q.question_type) === 'free_response') {
+      const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
+      if (forms.includes(attempt.selectedAnswer)) sampleCollisionCount++;
+    } else {
+      if (String(attempt.selectedAnswer).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase()) {
+        sampleCollisionCount++;
+      }
+    }
+  }
+});
+assert.strictEqual(sampleCollisionCount, 0, 'No sample incorrect attempt may match the correct key');
+
+// K: Demo Mode Guarded Backup (Load -> Load -> Restore Sequence)
+class MockStorage {
+  constructor() { this.store = {}; }
+  getItem(key) { return Object.prototype.hasOwnProperty.call(this.store, key) ? this.store[key] : null; }
+  setItem(key, val) { this.store[key] = String(val); }
+  removeItem(key) { delete this.store[key]; }
+}
+
+const mockStore = new MockStorage();
+const realInitialProgress = { 'real_q_100': { answered: true, isCorrect: true, timeSpentMs: 45000 } };
+const realInitialHistory = [{ examId: 'real_standard_exam_001', totalScore: 1380 }];
+mockStore.setItem('psat_progress', JSON.stringify(realInitialProgress));
+mockStore.setItem('psat_exam_history', JSON.stringify(realInitialHistory));
+
+// 1st Load: Must create backup of real data and activate demo mode
+const backedUp1 = PSAT_ENGINE.backupRealData(mockStore);
+assert.strictEqual(backedUp1, true, 'First backup must succeed');
+mockStore.setItem('psat_sample_data_active', 'true');
+mockStore.setItem('psat_progress', JSON.stringify(samplePayload.progress));
+mockStore.setItem('psat_exam_history', JSON.stringify(samplePayload.examHistory));
+
+// 2nd Load: Demo mode is already active -> backup MUST NOT overwrite real backup with sample data
+const backedUp2 = PSAT_ENGINE.backupRealData(mockStore);
+assert.strictEqual(backedUp2, false, 'Second backup must refuse to overwrite while demo mode is active');
+
+// Generate 2nd sample payload
+const samplePayload2 = PSAT_ENGINE.generateSampleDiagnosticPayload(realBank, '2026-08-24');
+mockStore.setItem('psat_progress', JSON.stringify(samplePayload2.progress));
+
+// Verify that the backup STILL contains the real data
+const backupJson = JSON.parse(mockStore.getItem('psat_pre_sample_backup'));
+assert.deepStrictEqual(backupJson.progress, realInitialProgress, 'Backup must still hold initial real progress after 2nd sample load');
+assert.deepStrictEqual(backupJson.examHistory, realInitialHistory, 'Backup must still hold initial real exam history after 2nd sample load');
+
+// 3. Restore: Must restore original real student data completely
+const restored = PSAT_ENGINE.restoreRealData(mockStore);
+assert.strictEqual(restored, true, 'Restore must succeed');
+assert.deepStrictEqual(JSON.parse(mockStore.getItem('psat_progress')), realInitialProgress, 'Progress must be restored to realInitialProgress');
+assert.deepStrictEqual(JSON.parse(mockStore.getItem('psat_exam_history')), realInitialHistory, 'Exam history must be restored to realInitialHistory');
+assert.strictEqual(mockStore.getItem('psat_sample_data_active'), null, 'psat_sample_data_active flag must be cleared');
+assert.strictEqual(mockStore.getItem('psat_pre_sample_backup'), null, 'psat_pre_sample_backup must be cleared');
+
+console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, and Scoring tests passed!');
+
 
 
 

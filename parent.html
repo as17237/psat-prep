@@ -42,7 +42,7 @@
           <a href="feedback.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1.5"></i> Feedback
           </a>
-          <button onclick="loadSampleDiagnosticSession()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-amber-200" title="Instantly load sample practice and completed exam data to preview all dashboard analytics">
+          <button id="btn-load-sample-data" onclick="loadSampleDiagnosticSession()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-amber-200" title="Instantly load sample practice and completed exam data to preview all dashboard analytics">
             <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-amber-600"></i> Load Sample Data
           </button>
           <button onclick="exportAuditTrail()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center" title="Download complete audit log of attempts and testing">
@@ -603,11 +603,19 @@
     });
 
     function renderParentMetrics() {
-      const isSampleActive = (localStorage.getItem('psat_sample_data_active') === 'true');
+      const isSampleActive = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.isDemoModeActive) ? PSAT_ENGINE.isDemoModeActive() : (localStorage.getItem('psat_sample_data_active') === 'true');
       const demoBanner = document.getElementById('parent-demo-mode-banner');
+      const sampleBtn = document.getElementById('btn-load-sample-data');
       if (demoBanner) {
         if (isSampleActive) demoBanner.classList.remove('hidden');
         else demoBanner.classList.add('hidden');
+      }
+      if (sampleBtn) {
+        if (isSampleActive) {
+          sampleBtn.classList.add('hidden');
+        } else {
+          sampleBtn.classList.remove('hidden');
+        }
       }
 
       const questions = window.QUESTIONS_DATA || [];
@@ -1267,6 +1275,12 @@
     }
 
     function loadSampleDiagnosticSession() {
+      const isAlreadyActive = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.isDemoModeActive) ? PSAT_ENGINE.isDemoModeActive() : (localStorage.getItem('psat_sample_data_active') === 'true');
+      if (isAlreadyActive) {
+        alert('Sample diagnostic data is already active.\n\nTo restore your real practice data, click the "Restore My Real Data" button in the demo banner.');
+        return;
+      }
+
       const msg = 'Load realistic sample diagnostic session data?\n\n' +
                   '⚠️ NOTE: Your existing practice attempts and exam reports will be safely archived into a local backup, allowing you to restore your real data at any time with one click.';
       if (!confirm(msg)) return;
@@ -1274,138 +1288,61 @@
       const questions = window.QUESTIONS_DATA || [];
       if (questions.length === 0) return;
 
-      // 1. Back up existing user data before writing sample records
-      const existingBackup = {
-        progress: safeGetStorage('psat_progress', {}),
-        srsState: safeGetStorage('psat_srs', {}),
-        sessionsState: safeGetStorage('psat_sessions', {}),
-        examHistory: safeGetStorage('psat_exam_history', [])
-      };
-      safeSetStorage('psat_pre_sample_backup', existingBackup);
+      // 1. Back up existing user data safely (only when demo mode is not active)
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.backupRealData) {
+        PSAT_ENGINE.backupRealData(localStorage, safeGetStorage, safeSetStorage);
+      } else {
+        const existingBackup = {
+          progress: safeGetStorage('psat_progress', {}),
+          srsState: safeGetStorage('psat_srs', {}),
+          sessionsState: safeGetStorage('psat_sessions', {}),
+          examHistory: safeGetStorage('psat_exam_history', [])
+        };
+        safeSetStorage('psat_pre_sample_backup', existingBackup);
+      }
       localStorage.setItem('psat_sample_data_active', 'true');
 
-      const sampleProgress = {};
-      const sampleSrs = {};
-      const sampleSessions = {};
-      const todayKey = PSAT_ENGINE.localDateKey();
+      const samplePayload = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.generateSampleDiagnosticPayload) ?
+        PSAT_ENGINE.generateSampleDiagnosticPayload(questions, PSAT_ENGINE.localDateKey()) :
+        null;
 
-      // Populate 24 practice questions (12 RW, 12 Math) with realistic mix of correct/incorrect
-      const shuffled = PSAT_ENGINE._shuffle(questions);
-      let rwCount = 0, mathCount = 0;
-
-      for (let i = 0; i < shuffled.length && (rwCount < 12 || mathCount < 12); i++) {
-        const q = shuffled[i];
-        const isFreeResponse = ((q.type || q.question_type) === 'free_response');
-        
-        if (q.test === 'Reading and Writing' && rwCount < 12) {
-          rwCount++;
-          const isCorrect = (rwCount % 4 !== 0); // 75% accuracy
-          const time = isCorrect ? 42000 : 75000;
-          
-          let chosenAnswer = q.correct_answer;
-          if (!isCorrect) {
-            const wrongChoice = ['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A';
-            chosenAnswer = wrongChoice;
-          }
-
-          sampleProgress[q.id] = {
-            answered: true,
-            selectedAnswer: chosenAnswer,
-            isCorrect: isCorrect,
-            timeSpentMs: time,
-            timingReliable: true,
-            isSample: true,
-            timestamp: Date.now() - (12 - rwCount) * 3600000
-          };
-          const grade = PSAT_ENGINE.gradeAttempt(isCorrect, time, true);
-          sampleSrs[q.id] = PSAT_ENGINE.scheduleNext(null, grade, Date.now() - 3600000);
-          sampleSessions[todayKey] = PSAT_ENGINE.recordDailySession(sampleSessions, isCorrect, time, todayKey, true)[todayKey];
-        } else if (q.test === 'Math' && mathCount < 12) {
-          mathCount++;
-          const isCorrect = (mathCount % 3 !== 0); // ~67% accuracy
-          const time = isCorrect ? 55000 : 90000;
-
-          let chosenAnswer = q.correct_answer;
-          if (!isCorrect) {
-            if (isFreeResponse) {
-              chosenAnswer = '999999'; // Genuine invalid answer
-            } else {
-              const wrongChoice = ['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A';
-              chosenAnswer = wrongChoice;
-            }
-          }
-
-          sampleProgress[q.id] = {
-            answered: true,
-            selectedAnswer: chosenAnswer,
-            isCorrect: isCorrect,
-            timeSpentMs: time,
-            timingReliable: true,
-            isSample: true,
-            timestamp: Date.now() - (12 - mathCount) * 3600000
-          };
-          const grade = PSAT_ENGINE.gradeAttempt(isCorrect, time, true);
-          sampleSrs[q.id] = PSAT_ENGINE.scheduleNext(null, grade, Date.now() - 3600000);
-          sampleSessions[todayKey] = PSAT_ENGINE.recordDailySession(sampleSessions, isCorrect, time, todayKey, true)[todayKey];
-        }
+      if (samplePayload) {
+        safeSetStorage('psat_progress', samplePayload.progress);
+        safeSetStorage('psat_srs', samplePayload.srsState);
+        safeSetStorage('psat_sessions', samplePayload.sessionsState);
+        safeSetStorage('psat_exam_history', samplePayload.examHistory);
       }
-
-      // Add a completed Mini PSAT 8/9 exam to exam history
-      const miniExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions);
-      const mockAnswers = {};
-      const mockTimes = {};
-      miniExam.modules.forEach((mod, mIdx) => {
-        mod.questions.forEach((q, qIdx) => {
-          mockTimes[q.id] = 48000;
-          if (qIdx === 0 && mIdx === 1) {
-            const isSpr = ((q.type || q.question_type) === 'free_response');
-            mockAnswers[q.id] = isSpr ? '999999' : (['A', 'B', 'C', 'D'].find(l => l !== String(q.correct_answer).trim().toUpperCase()) || 'A');
-          } else {
-            const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
-            mockAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
-          }
-        });
-      });
-
-      const examReport = PSAT_ENGINE.scoreStandardExam(miniExam, mockAnswers, mockTimes);
-      examReport.title = 'Mini PSAT 8/9 Quick Simulation (Sample Test)';
-      examReport.type = 'mini_psat89';
-      examReport.formattedDate = new Date().toLocaleString();
-      examReport.isSample = true;
-
-      const leanReport = PSAT_ENGINE.toLeanReport(examReport);
-
-      safeSetStorage('psat_progress', sampleProgress);
-      safeSetStorage('psat_srs', sampleSrs);
-      safeSetStorage('psat_sessions', sampleSessions);
-      safeSetStorage('psat_exam_history', [leanReport]);
 
       location.reload();
     }
 
     function restoreRealStudentData() {
-      const backup = safeGetStorage('psat_pre_sample_backup', null);
-      if (backup) {
-        if (backup.progress) safeSetStorage('psat_progress', backup.progress);
-        else localStorage.removeItem('psat_progress');
-
-        if (backup.srsState) safeSetStorage('psat_srs', backup.srsState);
-        else localStorage.removeItem('psat_srs');
-
-        if (backup.sessionsState) safeSetStorage('psat_sessions', backup.sessionsState);
-        else localStorage.removeItem('psat_sessions');
-
-        if (backup.examHistory) safeSetStorage('psat_exam_history', backup.examHistory);
-        else localStorage.removeItem('psat_exam_history');
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
+        PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
       } else {
-        localStorage.removeItem('psat_progress');
-        localStorage.removeItem('psat_srs');
-        localStorage.removeItem('psat_sessions');
-        localStorage.removeItem('psat_exam_history');
-      }
+        const backup = safeGetStorage('psat_pre_sample_backup', null);
+        if (backup) {
+          if (backup.progress) safeSetStorage('psat_progress', backup.progress);
+          else localStorage.removeItem('psat_progress');
 
-      localStorage.removeItem('psat_sample_data_active');
-      localStorage.removeItem('psat_pre_sample_backup');
+          if (backup.srsState) safeSetStorage('psat_srs', backup.srsState);
+          else localStorage.removeItem('psat_srs');
+
+          if (backup.sessionsState) safeSetStorage('psat_sessions', backup.sessionsState);
+          else localStorage.removeItem('psat_sessions');
+
+          if (backup.examHistory) safeSetStorage('psat_exam_history', backup.examHistory);
+          else localStorage.removeItem('psat_exam_history');
+        } else {
+          localStorage.removeItem('psat_progress');
+          localStorage.removeItem('psat_srs');
+          localStorage.removeItem('psat_sessions');
+          localStorage.removeItem('psat_exam_history');
+        }
+
+        localStorage.removeItem('psat_sample_data_active');
+        localStorage.removeItem('psat_pre_sample_backup');
+      }
       location.reload();
     }
 

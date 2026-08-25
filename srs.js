@@ -708,7 +708,6 @@
       scores: {
         isScaledReady: isScaledReady,
         totalScaled: isScaledReady ? totalScaled : null,
-        provisionalScaled: totalScaled,
         rwScaled: rwReady ? rwScaled : null,
         mathScaled: mathReady ? mathScaled : null,
         rwCorrect: rwCorrect,
@@ -723,15 +722,241 @@
   }
 
   /**
+   * Generates a realistic sample diagnostic data payload (24 practice attempts + 1 completed mini exam report)
+   * with isSample: true markers and non-colliding wrong answers.
+   */
+  function generateSampleDiagnosticPayload(questions, todayDateKey) {
+    if (!questions || !questions.length) {
+      return { progress: {}, srsState: {}, sessionsState: {}, examHistory: [] };
+    }
+
+    var sampleProgress = {};
+    var sampleSrs = {};
+    var sampleSessions = {};
+    var todayKey = todayDateKey || localDateKey();
+
+    var shuffled = _shuffle(questions);
+    var rwCount = 0;
+    var mathCount = 0;
+
+    for (var i = 0; i < shuffled.length && (rwCount < 12 || mathCount < 12); i++) {
+      var q = shuffled[i];
+      var isFreeResponse = ((q.type || q.question_type) === 'free_response');
+
+      if (q.test === 'Reading and Writing' && rwCount < 12) {
+        rwCount++;
+        var isCorrect = (rwCount % 4 !== 0); // 75% accuracy
+        var time = isCorrect ? 42000 : 75000;
+        var chosenAnswer = q.correct_answer;
+        if (!isCorrect) {
+          var wrongMcq = ['A', 'B', 'C', 'D'].filter(function(l) {
+            return l !== String(q.correct_answer).trim().toUpperCase();
+          })[0] || 'A';
+          chosenAnswer = wrongMcq;
+        }
+
+        sampleProgress[q.id] = {
+          answered: true,
+          selectedAnswer: chosenAnswer,
+          isCorrect: isCorrect,
+          timeSpentMs: time,
+          timingReliable: true,
+          isSample: true,
+          timestamp: Date.now() - (12 - rwCount) * 3600000
+        };
+        var grade = gradeAttempt(isCorrect, time, true);
+        sampleSrs[q.id] = scheduleNext(null, grade, Date.now() - 3600000);
+        sampleSessions[todayKey] = recordDailySession(sampleSessions, isCorrect, time, todayKey, true)[todayKey];
+      } else if (q.test === 'Math' && mathCount < 12) {
+        mathCount++;
+        var isCorrectMath = (mathCount % 3 !== 0); // ~67% accuracy
+        var timeMath = isCorrectMath ? 55000 : 90000;
+        var chosenAnswerMath = q.correct_answer;
+        if (!isCorrectMath) {
+          if (isFreeResponse) {
+            chosenAnswerMath = '999999';
+          } else {
+            var wrongMcqMath = ['A', 'B', 'C', 'D'].filter(function(l) {
+              return l !== String(q.correct_answer).trim().toUpperCase();
+            })[0] || 'A';
+            chosenAnswerMath = wrongMcqMath;
+          }
+        }
+
+        sampleProgress[q.id] = {
+          answered: true,
+          selectedAnswer: chosenAnswerMath,
+          isCorrect: isCorrectMath,
+          timeSpentMs: timeMath,
+          timingReliable: true,
+          isSample: true,
+          timestamp: Date.now() - (12 - mathCount) * 3600000
+        };
+        var gradeMath = gradeAttempt(isCorrectMath, timeMath, true);
+        sampleSrs[q.id] = scheduleNext(null, gradeMath, Date.now() - 3600000);
+        sampleSessions[todayKey] = recordDailySession(sampleSessions, isCorrectMath, timeMath, todayKey, true)[todayKey];
+      }
+    }
+
+    var miniExam = generateMiniPSAT89Exam(questions);
+    var mockAnswers = {};
+    var mockTimes = {};
+    miniExam.modules.forEach(function(mod, mIdx) {
+      mod.questions.forEach(function(q, qIdx) {
+        mockTimes[q.id] = 48000;
+        if (qIdx === 0 && mIdx === 1) {
+          var isSpr = ((q.type || q.question_type) === 'free_response');
+          mockAnswers[q.id] = isSpr ? '999999' : (['A', 'B', 'C', 'D'].filter(function(l) {
+            return l !== String(q.correct_answer).trim().toUpperCase();
+          })[0] || 'A');
+        } else {
+          var forms = extractAcceptedForms(q.correct_answer);
+          mockAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
+        }
+      });
+    });
+
+    var examReport = scoreStandardExam(miniExam, mockAnswers, mockTimes);
+    examReport.title = 'Mini PSAT 8/9 Quick Simulation (Sample Test)';
+    examReport.type = 'mini_psat89';
+    examReport.formattedDate = new Date().toLocaleString();
+    examReport.isSample = true;
+
+    var leanReport = toLeanReport(examReport);
+
+    return {
+      progress: sampleProgress,
+      srsState: sampleSrs,
+      sessionsState: sampleSessions,
+      examHistory: [leanReport]
+    };
+  }
+
+  /**
+   * Demo Mode State & Data Protection Manager
+   * Handles safe archival of real student data before sample loading and lossless recovery.
+   */
+  function isDemoModeActive(storage) {
+    var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!store) return false;
+    try {
+      return store.getItem('psat_sample_data_active') === 'true';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function backupRealData(storage, safeGetFn, safeSetFn) {
+    var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!store) return false;
+
+    // CRITICAL: Only write backup if demo mode is NOT already active
+    if (isDemoModeActive(store)) {
+      return false; // Backup already contains real data; do not overwrite with sample data!
+    }
+
+    var getFn = safeGetFn || function(key, def) {
+      try {
+        var v = store.getItem(key);
+        return v ? JSON.parse(v) : def;
+      } catch (e) { return def; }
+    };
+    var setFn = safeSetFn || function(key, val) {
+      try {
+        store.setItem(key, JSON.stringify(val));
+        return true;
+      } catch (e) { return false; }
+    };
+
+    var backup = {
+      progress: getFn('psat_progress', {}),
+      srsState: getFn('psat_srs', {}),
+      sessionsState: getFn('psat_sessions', {}),
+      examHistory: getFn('psat_exam_history', [])
+    };
+
+    return setFn('psat_pre_sample_backup', backup);
+  }
+
+  function restoreRealData(storage, safeGetFn, safeSetFn) {
+    var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!store) return false;
+
+    var getFn = safeGetFn || function(key, def) {
+      try {
+        var v = store.getItem(key);
+        return v ? JSON.parse(v) : def;
+      } catch (e) { return def; }
+    };
+    var setFn = safeSetFn || function(key, val) {
+      try {
+        store.setItem(key, JSON.stringify(val));
+        return true;
+      } catch (e) { return false; }
+    };
+    var removeFn = function(key) {
+      try { store.removeItem(key); } catch (e) {}
+    };
+
+    var backup = getFn('psat_pre_sample_backup', null);
+    if (backup) {
+      if (backup.progress) setFn('psat_progress', backup.progress);
+      else removeFn('psat_progress');
+
+      if (backup.srsState) setFn('psat_srs', backup.srsState);
+      else removeFn('psat_srs');
+
+      if (backup.sessionsState) setFn('psat_sessions', backup.sessionsState);
+      else removeFn('psat_sessions');
+
+      if (backup.examHistory) setFn('psat_exam_history', backup.examHistory);
+      else removeFn('psat_exam_history');
+    } else {
+      removeFn('psat_progress');
+      removeFn('psat_srs');
+      removeFn('psat_sessions');
+      removeFn('psat_exam_history');
+    }
+
+    removeFn('psat_sample_data_active');
+    removeFn('psat_pre_sample_backup');
+    return true;
+  }
+
+  /**
    * Strips redundant question payloads (text, rationales, images) to store lean records in localStorage.
    * Compresses ~200KB full reports to ~8KB per exam (~96% storage reduction).
    */
   function toLeanReport(report) {
     if (!report) return report;
+    var leanModules = (report.moduleReports || []).map(function (m) {
+      var leanQuestions = (m.questions || []).map(function (q) {
+        return {
+          questionId: q.questionId,
+          userAnswer: q.userAnswer,
+          isCorrect: q.isCorrect,
+          answered: q.answered,
+          timeSpentMs: q.timeSpentMs
+        };
+      });
+
+      return {
+        id: m.id,
+        name: m.name,
+        section: m.section,
+        totalQuestions: m.totalQuestions,
+        attempted: m.attempted,
+        correct: m.correct,
+        accuracyPercent: m.accuracyPercent,
+        questions: leanQuestions
+      };
+    });
+
     return {
       examId: report.examId,
-      title: report.title || report.examTitle,
-      type: report.type || report.examType,
+      title: report.title,
+      type: report.type,
+      isSample: report.isSample || false,
       completedAt: report.completedAt,
       formattedDate: report.formattedDate,
       totalQuestions: report.totalQuestions,
@@ -740,26 +965,7 @@
       overallAccuracyPercent: report.overallAccuracyPercent,
       scores: report.scores,
       totalTimeSpentMs: report.totalTimeSpentMs,
-      moduleReports: (report.moduleReports || []).map(function(m) {
-        return {
-          id: m.id,
-          name: m.name,
-          section: m.section,
-          totalQuestions: m.totalQuestions,
-          attempted: m.attempted,
-          correct: m.correct,
-          accuracyPercent: m.accuracyPercent,
-          questions: (m.questions || []).map(function(q) {
-            return {
-              questionId: q.questionId,
-              userAnswer: q.userAnswer,
-              isCorrect: q.isCorrect,
-              answered: q.answered,
-              timeSpentMs: q.timeSpentMs
-            };
-          })
-        };
-      })
+      moduleReports: leanModules
     };
   }
 
@@ -814,6 +1020,10 @@
     generateGapTargetedDrill: generateGapTargetedDrill,
     generateCustomTest: generateCustomTest,
     scoreStandardExam: scoreStandardExam,
+    generateSampleDiagnosticPayload: generateSampleDiagnosticPayload,
+    isDemoModeActive: isDemoModeActive,
+    backupRealData: backupRealData,
+    restoreRealData: restoreRealData,
     toLeanReport: toLeanReport,
     rehydrateReport: rehydrateReport
   };

@@ -87,6 +87,35 @@
   <!-- Main Content Container -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
+    <!-- Storage Quota Warning Toast -->
+    <div id="storage-quota-warning" class="hidden mb-4 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-rose-900 flex items-center justify-between shadow-sm animate-in fade-in">
+      <div class="flex items-center space-x-2.5">
+        <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0"></i>
+        <span class="text-xs font-semibold">Local storage quota is full. Some recent progress could not be saved. You can export your audit data or clear older test history.</span>
+      </div>
+      <button onclick="document.getElementById('storage-quota-warning').classList.add('hidden')" class="p-1 text-rose-600 hover:text-rose-900">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- Demo Mode Active Warning Banner -->
+    <div id="demo-mode-warning-banner" class="hidden mb-6 p-4 sm:p-5 rounded-2xl bg-amber-500 text-slate-950 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2 border-amber-400 animate-in fade-in">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-950 text-amber-400 flex items-center justify-center font-black shrink-0">
+          <i data-lucide="info" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-black text-slate-950">DEMO MODE ACTIVE — Viewing Synthetic Sample Data</h3>
+          <p class="text-xs font-semibold text-slate-900">Practice progress, accuracy figures, and chart stats shown below are sample data. Real student records remain safely archived in local backup.</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <button onclick="restoreRealStudentData()" class="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all">
+          Restore My Real Data &rarr;
+        </button>
+      </div>
+    </div>
+
     <!-- ============================================================ -->
     <!-- VIEW 1: PRACTICE MODE -->
     <!-- ============================================================ -->
@@ -1032,10 +1061,30 @@
         return;
       }
       lucide.createIcons();
+      checkDemoModeBanner();
       applyFilters();
       updateHeaderStats();
       renderExamLobbyHistory();
     });
+
+    function checkDemoModeBanner() {
+      const isDemo = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.isDemoModeActive) ? PSAT_ENGINE.isDemoModeActive() : (localStorage.getItem('psat_sample_data_active') === 'true');
+      const banner = document.getElementById('demo-mode-warning-banner');
+      if (banner) {
+        if (isDemo) banner.classList.remove('hidden');
+        else banner.classList.add('hidden');
+      }
+    }
+
+    function restoreRealStudentData() {
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
+        PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+      } else {
+        localStorage.removeItem('psat_sample_data_active');
+        localStorage.removeItem('psat_pre_sample_backup');
+      }
+      location.reload();
+    }
 
     function saveProgress() {
       const ok1 = safeSetStorage('psat_progress', progress);
@@ -1499,6 +1548,7 @@
 
       document.getElementById('stat-attempted').innerText = `${attempted} / ${total}`;
       document.getElementById('stat-accuracy').innerText = `${acc}%`;
+      checkDemoModeBanner();
     }
 
     // Keyboard Shortcuts
@@ -2539,6 +2589,38 @@
 
       if (saved.activeExamMeta) {
         const meta = saved.activeExamMeta;
+        const rehydratedModules = [];
+        let hasMismatch = false;
+
+        for (let i = 0; i < (meta.modules || []).length; i++) {
+          const m = meta.modules[i];
+          const expectedCount = m.questionsCount || (m.questionIds ? m.questionIds.length : 0);
+          const rehydratedQuestions = (m.questionIds || []).map(qid => qMap[qid]).filter(Boolean);
+
+          if (rehydratedQuestions.length !== expectedCount) {
+            console.error(`Active exam module "${m.name}" rehydration mismatch: found ${rehydratedQuestions.length} of ${expectedCount} questions.`);
+            hasMismatch = true;
+          }
+
+          rehydratedModules.push({
+            id: m.id,
+            section: m.section,
+            moduleNumber: m.moduleNumber,
+            name: m.name,
+            questionsCount: expectedCount,
+            timeLimitSeconds: m.timeLimitSeconds,
+            questions: rehydratedQuestions
+          });
+        }
+
+        if (hasMismatch) {
+          alert('Warning: Some questions from your saved in-progress exam could not be loaded from the question bank. Please start a new exam to ensure accurate scoring.');
+          clearActiveExamState();
+          showExamSubview('exam-lobby');
+          renderExamLobbyHistory();
+          return;
+        }
+
         activeExam = {
           id: meta.id,
           title: meta.title,
@@ -2547,15 +2629,7 @@
           totalTimeMinutes: meta.totalTimeMinutes,
           breakMinutes: meta.breakMinutes,
           createdAt: meta.createdAt,
-          modules: (meta.modules || []).map(m => ({
-            id: m.id,
-            section: m.section,
-            moduleNumber: m.moduleNumber,
-            name: m.name,
-            questionsCount: m.questionsCount,
-            timeLimitSeconds: m.timeLimitSeconds,
-            questions: (m.questionIds || []).map(qid => qMap[qid]).filter(Boolean)
-          }))
+          modules: rehydratedModules
         };
       } else {
         activeExam = saved.activeExam;
