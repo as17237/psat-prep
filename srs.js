@@ -1099,12 +1099,12 @@
     var cap = (typeof maxCap === 'number') ? maxCap : 15;
     var histMap = {};
     (cloudHistory || []).forEach(function(h) {
-      if (h && (h.examId || h.completedAt)) {
+      if (h && (h.examId || h.completedAt) && h.examId !== 'custom_test_test1') {
         histMap[h.examId || h.completedAt] = h;
       }
     });
     (localHistory || []).forEach(function(h) {
-      if (h && (h.examId || h.completedAt)) {
+      if (h && (h.examId || h.completedAt) && h.examId !== 'custom_test_test1') {
         histMap[h.examId || h.completedAt] = h;
       }
     });

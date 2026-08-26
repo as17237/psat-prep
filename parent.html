@@ -839,7 +839,7 @@
       const badge = document.getElementById('parent-exam-count-badge');
       if (!container) return;
 
-      const history = safeGetStorage('psat_exam_history', []);
+      const history = safeGetStorage('psat_exam_history', []).filter(h => h && h.examId !== 'custom_test_test1');
       if (badge) badge.innerText = `${history.length} Completed Test${history.length === 1 ? '' : 's'}`;
 
       if (history.length === 0) {
