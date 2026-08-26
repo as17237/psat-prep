@@ -87,7 +87,13 @@ app.http('sync', {
           const { resource } = await c.item(masterDocId, targetStudent).read();
           existingMaster = resource;
         } catch (readErr) {
-          // Document does not exist yet; first push for this student
+          if (readErr.statusCode === 404) {
+            // Document does not exist yet; first push for this student
+            existingMaster = null;
+          } else {
+            context.error('Cosmos DB read error on master profile:', readErr);
+            return { status: 503, jsonBody: { error: 'Database read failed. Please retry.' } };
+          }
         }
 
         // 1. Server-side merge progress (retains all historical question attempts, newer timestamp wins)

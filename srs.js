@@ -1006,9 +1006,31 @@
   var CLOUD_SYNC_ENDPOINT = 'https://psat-api-4915.azurewebsites.net/api/sync';
 
   /**
-   * Merges sessions additively across devices for each day key.
+   * Derives daily session stats directly from progress question attempt timestamps.
    */
-  function mergeSessionsState(cloudSessions, localSessions) {
+  function deriveSessionsFromProgress(progress) {
+    var sessions = {};
+    if (!progress) return sessions;
+    Object.keys(progress).forEach(function(qid) {
+      var p = progress[qid];
+      if (p && p.answered && p.timestamp) {
+        var day = localDateKey(new Date(p.timestamp));
+        if (!sessions[day]) {
+          sessions[day] = { date: day, questionsAnswered: 0, correct: 0, totalTimeMs: 0 };
+        }
+        sessions[day].questionsAnswered++;
+        if (p.isCorrect) sessions[day].correct++;
+        sessions[day].totalTimeMs += (p.timeSpentMs || 0);
+      }
+    });
+    return sessions;
+  }
+
+  /**
+   * Merges daily session maps idempotently using Math.max and derived progress timestamps.
+   * Prevents session totals and practice time from inflating across syncs and page refreshes.
+   */
+  function mergeSessionsState(cloudSessions, localSessions, mergedProgress) {
     var cloud = cloudSessions || {};
     var local = localSessions || {};
     var merged = {};
@@ -1022,9 +1044,9 @@
       if (cDay && lDay) {
         merged[day] = {
           date: day,
-          questionsAnswered: (cDay.questionsAnswered || cDay.totalAnswered || 0) + (lDay.questionsAnswered || lDay.totalAnswered || 0),
-          correct: (cDay.correct || cDay.totalCorrect || 0) + (lDay.correct || lDay.totalCorrect || 0),
-          totalTimeMs: (cDay.totalTimeMs || cDay.totalTimeSpentMs || 0) + (lDay.totalTimeMs || lDay.totalTimeSpentMs || 0)
+          questionsAnswered: Math.max(cDay.questionsAnswered || cDay.totalAnswered || 0, lDay.questionsAnswered || lDay.totalAnswered || 0),
+          correct: Math.max(cDay.correct || cDay.totalCorrect || 0, lDay.correct || lDay.totalCorrect || 0),
+          totalTimeMs: Math.max(cDay.totalTimeMs || cDay.totalTimeSpentMs || 0, lDay.totalTimeMs || lDay.totalTimeSpentMs || 0)
         };
       } else if (cDay) {
         merged[day] = Object.assign({}, cDay);
@@ -1032,6 +1054,20 @@
         merged[day] = Object.assign({}, lDay);
       }
     });
+
+    if (mergedProgress && typeof mergedProgress === 'object') {
+      var derived = deriveSessionsFromProgress(mergedProgress);
+      Object.keys(derived).forEach(function(day) {
+        var d = derived[day];
+        if (!merged[day]) {
+          merged[day] = d;
+        } else {
+          merged[day].questionsAnswered = Math.max(merged[day].questionsAnswered || 0, d.questionsAnswered);
+          merged[day].correct = Math.max(merged[day].correct || 0, d.correct);
+          merged[day].totalTimeMs = Math.max(merged[day].totalTimeMs || 0, d.totalTimeMs);
+        }
+      });
+    }
 
     return merged;
   }
@@ -1203,7 +1239,7 @@
 
             var mergedProg = mergeProgress(cloud.progress, localProg);
             var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
-            var mergedSess = mergeSessionsState(cloud.sessionsState, localSess);
+            var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
             var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
 
             var ok1 = setter('psat_progress', mergedProg);

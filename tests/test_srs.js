@@ -408,34 +408,37 @@ const mockFetch = async (url, opts) => {
 
 (async () => {
   // 1. Two devices, same-day work additive merge test using real engine functions
+  const t0 = new Date('2026-08-25T10:00:00').getTime();
   const morningTabletStore = new MockStorage();
   let tabletSessions = {};
   for (let i = 0; i < 10; i++) tabletSessions = PSAT_ENGINE.recordDailySession(tabletSessions, true, 10000, '2026-08-25', true);
   for (let i = 0; i < 2; i++) tabletSessions = PSAT_ENGINE.recordDailySession(tabletSessions, false, 10000, '2026-08-25', true);
   morningTabletStore.setItem('psat_sessions', JSON.stringify(tabletSessions));
 
-  morningTabletStore.setItem('psat_progress', JSON.stringify({
-    'q1': { answered: true, isCorrect: false, timeSpentMs: 25000, timestamp: 1000 }
-  }));
+  const tabletProgress = { 'q1': { answered: true, isCorrect: false, timeSpentMs: 10000, timestamp: t0 } };
+  for (let i = 2; i <= 10; i++) tabletProgress[`tab_${i}`] = { answered: true, isCorrect: true, timeSpentMs: 10000, timestamp: t0 + i * 1000 };
+  for (let i = 11; i <= 12; i++) tabletProgress[`tab_${i}`] = { answered: true, isCorrect: false, timeSpentMs: 10000, timestamp: t0 + i * 1000 };
+  morningTabletStore.setItem('psat_progress', JSON.stringify(tabletProgress));
 
-  const tabletCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 2, 1000); // Fail at t=1000
+  const tabletCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 2, t0); // Fail at t0
   morningTabletStore.setItem('psat_srs', JSON.stringify({ 'q1': tabletCard }));
 
   // Tablet pushes to cloud
   await PSAT_ENGINE.pushToCloud(morningTabletStore, mockFetch, 'default_student');
 
-  // Evening Laptop: 4 correct, 1 incorrect, and passed q1 at t=2000
+  // Evening Laptop: 4 correct, 1 incorrect, and passed q1 at t0 + 20000
   const eveningLaptopStore = new MockStorage();
   let laptopSessions = {};
   for (let i = 0; i < 4; i++) laptopSessions = PSAT_ENGINE.recordDailySession(laptopSessions, true, 10000, '2026-08-25', true);
   for (let i = 0; i < 1; i++) laptopSessions = PSAT_ENGINE.recordDailySession(laptopSessions, false, 10000, '2026-08-25', true);
   eveningLaptopStore.setItem('psat_sessions', JSON.stringify(laptopSessions));
 
-  eveningLaptopStore.setItem('psat_progress', JSON.stringify({
-    'q1': { answered: true, isCorrect: true, timeSpentMs: 20000, timestamp: 2000 }
-  }));
+  const laptopProgress = { 'q1': { answered: true, isCorrect: true, timeSpentMs: 10000, timestamp: t0 + 20000 } };
+  for (let i = 2; i <= 5; i++) laptopProgress[`lap_${i}`] = { answered: true, isCorrect: true, timeSpentMs: 10000, timestamp: t0 + 20000 + i * 1000 };
+  laptopProgress['lap_6'] = { answered: true, isCorrect: false, timeSpentMs: 10000, timestamp: t0 + 26000 };
+  eveningLaptopStore.setItem('psat_progress', JSON.stringify(laptopProgress));
 
-  const laptopCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 5, 2000); // Pass at t=2000
+  const laptopCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 5, t0 + 20000); // Pass at t0 + 20000
   eveningLaptopStore.setItem('psat_srs', JSON.stringify({ 'q1': laptopCard }));
 
   // Laptop pulls from cloud
@@ -449,9 +452,18 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(mergedSessions['2026-08-25'].totalTimeMs, 170000);
   assert.strictEqual(PSAT_ENGINE.calculateStreak(mergedSessions, '2026-08-25'), 1, 'calculateStreak must find active streak from merged session');
 
+  // Assert idempotency across successive pulls/refreshes (zero session count inflation)
+  for (let r = 0; r < 5; r++) {
+    await PSAT_ENGINE.pullFromCloud(eveningLaptopStore, mockFetch, 'default_student');
+    const refreshSess = JSON.parse(eveningLaptopStore.getItem('psat_sessions'));
+    assert.strictEqual(refreshSess['2026-08-25'].questionsAnswered, 17, `Session count must not inflate on refresh ${r + 1}`);
+    assert.strictEqual(refreshSess['2026-08-25'].correct, 14);
+    assert.strictEqual(refreshSess['2026-08-25'].totalTimeMs, 170000);
+  }
+
   const mergedProgress = JSON.parse(eveningLaptopStore.getItem('psat_progress'));
-  assert.strictEqual(mergedProgress['q1'].isCorrect, true, 'Newer attempt at t=2000 must win over older attempt at t=1000');
-  assert.strictEqual(mergedProgress['q1'].timestamp, 2000);
+  assert.strictEqual(mergedProgress['q1'].isCorrect, true, 'Newer attempt at t0+20000 must win over older attempt at t0');
+  assert.strictEqual(mergedProgress['q1'].timestamp, t0 + 20000);
 
   // Test newer failure vs older pass (where older pass had a much larger dueAt)
   const monCardPass = PSAT_ENGINE.scheduleNext({ repetitions: 2, intervalDays: 6, easeFactor: 2.5 }, 5, 1000); // Mon pass: interval=15, dueAt=1000+15d

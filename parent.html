@@ -845,13 +845,16 @@
         div.className = 'p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-200 transition-all flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-xs';
 
         const totalMins = Math.round((h.totalTimeSpentMs || 0) / 60000);
-        const timeStr = `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
+        const timeStr = (h.totalTimeSpentMs && h.totalTimeSpentMs > 0) ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m` : '—';
         const isStandard = (h.type === 'standard_psat89');
         const accPercent = (typeof h.overallAccuracyPercent === 'number') ? h.overallAccuracyPercent : ((h.totalQuestions && h.totalQuestions > 0) ? Math.round(((h.totalCorrect || 0) / h.totalQuestions) * 100) : 0);
 
         const hasScaled = (h.scores?.isScaledReady !== false && h.scores?.totalScaled !== null && h.scores?.totalScaled !== undefined);
-        const rwText = hasScaled ? `${h.scores?.rwScaled} / 720` : `${h.scores?.rwCorrect || 0}/${h.scores?.rwTotal || 0} Correct`;
-        const mathText = hasScaled ? `${h.scores?.mathScaled} / 720` : `${h.scores?.mathCorrect || 0}/${h.scores?.mathTotal || 0} Correct`;
+        const hasRw = (h.scores && typeof h.scores.rwTotal === 'number' && h.scores.rwTotal > 0);
+        const hasMath = (h.scores && typeof h.scores.mathTotal === 'number' && h.scores.mathTotal > 0);
+
+        const rwText = hasScaled ? `${h.scores?.rwScaled} / 720` : (hasRw ? `${h.scores.rwCorrect}/${h.scores.rwTotal} Correct` : '—');
+        const mathText = hasScaled ? `${h.scores?.mathScaled} / 720` : (hasMath ? `${h.scores.mathCorrect}/${h.scores.mathTotal} Correct` : '—');
         const scoreBlock = hasScaled ?
           `<span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Scaled Score</span>
            <span class="text-3xl font-black text-slate-900">${h.scores?.totalScaled}<span class="text-sm font-normal text-slate-400">/1440</span></span>` :
@@ -922,8 +925,10 @@
         `${found.scores?.totalScaled} <span class="text-xs font-normal text-slate-400">/ 1440</span>` :
         `${found.totalCorrect || 0} / ${found.totalQuestions || 0} <span class="text-xs font-normal text-slate-400">(${accPercent}%)</span>`;
       document.getElementById('pmod-exam-stats').innerText = `Accuracy: ${accPercent}% (${found.totalCorrect || 0} / ${found.totalQuestions || 0})`;
-      document.getElementById('pmod-exam-rw').innerText = hasScaled ? `R&W: ${found.scores?.rwScaled} / 720` : `R&W: ${found.scores?.rwCorrect || 0}/${found.scores?.rwTotal || 0} Correct`;
-      document.getElementById('pmod-exam-math').innerText = hasScaled ? `Math: ${found.scores?.mathScaled} / 720` : `Math: ${found.scores?.mathCorrect || 0}/${found.scores?.mathTotal || 0} Correct`;
+      const hasModalRw = (found.scores && typeof found.scores.rwTotal === 'number' && found.scores.rwTotal > 0);
+      const hasModalMath = (found.scores && typeof found.scores.mathTotal === 'number' && found.scores.mathTotal > 0);
+      document.getElementById('pmod-exam-rw').innerText = hasScaled ? `R&W: ${found.scores?.rwScaled} / 720` : (hasModalRw ? `R&W: ${found.scores.rwCorrect}/${found.scores.rwTotal} Correct` : 'R&W: —');
+      document.getElementById('pmod-exam-math').innerText = hasScaled ? `Math: ${found.scores?.mathScaled} / 720` : (hasModalMath ? `Math: ${found.scores.mathCorrect}/${found.scores.mathTotal} Correct` : 'Math: —');
 
       filterParentExamQuestions('all');
       document.getElementById('parent-exam-review-modal').classList.remove('hidden');
