@@ -326,32 +326,71 @@
   }
 
   /**
-   * Assembles a strictly formatted standard 98-question PSAT 8/9 exam.
+   * Assembles a standard 98-question PSAT 8/9 exam.
+   * Supports both Official Multi-Stage Adaptive (MST) mode and Linear Mode.
    * Section 1: 54 Reading & Writing (two 32-min modules of 27 Qs each)
    * Break: 10 minutes
    * Section 2: 44 Math (two 35-min modules of 22 Qs each, with realistic MCQ & SPR mix)
    */
-  function generateStandardPSAT89Exam(allQuestions) {
+  function generateStandardPSAT89Exam(allQuestions, options) {
+    var opts = options || {};
+    var isAdaptive = (opts.isAdaptive !== false);
+
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
     var shuffledRw = _shuffle(rwPool);
     var shuffledMath = _shuffle(mathPool);
 
+    // Module 1 (Baseline / Routing Stage): Broad mix of Easy, Medium, Hard
     var rwM1Qs = shuffledRw.slice(0, 27);
-    var rwM2Qs = shuffledRw.slice(27, 54);
+    
+    // For Module 2: Prepare both Harder track and Easier track pools
+    var remainingRw = shuffledRw.slice(27);
+    var rwHardPool = remainingRw.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+    var rwEasyPool = remainingRw.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+    
+    var rwM2Hard = _shuffle(rwHardPool).slice(0, 27);
+    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_shuffle(remainingRw).slice(0, 27 - rwM2Hard.length));
+    
+    var rwM2Easy = _shuffle(rwEasyPool).slice(0, 27);
+    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_shuffle(remainingRw).slice(0, 27 - rwM2Easy.length));
 
-    // For Math, ensure a realistic mix of ~17 MCQs and ~5 Free-Response per module
+    // Math Section: M1 Baseline (~17 MCQs + ~5 SPRs)
     var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
     var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
 
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
-    var mathM2Qs = _shuffle(mathMcqs.slice(17, 34).concat(mathSprs.slice(5, 10)));
+    
+    var remMathMcq = mathMcqs.slice(17);
+    var remMathSpr = mathSprs.slice(5);
+
+    var mathHardMcq = remMathMcq.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+    var mathHardSpr = remMathSpr.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+    var mathEasyMcq = remMathMcq.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+    var mathEasySpr = remMathSpr.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+
+    var mathM2Hard = _shuffle(mathHardMcq.slice(0, 17).concat(mathHardSpr.slice(0, 5)));
+    if (mathM2Hard.length < 22) mathM2Hard = mathM2Hard.concat(_shuffle(remMathMcq.concat(remMathSpr)).slice(0, 22 - mathM2Hard.length));
+
+    var mathM2Easy = _shuffle(mathEasyMcq.slice(0, 17).concat(mathEasySpr.slice(0, 5)));
+    if (mathM2Easy.length < 22) mathM2Easy = mathM2Easy.concat(_shuffle(remMathMcq.concat(remMathSpr)).slice(0, 22 - mathM2Easy.length));
+
+    var initialRwM2 = isAdaptive ? rwM2Hard : remainingRw.slice(0, 27);
+    var initialMathM2 = isAdaptive ? mathM2Hard : _shuffle(remMathMcq.slice(0, 17).concat(remMathSpr.slice(0, 5)));
 
     return {
       id: 'exam_psat89_' + Date.now(),
-      title: 'Standard PSAT 8/9 Full-Length Exam',
+      title: isAdaptive ? 'Standard PSAT 8/9 Exam (2-Stage Adaptive MST)' : 'Standard PSAT 8/9 Full-Length Exam (Linear)',
       type: 'standard_psat89',
+      isAdaptive: isAdaptive,
+      adaptivePools: isAdaptive ? {
+        rwM2Hard: rwM2Hard,
+        rwM2Easy: rwM2Easy,
+        mathM2Hard: mathM2Hard,
+        mathM2Easy: mathM2Easy
+      } : null,
+      routingTracks: { rw: 'Baseline', math: 'Baseline' },
       totalQuestions: 98,
       totalTimeMinutes: 134,
       breakMinutes: 10,
@@ -361,7 +400,8 @@
           id: 'rw_m1',
           section: 'Reading and Writing',
           moduleNumber: 1,
-          name: 'Reading and Writing — Module 1',
+          name: isAdaptive ? 'Reading and Writing — Module 1 (Routing Stage)' : 'Reading and Writing — Module 1',
+          track: 'Routing',
           questionsCount: 27,
           timeLimitSeconds: 32 * 60,
           questions: rwM1Qs
@@ -370,16 +410,18 @@
           id: 'rw_m2',
           section: 'Reading and Writing',
           moduleNumber: 2,
-          name: 'Reading and Writing — Module 2',
+          name: isAdaptive ? 'Reading and Writing — Module 2 (Adaptive Stage)' : 'Reading and Writing — Module 2',
+          track: isAdaptive ? 'Pending Routing' : 'Standard',
           questionsCount: 27,
           timeLimitSeconds: 32 * 60,
-          questions: rwM2Qs
+          questions: initialRwM2
         },
         {
           id: 'math_m1',
           section: 'Math',
           moduleNumber: 1,
-          name: 'Math — Module 1',
+          name: isAdaptive ? 'Math — Module 1 (Routing Stage)' : 'Math — Module 1',
+          track: 'Routing',
           questionsCount: 22,
           timeLimitSeconds: 35 * 60,
           questions: mathM1Qs
@@ -388,22 +430,27 @@
           id: 'math_m2',
           section: 'Math',
           moduleNumber: 2,
-          name: 'Math — Module 2',
+          name: isAdaptive ? 'Math — Module 2 (Adaptive Stage)' : 'Math — Module 2',
+          track: isAdaptive ? 'Pending Routing' : 'Standard',
           questionsCount: 22,
           timeLimitSeconds: 35 * 60,
-          questions: mathM2Qs
+          questions: initialMathM2
         }
       ]
     };
   }
 
   /**
-   * Generates an 8-question Mini PSAT 8/9 Simulation for rapid ~10-minute end-to-end testing.
+   * Generates an 8-question Mini PSAT 8/9 Simulation.
+   * Supports optional adaptive routing on Math Section 2.
    * Section 1: Reading & Writing (4 Qs, 5 min)
    * Break: 1 minute quick pause (with early resume)
    * Section 2: Math (4 Qs: 3 MCQs + 1 Grid-In, 5 min)
    */
-  function generateMiniPSAT89Exam(allQuestions) {
+  function generateMiniPSAT89Exam(allQuestions, options) {
+    var opts = options || {};
+    var isAdaptive = (opts.isAdaptive !== false);
+
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
@@ -415,12 +462,23 @@
     var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
     var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
 
+    var mathHardPool = mathMcqs.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+    var mathEasyPool = mathMcqs.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 3).concat(mathSprs.slice(0, 1)));
+    var mathM2Hard = _shuffle(mathHardPool.slice(0, 3).concat(mathSprs.slice(1, 2)));
+    var mathM2Easy = _shuffle(mathEasyPool.slice(0, 3).concat(mathSprs.slice(1, 2)));
 
     return {
       id: 'exam_mini_' + Date.now(),
-      title: 'Mini PSAT 8/9 Quick Simulation (8 Qs)',
+      title: isAdaptive ? 'Mini PSAT 8/9 Quick Simulation (Adaptive)' : 'Mini PSAT 8/9 Quick Simulation (8 Qs)',
       type: 'mini_psat89',
+      isAdaptive: isAdaptive,
+      adaptivePools: isAdaptive ? {
+        mathM2Hard: mathM2Hard,
+        mathM2Easy: mathM2Easy
+      } : null,
+      routingTracks: { rw: 'Standard', math: 'Pending Routing' },
       totalQuestions: 8,
       totalTimeMinutes: 10,
       breakMinutes: 1,
@@ -431,6 +489,7 @@
           section: 'Reading and Writing',
           moduleNumber: 1,
           name: 'Section 1: Reading and Writing',
+          track: 'Standard',
           questionsCount: 4,
           timeLimitSeconds: 5 * 60,
           questions: rwM1Qs
@@ -439,7 +498,8 @@
           id: 'mini_math_m1',
           section: 'Math',
           moduleNumber: 2,
-          name: 'Section 2: Math',
+          name: isAdaptive ? 'Section 2: Math (Adaptive Track)' : 'Section 2: Math',
+          track: isAdaptive ? 'Pending Routing' : 'Standard',
           questionsCount: 4,
           timeLimitSeconds: 5 * 60,
           questions: mathM1Qs
@@ -694,8 +754,31 @@
     var mathReady = mathTotal >= MIN_PER_SECTION;
     var isScaledReady = rwReady && mathReady;
 
-    var rwScaled = rwTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600))) : 120;
-    var mathScaled = mathTotal > 0 ? Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600))) : 120;
+    var rwTrack = (exam.routingTracks && exam.routingTracks.rw) ? exam.routingTracks.rw : (exam.isAdaptive ? 'Hard' : 'Standard');
+    var mathTrack = (exam.routingTracks && exam.routingTracks.math) ? exam.routingTracks.math : (exam.isAdaptive ? 'Hard' : 'Standard');
+
+    var rwScaled = 120;
+    if (rwTotal > 0) {
+      if (exam.isAdaptive && rwTrack === 'Hard') {
+        rwScaled = Math.min(720, Math.max(480, Math.round(480 + (rwCorrect / rwTotal) * 240)));
+      } else if (exam.isAdaptive && rwTrack === 'Easy') {
+        rwScaled = Math.min(560, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 440)));
+      } else {
+        rwScaled = Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600)));
+      }
+    }
+
+    var mathScaled = 120;
+    if (mathTotal > 0) {
+      if (exam.isAdaptive && mathTrack === 'Hard') {
+        mathScaled = Math.min(720, Math.max(480, Math.round(480 + (mathCorrect / mathTotal) * 240)));
+      } else if (exam.isAdaptive && mathTrack === 'Easy') {
+        mathScaled = Math.min(560, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 440)));
+      } else {
+        mathScaled = Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600)));
+      }
+    }
+
     var totalScaled = rwScaled + mathScaled;
     var overallAcc = totalQuestionsCount > 0 ? Math.round(((rwCorrect + mathCorrect) / totalQuestionsCount) * 100) : 0;
 
@@ -710,6 +793,8 @@
     return {
       examId: exam.id,
       completedAt: Date.now(),
+      isAdaptive: exam.isAdaptive === true,
+      routingTracks: { rw: rwTrack, math: mathTrack },
       totalQuestions: totalQuestionsCount,
       totalCorrect: rwCorrect + mathCorrect,
       totalAttempted: totalExamAttempted,
@@ -723,6 +808,8 @@
         rwTotal: rwTotal,
         mathCorrect: mathCorrect,
         mathTotal: mathTotal,
+        rwTrack: rwTrack,
+        mathTrack: mathTrack,
         minRequiredPerSection: MIN_PER_SECTION
       },
       totalTimeSpentMs: totalTimeSpentMs,

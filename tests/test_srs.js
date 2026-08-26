@@ -138,6 +138,24 @@ assert.strictEqual(standardExam.modules[2].questionsCount, 22, 'Math Module 1 mu
 assert.strictEqual(standardExam.modules[2].timeLimitSeconds, 35 * 60, 'Math Module 1 time must be 35m');
 assert.strictEqual(standardExam.modules[3].questionsCount, 22, 'Math Module 2 must have 22 Qs');
 
+// 5b. Adaptive vs Linear Exam Generation
+const adaptiveExam = PSAT_ENGINE.generateStandardPSAT89Exam(mockFullBank, { isAdaptive: true });
+assert.strictEqual(adaptiveExam.isAdaptive, true);
+assert.ok(adaptiveExam.adaptivePools.rwM2Hard.length >= 27, 'Must have RW Hard pool');
+assert.ok(adaptiveExam.adaptivePools.rwM2Easy.length >= 27, 'Must have RW Easy pool');
+assert.ok(adaptiveExam.adaptivePools.mathM2Hard.length >= 22, 'Must have Math Hard pool');
+assert.ok(adaptiveExam.adaptivePools.mathM2Easy.length >= 22, 'Must have Math Easy pool');
+
+const linearExam = PSAT_ENGINE.generateStandardPSAT89Exam(mockFullBank, { isAdaptive: false });
+assert.strictEqual(linearExam.isAdaptive, false);
+assert.strictEqual(linearExam.adaptivePools, null);
+
+// 5c. Mini Adaptive Exam Generation
+const miniAdaptive = PSAT_ENGINE.generateMiniPSAT89Exam(mockFullBank, { isAdaptive: true });
+assert.strictEqual(miniAdaptive.isAdaptive, true);
+assert.ok(miniAdaptive.adaptivePools.mathM2Hard.length >= 4);
+assert.ok(miniAdaptive.adaptivePools.mathM2Easy.length >= 4);
+
 // 6. Exam Scoring Engine
 const userAnswers = {};
 standardExam.modules.forEach(mod => {

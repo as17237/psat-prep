@@ -972,9 +972,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.36"></script>
+  <script src="srs.js?v=0.37"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.36"></script>
+  <script src="data/questions_data.js?v=0.37"></script>
 
   <!-- App Core Script -->
   <script>
@@ -1891,13 +1891,13 @@
       lucide.createIcons();
     }
 
-    function startStandardExam() {
-      activeExam = PSAT_ENGINE.generateStandardPSAT89Exam(questions);
+    function startStandardExam(opts) {
+      activeExam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, opts);
       initExamSession();
     }
 
-    function startMiniExam() {
-      activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions);
+    function startMiniExam(opts) {
+      activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions, opts);
       initExamSession();
     }
 
@@ -2325,6 +2325,56 @@
       if (!confirm(msg)) return;
 
       if (examTimerInterval) clearInterval(examTimerInterval);
+
+      // Digital PSAT/SAT Multi-Stage Adaptive Routing (MST)
+      if (activeExam && activeExam.isAdaptive && activeExam.adaptivePools) {
+        if (activeExam.type === 'standard_psat89' && currentModuleIndex === 0) {
+          // Reading & Writing M1 Routing -> Route M2
+          let m1Correct = 0;
+          mod.questions.forEach(q => {
+            const ans = examUserAnswers[q.id];
+            const isSpr = (q.type === 'free_response' || q.question_type === 'free_response');
+            const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
+            if (ok) m1Correct++;
+          });
+          const isUpper = (m1Correct / mod.questions.length) >= 0.58; // >= 16/27
+          activeExam.routingTracks = activeExam.routingTracks || {};
+          activeExam.routingTracks.rw = isUpper ? 'Hard' : 'Easy';
+          activeExam.modules[1].questions = isUpper ? activeExam.adaptivePools.rwM2Hard : activeExam.adaptivePools.rwM2Easy;
+          activeExam.modules[1].name = isUpper ? 'Reading and Writing — Module 2 (Upper Difficulty Track)' : 'Reading and Writing — Module 2 (Standard Difficulty Track)';
+          activeExam.modules[1].track = isUpper ? 'Hard' : 'Easy';
+        } else if (activeExam.type === 'standard_psat89' && currentModuleIndex === 2) {
+          // Math M1 Routing -> Route Math M2
+          let mathM1Correct = 0;
+          mod.questions.forEach(q => {
+            const ans = examUserAnswers[q.id];
+            const isSpr = (q.type === 'free_response' || q.question_type === 'free_response');
+            const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
+            if (ok) mathM1Correct++;
+          });
+          const isUpper = (mathM1Correct / mod.questions.length) >= 0.58; // >= 13/22
+          activeExam.routingTracks = activeExam.routingTracks || {};
+          activeExam.routingTracks.math = isUpper ? 'Hard' : 'Easy';
+          activeExam.modules[3].questions = isUpper ? activeExam.adaptivePools.mathM2Hard : activeExam.adaptivePools.mathM2Easy;
+          activeExam.modules[3].name = isUpper ? 'Math — Module 2 (Upper Difficulty Track)' : 'Math — Module 2 (Standard Difficulty Track)';
+          activeExam.modules[3].track = isUpper ? 'Hard' : 'Easy';
+        } else if (activeExam.type === 'mini_psat89' && currentModuleIndex === 0) {
+          // Mini PSAT 8/9 Section 1 Routing -> Route Math Section 2
+          let rwCorrect = 0;
+          mod.questions.forEach(q => {
+            const ans = examUserAnswers[q.id];
+            if (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase()) rwCorrect++;
+          });
+          const isUpper = rwCorrect >= 3;
+          activeExam.routingTracks = activeExam.routingTracks || {};
+          activeExam.routingTracks.math = isUpper ? 'Hard' : 'Easy';
+          if (activeExam.adaptivePools.mathM2Hard && activeExam.adaptivePools.mathM2Easy) {
+            activeExam.modules[1].questions = isUpper ? activeExam.adaptivePools.mathM2Hard : activeExam.adaptivePools.mathM2Easy;
+            activeExam.modules[1].name = isUpper ? 'Section 2: Math (Upper Difficulty Track)' : 'Section 2: Math (Standard Difficulty Track)';
+            activeExam.modules[1].track = isUpper ? 'Hard' : 'Easy';
+          }
+        }
+      }
 
       // Check if this was Section 1 (Module 2 of standard PSAT 8/9, or Module 1 of mini PSAT 8/9), which triggers the break
       if (activeExam.type === 'standard_psat89' && currentModuleIndex === 1) {
@@ -3052,9 +3102,11 @@
       const mode = urlParams.get('mode');
 
       if (mode === 'psat89') {
-        startStandardExam();
+        const isAdaptive = (urlParams.get('adaptive') !== 'false');
+        startStandardExam({ isAdaptive: isAdaptive });
       } else if (mode === 'mini_psat89' || mode === 'mini') {
-        startMiniExam();
+        const isAdaptive = (urlParams.get('adaptive') !== 'false');
+        startMiniExam({ isAdaptive: isAdaptive });
       } else if (mode === 'gap_drill') {
         const countParam = parseInt(urlParams.get('count') || '20', 10);
         const focusParam = urlParams.get('focus') || 'all';

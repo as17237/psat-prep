@@ -473,6 +473,22 @@
           </div>
         </div>
 
+        <!-- Adaptive Weakness Weighting Option -->
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
+          <div class="space-y-0.5">
+            <label for="cust-adaptive-toggle" class="text-xs font-bold text-slate-900 flex items-center cursor-pointer">
+              <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Adaptive Weakness Priority Weighting
+            </label>
+            <p class="text-[11px] text-slate-500">
+              Prioritizes questions from the student's personal mistake history, overdue SM-2 memory retention cards, and low-accuracy skills.
+            </p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer shrink-0">
+            <input type="checkbox" id="cust-adaptive-toggle" checked class="sr-only peer">
+            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+          </label>
+        </div>
+
         <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
           <span id="cust-selected-summary" class="text-xs text-slate-600 font-medium">Selected: 8 Domains, 24 Skills</span>
           <div class="flex items-center space-x-3">
@@ -508,7 +524,7 @@
               <span class="text-base font-bold text-white">2h 14m (134 min)</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
-              <span class="text-xs text-slate-400 block font-semibold">Reading & Writing</span>
+              <span class="text-xs text-slate-400 block font-semibold">Reading &amp; Writing</span>
               <span class="text-base font-bold text-white">54 Qs (Two 32m mods)</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
@@ -520,6 +536,22 @@
               <span class="text-base font-bold text-white">44 Qs (Two 35m mods)</span>
             </div>
           </div>
+
+          <!-- Multi-Stage Adaptive (MST) Option -->
+          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-3">
+            <div class="space-y-0.5">
+              <label for="std-adaptive-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
+                <i data-lucide="zap" class="w-4 h-4 mr-1.5 text-amber-400"></i> Digital PSAT 2-Stage Multi-Stage Adaptive Testing (Official MST)
+              </label>
+              <p class="text-[11px] text-slate-300">
+                Module 1 acts as a routing stage. Module 2 will dynamically adapt its difficulty (Upper vs Standard Track) based on the student's Module 1 performance.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="std-adaptive-toggle" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2">
@@ -528,9 +560,9 @@
             <button onclick="copyShareableTestLink('psat89')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
             </button>
-            <a href="index.html?mode=psat89" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="launchStandardExamFromParent()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
               <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Full PSAT 8/9 Exam
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -540,14 +572,14 @@
         <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 rounded-2xl shadow-md space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-600/50 flex items-center">
-              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-400"></i> Recommended For Rapid Testing & Parent Review
+              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-400"></i> Recommended For Rapid Testing &amp; Parent Review
             </span>
             <span class="text-xs font-mono text-slate-300">8 Questions &bull; ~10 Minutes &bull; 240–1440 Scale</span>
           </div>
 
           <h4 class="text-xl font-bold">Mini PSAT 8/9 Quick Simulation (8 Questions)</h4>
           <p class="text-xs text-slate-300 max-w-3xl leading-relaxed">
-            Experience the complete authentic PSAT 8/9 testing flow in 10 minutes: <strong>Reading & Writing (4 Qs)</strong> &rarr; <strong>Scheduled Break</strong> &rarr; <strong>Math with Desmos & Formula Sheet (4 Qs: 3 MCQ + 1 Grid-In)</strong> &rarr; <strong>Full Score Diagnostics & Instant Analytics in Parent Portal</strong>.
+            Experience the complete authentic PSAT 8/9 testing flow in 10 minutes: <strong>Reading &amp; Writing (4 Qs)</strong> &rarr; <strong>Scheduled Break</strong> &rarr; <strong>Math with Desmos &amp; Formula Sheet (4 Qs: 3 MCQ + 1 Grid-In)</strong> &rarr; <strong>Full Score Diagnostics &amp; Instant Analytics in Parent Portal</strong>.
           </p>
 
           <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
@@ -556,7 +588,7 @@
               <span class="text-base font-bold text-white">~10 Minutes</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
-              <span class="text-xs text-slate-400 block font-semibold">Reading & Writing</span>
+              <span class="text-xs text-slate-400 block font-semibold">Reading &amp; Writing</span>
               <span class="text-base font-bold text-white">4 Qs (5 mins)</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
@@ -568,6 +600,22 @@
               <span class="text-base font-bold text-white">4 Qs (5 mins)</span>
             </div>
           </div>
+
+          <!-- Multi-Stage Adaptive (MST) Option -->
+          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-3">
+            <div class="space-y-0.5">
+              <label for="mini-adaptive-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
+                <i data-lucide="zap" class="w-4 h-4 mr-1.5 text-amber-400"></i> Adaptive Module 2 Routing
+              </label>
+              <p class="text-[11px] text-slate-300">
+                Math Module 2 difficulty dynamically adjusts based on Section 1 accuracy.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="mini-adaptive-toggle" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+            </label>
+          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2">
@@ -576,9 +624,9 @@
             <button onclick="copyShareableTestLink('mini_psat89')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
             </button>
-            <a href="index.html?mode=mini_psat89" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="launchMiniExamFromParent()" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center">
               <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch 10-Min Mini Exam &rarr;
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -618,9 +666,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.36"></script>
+  <script src="srs.js?v=0.37"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.36"></script>
+  <script src="data/questions_data.js?v=0.37"></script>
   
   <script>
     function esc(s) {
@@ -1661,12 +1709,24 @@
       window.location.href = 'index.html?mode=custom';
     }
 
+    function launchStandardExamFromParent() {
+      const isAdaptive = document.getElementById('std-adaptive-toggle') ? document.getElementById('std-adaptive-toggle').checked : true;
+      window.location.href = `index.html?mode=psat89&adaptive=${isAdaptive}`;
+    }
+
+    function launchMiniExamFromParent() {
+      const isAdaptive = document.getElementById('mini-adaptive-toggle') ? document.getElementById('mini-adaptive-toggle').checked : true;
+      window.location.href = `index.html?mode=mini_psat89&adaptive=${isAdaptive}`;
+    }
+
     function copyShareableTestLink(type) {
       let url = window.location.origin + window.location.pathname.replace('parent.html', 'index.html');
       if (type === 'mini_psat89' || type === 'mini') {
-        url += '?mode=mini_psat89';
+        const isAdaptive = document.getElementById('mini-adaptive-toggle') ? document.getElementById('mini-adaptive-toggle').checked : true;
+        url += `?mode=mini_psat89&adaptive=${isAdaptive}`;
       } else if (type === 'psat89') {
-        url += '?mode=psat89';
+        const isAdaptive = document.getElementById('std-adaptive-toggle') ? document.getElementById('std-adaptive-toggle').checked : true;
+        url += `?mode=psat89&adaptive=${isAdaptive}`;
       } else if (type === 'gap') {
         url += `?mode=gap_drill&count=${currentGapCount}&focus=${document.getElementById('gap-focus-type').value}`;
       } else if (type === 'custom') {
