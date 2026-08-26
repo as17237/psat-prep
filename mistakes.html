@@ -48,6 +48,9 @@
         </div>
 
         <div class="flex items-center space-x-2.5">
+          <button onclick="syncMistakesFromCloud(true)" id="btn-mistakes-cloud-sync" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200" title="Fetch latest test results and attempts from Azure Cosmos DB">
+            <i data-lucide="cloud" class="w-4 h-4 mr-1.5 text-emerald-600"></i> <span id="mistakes-sync-status-text">Cosmos DB Sync</span>
+          </button>
           <button onclick="launchMistakesDrill()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
             <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Drill All Missed (<span id="top-drill-count">0</span>)
           </button>
@@ -174,8 +177,8 @@
   </footer>
 
   <!-- Scripts -->
-  <script src="srs.js?v=0.33"></script>
-  <script src="data/questions_data.js?v=0.33"></script>
+  <script src="srs.js?v=0.35"></script>
+  <script src="data/questions_data.js?v=0.35"></script>
 
   <script>
     function esc(s) {
@@ -192,6 +195,16 @@
       }
     }
 
+    function safeSetStorage(key, val) {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+        return true;
+      } catch (e) {
+        console.error('Storage write error for key:', key, e);
+        return false;
+      }
+    }
+
     let allMistakesList = [];
     let currentSubjectTab = 'all';
     let currentDomainFilter = 'all';
@@ -199,6 +212,39 @@
     let currentSortMode = 'freq';
     let currentPage = 1;
     const pageSize = 8;
+
+    function syncMistakesFromCloud(isManual = false) {
+      const txt = document.getElementById('mistakes-sync-status-text');
+      if (txt) txt.innerText = 'Syncing...';
+
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
+          if (res && res.success) {
+            loadMistakesData();
+            renderMistakesFeed();
+            if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+            if (isManual) {
+              if (res.updated) {
+                alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+              } else {
+                alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+              }
+            }
+          } else {
+            if (txt) txt.innerText = 'Sync Failed ⚠';
+            if (isManual) alert('Sync failed: Could not retrieve student records from Cosmos DB.');
+          }
+          lucide.createIcons();
+        }).catch(err => {
+          if (txt) txt.innerText = 'Sync Failed ⚠';
+          console.warn('Sync failed:', err);
+          if (isManual) alert('Sync failed: Could not reach Cosmos DB sync endpoint.');
+        });
+      } else {
+        if (txt) txt.innerText = 'Cosmos DB Sync';
+        if (isManual) alert('Engine is still loading. Please refresh and try again.');
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
@@ -214,6 +260,7 @@
       }
       
       renderMistakesFeed();
+      syncMistakesFromCloud(false);
     });
 
     function loadMistakesData() {

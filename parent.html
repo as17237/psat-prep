@@ -618,9 +618,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.34"></script>
+  <script src="srs.js?v=0.35"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.34"></script>
+  <script src="data/questions_data.js?v=0.35"></script>
   
   <script>
     function esc(s) {
@@ -657,16 +657,16 @@
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
         PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
           if (res && res.success) {
-            if (res.updated) {
-              renderParentMetrics();
-              if (txt) txt.innerText = 'Cosmos DB Synced ✓';
-              if (isManual) alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
-            } else if (res.empty) {
-              if (txt) txt.innerText = 'Cosmos DB Connected';
-              if (isManual) alert('Cosmos DB is connected, but no student test attempts or reports have been submitted yet.');
-            } else {
-              if (txt) txt.innerText = 'Cosmos DB Synced ✓';
-              if (isManual) alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+            renderParentMetrics();
+            if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+            if (isManual) {
+              if (res.updated) {
+                alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+              } else if (res.empty) {
+                alert('Cosmos DB is connected, but no student test attempts or reports have been submitted yet.');
+              } else {
+                alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
+              }
             }
           } else {
             if (txt) txt.innerText = 'Sync Failed ⚠';
