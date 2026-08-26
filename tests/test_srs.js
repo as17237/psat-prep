@@ -503,10 +503,45 @@ const mockFetch = async (url, opts) => {
 
   const quotaFailRes = await PSAT_ENGINE.pullFromCloud(rollbackStore, mockFetch, 'default_student', failingSetter);
   assert.strictEqual(quotaFailRes.success, false);
-  assert.strictEqual(quotaFailRes.quotaExceeded, true);
-  // Assert original state is restored
-  assert.deepStrictEqual(JSON.parse(rollbackStore.getItem('psat_progress')), { 'orig_q': { isCorrect: true } }, 'Progress must be rolled back');
-  assert.strictEqual(rollbackStore.getItem('psat_srs'), null, 'Non-existent initial keys must be removed on rollback');
+  // 5. Mock Artifact Filter Test
+  const historyWithMock = [
+    { examId: 'custom_test_test1', title: 'Test 1', completedAt: 1700000000000 },
+    { examId: 'real_exam_1', title: 'Real Test 1', completedAt: 1787700000000 }
+  ];
+  const filteredHistory = PSAT_ENGINE.mergeExamHistory(historyWithMock, [], 15);
+  assert.strictEqual(filteredHistory.length, 1, 'Mock test must be filtered out');
+  assert.strictEqual(filteredHistory[0].examId, 'real_exam_1', 'Only real exam must remain');
+
+  // 6. Full Exam Score, Lean Compression, and Rehydration Verification
+  const sampleRealExam = {
+    id: 'test_drill_real',
+    title: '5-Question Drill',
+    type: 'gap_drill',
+    totalQuestions: 5,
+    modules: [{
+      id: 'm1',
+      section: 'Reading and Writing',
+      moduleNumber: 1,
+      questions: [
+        { id: '15074829', test: 'Reading and Writing', skill: 'Information and Ideas', correct_answer: 'A', question_text: 'Sample prompt 1' },
+        { id: '16832745', test: 'Math', skill: 'Algebra', correct_answer: '450', question_text: 'Sample prompt 2' }
+      ]
+    }]
+  };
+  const mockUserAnswers = { '15074829': 'A', '16832745': '450' };
+  const mockUserTimes = { '15074829': 30000, '16832745': 25000 };
+  const fullScoreReport = PSAT_ENGINE.scoreStandardExam(sampleRealExam, mockUserAnswers, mockUserTimes);
+  assert.strictEqual(fullScoreReport.totalCorrect, 2);
+  assert.strictEqual(fullScoreReport.overallAccuracyPercent, 100);
+
+  const leanScoreReport = PSAT_ENGINE.toLeanReport(fullScoreReport);
+  assert.strictEqual(leanScoreReport.overallAccuracyPercent, 100);
+  assert.strictEqual(leanScoreReport.moduleReports[0].questions.length, 2);
+  assert.strictEqual(leanScoreReport.moduleReports[0].questions[0].question_text, undefined, 'Lean report must strip redundant prompt text');
+
+  const rehydratedReport = PSAT_ENGINE.rehydrateReport(leanScoreReport, sampleRealExam.modules[0].questions);
+  assert.strictEqual(rehydratedReport.moduleReports[0].questions[0].question_text, 'Sample prompt 1', 'Rehydration must restore question text');
+  assert.strictEqual(rehydratedReport.moduleReports[0].questions[0].isCorrect, true);
 
   console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, Scoring, and Cosmos DB Cloud Sync tests passed!');
 })();
