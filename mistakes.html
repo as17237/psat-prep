@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Trouble Spots & Error Analysis Center - PSAT Prep</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- MathJax for Math Formula Rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .font-serif { font-family: 'Newsreader', serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col antialiased">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center space-x-3">
+          <a href="parent.html" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center" title="Back to Parent Portal">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          </a>
+          <div class="flex items-center space-x-2.5">
+            <div class="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-100 shrink-0">
+              <i data-lucide="alert-triangle" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Student Trouble Spots &amp; Error Diagnostic Center</h1>
+              <p class="text-xs text-slate-500 font-medium">In-depth question review, high-resolution diagrams, and official College Board rationales</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2.5">
+          <button onclick="launchMistakesDrill()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
+            <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Drill All Missed (<span id="top-drill-count">0</span>)
+          </button>
+          <a href="parent.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1.5"></i> Parent Dashboard
+          </a>
+          <a href="index.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+            <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student App
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Executive Summary Banner -->
+    <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span class="px-3 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full">Error Diagnostic Hub</span>
+            <span id="stat-total-missed-badge" class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg">20 Questions Missed</span>
+          </div>
+          <h2 class="text-xl font-bold text-slate-900">Longitudinal Question Mistake Analysis</h2>
+          <p class="text-xs text-slate-500 max-w-3xl leading-relaxed">
+            Every question the student has answered incorrectly across practice modules and standard exam sessions is logged here. Review full-sized diagram images, student choices, and College Board step-by-step explanations.
+          </p>
+        </div>
+
+        <!-- Metric Counter Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <span class="text-[11px] font-semibold text-slate-400 block uppercase">Total Missed</span>
+            <span id="cnt-total" class="text-xl font-black text-rose-600">0</span>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <span class="text-[11px] font-semibold text-slate-400 block uppercase">Math Errors</span>
+            <span id="cnt-math" class="text-xl font-black text-emerald-700">0</span>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <span class="text-[11px] font-semibold text-slate-400 block uppercase">R&amp;W Errors</span>
+            <span id="cnt-rw" class="text-xl font-black text-indigo-700">0</span>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+            <span class="text-[11px] font-semibold text-slate-400 block uppercase">Recurring 2×+</span>
+            <span id="cnt-recurring" class="text-xl font-black text-amber-600">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Domain Breakdown Filter Chips -->
+      <div class="pt-3 border-t border-slate-100 space-y-1.5">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Filter By Learning Domain:</span>
+        <div id="domain-filter-chips" class="flex flex-wrap items-center gap-2">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+      <!-- Subject Tabs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="setSubjectTab('all')" id="tab-all" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">
+          All Mistakes (<span id="t-all">0</span>)
+        </button>
+        <button onclick="setSubjectTab('math')" id="tab-math" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Math (<span id="t-math">0</span>)
+        </button>
+        <button onclick="setSubjectTab('rw')" id="tab-rw" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Reading &amp; Writing (<span id="t-rw">0</span>)
+        </button>
+        <button onclick="setSubjectTab('recurring')" id="tab-rec" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+          Recurring 2×+ (<span id="t-rec">0</span>)
+        </button>
+      </div>
+
+      <!-- Search & Sort Controls -->
+      <div class="flex items-center space-x-3">
+        <div class="relative flex-1 sm:w-72">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="mistakes-search-input" oninput="onSearchInput(this.value)" placeholder="Search question text, skill, or ID..." class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden">
+        </div>
+        <select id="mistakes-sort-select" onchange="onSortChange(this.value)" class="py-2 px-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-hidden">
+          <option value="freq">Most Missed First</option>
+          <option value="recent">Most Recent First</option>
+          <option value="hard">Difficulty (Hard First)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Questions Feed Container -->
+    <div id="mistakes-feed-container" class="space-y-6">
+      <!-- Dynamically populated spacious question cards -->
+    </div>
+
+    <!-- Pagination Controls -->
+    <div id="mistakes-pagination-container" class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 text-xs text-slate-600">
+      <div id="mistakes-page-info">Showing questions 1–10</div>
+      <div class="flex items-center space-x-1.5" id="mistakes-page-buttons">
+        <!-- Dynamic pagination buttons -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Full Image Lightbox Modal -->
+  <div id="image-lightbox-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4" onclick="closeImageLightbox()">
+    <div class="bg-white p-4 rounded-3xl max-w-4xl max-h-[90vh] overflow-hidden flex flex-col space-y-3" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h4 class="text-sm font-bold text-slate-800 flex items-center"><i data-lucide="image" class="w-4 h-4 mr-1.5 text-indigo-600"></i> High-Resolution Diagram</h4>
+        <button onclick="closeImageLightbox()" class="p-1 rounded-lg hover:bg-slate-100 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="flex-1 overflow-auto flex items-center justify-center p-2">
+        <img id="lightbox-img" src="" class="max-h-[75vh] object-contain rounded-xl shadow-md" alt="Full Resolution Diagram">
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500 mt-12">
+    PSAT Prep Mastery &bull; Student Trouble Spots &amp; Mistake Diagnostic Portal &bull; PSAT 8/9
+  </footer>
+
+  <!-- Scripts -->
+  <script src="srs.js?v=0.33"></script>
+  <script src="data/questions_data.js?v=0.33"></script>
+
+  <script>
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function safeGetStorage(key, defaultVal) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultVal;
+      } catch (e) {
+        return defaultVal;
+      }
+    }
+
+    let allMistakesList = [];
+    let currentSubjectTab = 'all';
+    let currentDomainFilter = 'all';
+    let currentSearchQuery = '';
+    let currentSortMode = 'freq';
+    let currentPage = 1;
+    const pageSize = 8;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      loadMistakesData();
+      
+      // Support deep-linking to a specific question ID: mistakes.html?qid=63b013ca
+      const params = new URLSearchParams(window.location.search);
+      const qidParam = params.get('qid');
+      if (qidParam) {
+        currentSearchQuery = qidParam.toLowerCase().trim();
+        const searchInput = document.getElementById('mistakes-search-input');
+        if (searchInput) searchInput.value = qidParam;
+      }
+      
+      renderMistakesFeed();
+    });
+
+    function loadMistakesData() {
+      const progress = safeGetStorage('psat_progress', {});
+      const examHistory = safeGetStorage('psat_exam_history', []);
+      const questionsData = window.QUESTIONS_DATA || [];
+      const qMap = {};
+      questionsData.forEach(q => { qMap[q.id] = q; });
+
+      const troubleMap = {};
+
+      // 1. From Progress
+      Object.entries(progress).forEach(([qid, p]) => {
+        if (p && p.answered && !p.isCorrect) {
+          const qMeta = qMap[qid] || {};
+          if (!troubleMap[qid]) {
+            troubleMap[qid] = {
+              questionId: qid,
+              question: qMeta,
+              timesWrong: 0,
+              lastUserAnswer: p.selectedAnswer || 'Unanswered',
+              lastAttemptTime: p.timestamp || Date.now(),
+              lastTimeSpentMs: p.timeSpentMs || 0
+            };
+          }
+          troubleMap[qid].timesWrong++;
+        }
+      });
+
+      // 2. From Exam History
+      examHistory.forEach(ex => {
+        (ex.moduleReports || []).forEach(m => {
+          (m.questions || []).forEach(q => {
+            if (q && q.answered && !q.isCorrect) {
+              const qid = q.questionId || q.id;
+              const qMeta = qMap[qid] || q;
+              if (!troubleMap[qid]) {
+                troubleMap[qid] = {
+                  questionId: qid,
+                  question: qMeta,
+                  timesWrong: 0,
+                  lastUserAnswer: q.userAnswer || 'Unanswered',
+                  lastAttemptTime: ex.completedAt || Date.now(),
+                  lastTimeSpentMs: q.timeSpentMs || 0
+                };
+              }
+              if (troubleMap[qid].timesWrong === 0) troubleMap[qid].timesWrong = 1;
+            }
+          });
+        });
+      });
+
+      allMistakesList = Object.values(troubleMap);
+
+      // Update counters
+      const totalCount = allMistakesList.length;
+      const mathCount = allMistakesList.filter(t => (t.question?.test === 'Math' || t.question?.section === 'Math')).length;
+      const rwCount = allMistakesList.filter(t => (t.question?.test === 'Reading and Writing' || t.question?.section === 'Reading and Writing')).length;
+      const recCount = allMistakesList.filter(t => t.timesWrong >= 2).length;
+
+      document.getElementById('cnt-total').innerText = totalCount;
+      document.getElementById('cnt-math').innerText = mathCount;
+      document.getElementById('cnt-rw').innerText = rwCount;
+      document.getElementById('cnt-recurring').innerText = recCount;
+      document.getElementById('top-drill-count').innerText = totalCount;
+      document.getElementById('stat-total-missed-badge').innerText = `${totalCount} Questions Missed`;
+
+      document.getElementById('t-all').innerText = totalCount;
+      document.getElementById('t-math').innerText = mathCount;
+      document.getElementById('t-rw').innerText = rwCount;
+      document.getElementById('t-rec').innerText = recCount;
+
+      renderDomainFilterChips();
+    }
+
+    function renderDomainFilterChips() {
+      const container = document.getElementById('domain-filter-chips');
+      if (!container) return;
+
+      const domainCounts = {};
+      allMistakesList.forEach(t => {
+        const dom = t.question?.domain || 'General';
+        domainCounts[dom] = (domainCounts[dom] || 0) + 1;
+      });
+
+      const sorted = Object.keys(domainCounts).sort((a, b) => domainCounts[b] - domainCounts[a]);
+      container.innerHTML = '';
+
+      const allBtn = document.createElement('button');
+      const isAll = (currentDomainFilter === 'all');
+      allBtn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isAll ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`;
+      allBtn.innerText = `All Domains (${allMistakesList.length})`;
+      allBtn.onclick = () => { currentDomainFilter = 'all'; currentPage = 1; renderDomainFilterChips(); renderMistakesFeed(); };
+      container.appendChild(allBtn);
+
+      sorted.forEach(dom => {
+        const count = domainCounts[dom];
+        const isActive = (currentDomainFilter === dom);
+        const btn = document.createElement('button');
+        btn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`;
+        btn.innerText = `${dom} (${count})`;
+        btn.onclick = () => { currentDomainFilter = dom; currentPage = 1; renderDomainFilterChips(); renderMistakesFeed(); };
+        container.appendChild(btn);
+      });
+    }
+
+    function setSubjectTab(tab) {
+      currentSubjectTab = tab;
+      ['all', 'math', 'rw', 'rec'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        if (!btn) return;
+        const active = (t === tab || (t === 'rec' && tab === 'recurring'));
+        btn.className = active ? 
+          'px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all' : 
+          'px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all';
+      });
+      currentPage = 1;
+      renderMistakesFeed();
+    }
+
+    function onSearchInput(val) {
+      currentSearchQuery = (val || '').toLowerCase().trim();
+      currentPage = 1;
+      renderMistakesFeed();
+    }
+
+    function onSortChange(sortVal) {
+      currentSortMode = sortVal;
+      currentPage = 1;
+      renderMistakesFeed();
+    }
+
+    function goToPage(p) {
+      currentPage = p;
+      renderMistakesFeed();
+      window.scrollTo({ top: 250, behavior: 'smooth' });
+    }
+
+    function renderMistakesFeed() {
+      const container = document.getElementById('mistakes-feed-container');
+      const pageInfo = document.getElementById('mistakes-page-info');
+      const pageButtons = document.getElementById('mistakes-page-buttons');
+      const paginationContainer = document.getElementById('mistakes-pagination-container');
+      if (!container) return;
+
+      let filtered = allMistakesList;
+
+      // 1. Subject filter
+      if (currentSubjectTab === 'math') {
+        filtered = filtered.filter(t => (t.question?.test === 'Math' || t.question?.section === 'Math'));
+      } else if (currentSubjectTab === 'rw') {
+        filtered = filtered.filter(t => (t.question?.test === 'Reading and Writing' || t.question?.section === 'Reading and Writing'));
+      } else if (currentSubjectTab === 'recurring' || currentSubjectTab === 'rec') {
+        filtered = filtered.filter(t => t.timesWrong >= 2);
+      }
+
+      // 2. Domain filter
+      if (currentDomainFilter !== 'all') {
+        filtered = filtered.filter(t => (t.question?.domain === currentDomainFilter));
+      }
+
+      // 3. Search query filter
+      if (currentSearchQuery) {
+        filtered = filtered.filter(t => {
+          const qText = (t.question?.question_text || t.question?.prompt || '').toLowerCase();
+          const dom = (t.question?.domain || '').toLowerCase();
+          const skill = (t.question?.skill || '').toLowerCase();
+          const qid = (t.questionId || '').toLowerCase();
+          return qText.includes(currentSearchQuery) || dom.includes(currentSearchQuery) || skill.includes(currentSearchQuery) || qid.includes(currentSearchQuery);
+        });
+      }
+
+      // 4. Sort
+      if (currentSortMode === 'freq') {
+        filtered.sort((a, b) => {
+          if (b.timesWrong !== a.timesWrong) return b.timesWrong - a.timesWrong;
+          return (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0);
+        });
+      } else if (currentSortMode === 'recent') {
+        filtered.sort((a, b) => (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0));
+      } else if (currentSortMode === 'hard') {
+        const diffWeight = { 'Hard': 3, 'Medium': 2, 'Easy': 1 };
+        filtered.sort((a, b) => (diffWeight[b.question?.difficulty] || 0) - (diffWeight[a.question?.difficulty] || 0));
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3 shadow-xs">
+            <i data-lucide="check-circle-2" class="w-12 h-12 mx-auto text-emerald-500"></i>
+            <h3 class="text-base font-bold text-slate-800">No trouble questions found</h3>
+            <p class="text-xs text-slate-500 max-w-md mx-auto">No mistakes match the selected filters. Great progress! Try clearing search filters or selecting "All Domains".</p>
+          </div>
+        `;
+        if (paginationContainer) paginationContainer.classList.add('hidden');
+        lucide.createIcons();
+        return;
+      }
+
+      if (paginationContainer) paginationContainer.classList.remove('hidden');
+
+      // Pagination calculation
+      const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+
+      const startIdx = (currentPage - 1) * pageSize;
+      const endIdx = Math.min(startIdx + pageSize, filtered.length);
+      const pageItems = filtered.slice(startIdx, endIdx);
+
+      if (pageInfo) {
+        pageInfo.innerText = `Showing questions ${startIdx + 1}–${endIdx} of ${filtered.length} total mistake${filtered.length === 1 ? '' : 's'} (Page ${currentPage} of ${totalPages})`;
+      }
+
+      // Render pagination buttons
+      if (pageButtons) {
+        pageButtons.innerHTML = '';
+        const prev = document.createElement('button');
+        prev.className = `px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${currentPage > 1 ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'}`;
+        prev.innerHTML = '&larr; Prev';
+        prev.disabled = (currentPage <= 1);
+        prev.onclick = () => goToPage(currentPage - 1);
+        pageButtons.appendChild(prev);
+
+        for (let p = 1; p <= totalPages; p++) {
+          if (totalPages > 7 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) {
+            if (p === 2 || p === totalPages - 1) {
+              const dots = document.createElement('span');
+              dots.className = 'px-1 text-slate-400 font-bold';
+              dots.innerText = '…';
+              pageButtons.appendChild(dots);
+            }
+            continue;
+          }
+          const pBtn = document.createElement('button');
+          const isCurr = (p === currentPage);
+          pBtn.className = `w-8 h-8 rounded-xl text-xs font-bold transition-all ${isCurr ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'}`;
+          pBtn.innerText = p;
+          pBtn.onclick = () => goToPage(p);
+          pageButtons.appendChild(pBtn);
+        }
+
+        const next = document.createElement('button');
+        next.className = `px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${currentPage < totalPages ? 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200' : 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'}`;
+        next.innerHTML = 'Next &rarr;';
+        next.disabled = (currentPage >= totalPages);
+        next.onclick = () => goToPage(currentPage + 1);
+        pageButtons.appendChild(next);
+      }
+
+      // Render spacious, high-contrast question cards
+      container.innerHTML = '';
+      pageItems.forEach((t, idx) => {
+        const q = t.question || {};
+        const isMath = (q.test === 'Math' || q.section === 'Math');
+        const diffColor = q.difficulty === 'Hard' ? 'bg-rose-100 text-rose-800 border-rose-200' : (q.difficulty === 'Medium' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200');
+        const timeSec = Math.round((t.lastTimeSpentMs || 0) / 1000);
+        const timeStr = timeSec > 0 ? `${timeSec}s` : '—';
+        const dateStr = t.lastAttemptTime ? new Date(t.lastAttemptTime).toLocaleDateString() : 'Recent';
+
+        // Options rendering
+        let optionsHtml = '';
+        if (Array.isArray(q.options) && q.options.length > 0) {
+          optionsHtml = `
+            <div class="space-y-2.5 pt-3 border-t border-slate-100">
+              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Answer Choices &amp; Attempt Diagnostic</span>
+              <div class="grid grid-cols-1 gap-2">
+                ${q.options.map(opt => {
+                  const isCorrect = String(opt.key).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase();
+                  const isStudent = t.lastUserAnswer && String(opt.key).trim().toUpperCase() === String(t.lastUserAnswer).trim().toUpperCase();
+                  
+                  let borderBg = 'border-slate-200 bg-white hover:bg-slate-50';
+                  let statusTag = '';
+
+                  if (isCorrect) {
+                    borderBg = 'border-emerald-500 bg-emerald-50/80 ring-1 ring-emerald-500';
+                    statusTag = '<span class="px-2.5 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg shrink-0">Official Correct Answer ✓</span>';
+                  } else if (isStudent) {
+                    borderBg = 'border-rose-400 bg-rose-50/80 ring-1 ring-rose-400';
+                    statusTag = '<span class="px-2.5 py-1 bg-rose-600 text-white text-xs font-bold rounded-lg shrink-0">Student Selected ❌</span>';
+                  }
+
+                  return `
+                    <div class="p-3.5 rounded-2xl border ${borderBg} flex items-center justify-between gap-3 text-sm transition-all">
+                      <div class="flex items-start space-x-3">
+                        <span class="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md text-xs">${esc(opt.key)}</span>
+                        <span class="text-slate-800 font-medium leading-relaxed">${esc(opt.text || '')}</span>
+                      </div>
+                      ${statusTag}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        // High-resolution diagram rendering
+        let diagramHtml = '';
+        if (q.image_url || q.question_image) {
+          const imgSrc = q.image_url || ('data/' + q.question_image);
+          diagramHtml = `
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center space-y-2 group cursor-pointer" onclick="openImageLightbox('${esc(imgSrc)}')">
+              <img src="${esc(imgSrc)}" class="max-h-72 max-w-full object-contain rounded-xl shadow-xs transition-transform group-hover:scale-[1.01]" alt="Question Diagram">
+              <span class="text-xs text-indigo-600 font-semibold flex items-center group-hover:underline">
+                <i data-lucide="zoom-in" class="w-3.5 h-3.5 mr-1"></i> Click diagram to inspect full screen
+              </span>
+            </div>
+          `;
+        }
+
+        const card = document.createElement('div');
+        card.id = `qcard-${t.questionId}`;
+        card.className = 'bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5 hover:border-slate-300 transition-all';
+        
+        card.innerHTML = `
+          <!-- Card Header & Metadata -->
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-3 py-1 rounded-xl text-xs font-bold ${isMath ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+                ${isMath ? 'Math' : 'Reading & Writing'}
+              </span>
+              <span class="px-2.5 py-1 rounded-xl text-xs font-bold border ${diffColor}">
+                ${esc(q.difficulty || 'Medium')}
+              </span>
+              <span class="px-3 py-1 rounded-xl text-xs font-bold ${t.timesWrong >= 2 ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-800'}">
+                ${t.timesWrong >= 2 ? `⚠️ Missed ${t.timesWrong}× (Recurring)` : 'Missed 1×'}
+              </span>
+              <span class="text-xs font-mono text-slate-400 font-medium">QID: ${esc(t.questionId)}</span>
+            </div>
+
+            <div class="flex items-center space-x-3 text-xs text-slate-500">
+              <span>Time spent: <strong class="text-slate-800 font-mono">${timeStr}</strong></span>
+              <span>&bull;</span>
+              <span>Last missed: <strong class="text-slate-800">${esc(dateStr)}</strong></span>
+            </div>
+          </div>
+
+          <!-- Domain & Skill -->
+          <div>
+            <span class="text-xs font-bold text-indigo-700 uppercase tracking-wider">${esc(q.domain || 'Domain')}</span>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900 mt-0.5">${esc(q.skill || 'Skill Area')}</h3>
+          </div>
+
+          <!-- Question Prompt (Large, High Contrast Typography) -->
+          <div class="p-5 bg-slate-50/90 rounded-2xl border border-slate-200/80 text-sm sm:text-base text-slate-900 leading-relaxed font-serif whitespace-pre-wrap">
+            ${esc(q.question_text || q.prompt || 'No question prompt available.')}
+          </div>
+
+          <!-- High Resolution Diagram (if any) -->
+          ${diagramHtml}
+
+          <!-- Answer Choices -->
+          ${optionsHtml}
+
+          <!-- Official Step-by-Step Rationale -->
+          <div class="p-6 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2.5">
+            <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+              <i data-lucide="book-open" class="w-4 h-4 text-amber-700"></i>
+              <span>Official College Board Step-by-Step Solution &amp; Trap Rationale</span>
+            </div>
+            <div class="text-xs sm:text-sm text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
+              ${esc(q.rationale || 'No official explanation provided for this question.')}
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise();
+      }
+    }
+
+    function openImageLightbox(imgSrc) {
+      const modal = document.getElementById('image-lightbox-modal');
+      const img = document.getElementById('lightbox-img');
+      if (modal && img) {
+        img.src = imgSrc;
+        modal.classList.remove('hidden');
+        lucide.createIcons();
+      }
+    }
+
+    function closeImageLightbox() {
+      const modal = document.getElementById('image-lightbox-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function launchMistakesDrill() {
+      if (allMistakesList.length === 0) {
+        alert('Great news: There are no missed questions to drill right now!');
+        return;
+      }
+      const questionsData = window.QUESTIONS_DATA || [];
+      const troubleQIds = new Set(allMistakesList.map(t => t.questionId));
+      const targetQuestions = questionsData.filter(q => troubleQIds.has(q.id));
+
+      if (targetQuestions.length === 0) {
+        alert('Could not find question data for missed items.');
+        return;
+      }
+
+      const drill = {
+        id: 'drill_mistakes_' + Date.now(),
+        title: `Targeted Mistake Drill (${targetQuestions.length} Missed Questions)`,
+        type: 'mistakes_targeted_drill',
+        totalQuestions: targetQuestions.length,
+        timeLimitMinutes: Math.round(targetQuestions.length * 1.5),
+        createdAt: Date.now(),
+        questions: targetQuestions
+      };
+
+      try {
+        sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
+        window.location.href = 'index.html?mode=custom';
+      } catch (e) {
+        alert('Error preparing mistake drill: ' + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
