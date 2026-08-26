@@ -611,8 +611,14 @@
     var totalTimeSpentMs = 0;
 
     exam.modules.forEach(function (mod) {
-      if (mod.section === 'Reading and Writing') rwTotal += mod.questions.length;
-      else mathTotal += mod.questions.length;
+      mod.questions.forEach(function (q) {
+        var qSec = q.test || q.section || mod.section || 'Reading and Writing';
+        if (qSec.indexOf('Math') !== -1) {
+          mathTotal++;
+        } else {
+          rwTotal++;
+        }
+      });
     });
     var totalQuestionsCount = rwTotal + mathTotal;
 
@@ -641,10 +647,13 @@
           }
         }
 
+        var qSec = q.test || q.section || mod.section || 'Reading and Writing';
+        var isMath = qSec.indexOf('Math') !== -1;
+
         if (isCorrect) {
           modCorrect++;
-          if (mod.section === 'Reading and Writing') rwCorrect++;
-          else mathCorrect++;
+          if (isMath) mathCorrect++;
+          else rwCorrect++;
         }
 
         questionReviews.push({
