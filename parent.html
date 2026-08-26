@@ -48,6 +48,9 @@
           <button id="btn-load-sample-data" onclick="loadSampleDiagnosticSession()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-amber-200" title="Instantly load sample practice and completed exam data to preview all dashboard analytics">
             <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-amber-600"></i> Load Sample Data
           </button>
+          <button onclick="downloadCloudBackup()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center border border-indigo-200" title="Export complete longitudinal snapshot of all questions, answers, and tests from Cosmos DB">
+            <i data-lucide="hard-drive-download" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Cloud Backup
+          </button>
           <button onclick="exportAuditTrail()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center" title="Download complete audit log of attempts and testing">
             <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Export Audit Data
           </button>
@@ -209,12 +212,43 @@
 
     </div>
 
+    <!-- Student Trouble Spots & Recurring Mistake Log -->
+    <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-900 flex items-center">
+            <i data-lucide="alert-triangle" class="w-5 h-5 mr-2 text-rose-600"></i> Student Trouble Spots &amp; Recurring Mistake Log
+          </h3>
+          <p class="text-xs text-slate-500 font-medium">Longitudinal tracking of all missed questions, error frequencies, and question categories to pinpoint exact conceptual hurdles.</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span id="trouble-count-badge" class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg self-start sm:self-auto">0 Questions Missed</span>
+          <button onclick="launchMistakesDrill()" id="btn-drill-mistakes" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
+            <i data-lucide="play-circle" class="w-3.5 h-3.5 mr-1.5"></i> Drill Missed Questions
+          </button>
+        </div>
+      </div>
+
+      <!-- Mistake Filter Tabs -->
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        <button onclick="filterTroubleMistakes('all')" id="trouble-tab-all" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">All Mistakes (<span id="tcount-all">0</span>)</button>
+        <button onclick="filterTroubleMistakes('math')" id="trouble-tab-math" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">Math (<span id="tcount-math">0</span>)</button>
+        <button onclick="filterTroubleMistakes('rw')" id="trouble-tab-rw" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">Reading &amp; Writing (<span id="tcount-rw">0</span>)</button>
+        <button onclick="filterTroubleMistakes('recurring')" id="trouble-tab-recurring" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">Recurring 2×+ (<span id="tcount-rec">0</span>)</button>
+      </div>
+
+      <!-- Trouble Questions Container -->
+      <div id="trouble-questions-container" class="space-y-3 pt-2">
+        <!-- Dynamically populated -->
+      </div>
+    </div>
+
     <!-- Completed Full-Length Exams & Test Reports -->
     <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-2">
         <div>
           <h3 class="text-lg font-bold text-slate-900 flex items-center">
-            <i data-lucide="award" class="w-5 h-5 mr-2 text-indigo-600"></i> Completed Full-Length Exams & Test Score Reports
+            <i data-lucide="award" class="w-5 h-5 mr-2 text-indigo-600"></i> Completed Full-Length Exams &amp; Test Score Reports
           </h3>
           <p class="text-xs text-slate-500 font-medium">Detailed score diagnostic reports, module breakdowns, and full question reviews from student testing sessions.</p>
         </div>
@@ -572,9 +606,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.31"></script>
+  <script src="srs.js?v=0.32"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.31"></script>
+  <script src="data/questions_data.js?v=0.32"></script>
   
   <script>
     function esc(s) {
@@ -815,6 +849,9 @@
         }
       });
 
+      // Render Trouble Spots & Recurring Mistake Log
+      renderTroubleSpots();
+
       // Render Completed Exams List
       renderParentExamHistory();
     }
@@ -927,6 +964,348 @@
       });
 
       lucide.createIcons();
+    }
+
+    let allTroubleList = [];
+    let activeTroubleFilter = 'all';
+
+    function renderTroubleSpots() {
+      const container = document.getElementById('trouble-questions-container');
+      const badge = document.getElementById('trouble-count-badge');
+      if (!container) return;
+
+      const progress = safeGetStorage('psat_progress', {});
+      const examHistory = safeGetStorage('psat_exam_history', []);
+      const questionsData = window.QUESTIONS_DATA || [];
+      const qMap = {};
+      questionsData.forEach(q => { qMap[q.id] = q; });
+
+      // Aggregate mistakes
+      const troubleMap = {};
+
+      // 1. From progress
+      Object.entries(progress).forEach(([qid, p]) => {
+        if (p && p.answered && !p.isCorrect) {
+          const qMeta = qMap[qid] || {};
+          if (!troubleMap[qid]) {
+            troubleMap[qid] = {
+              questionId: qid,
+              question: qMeta,
+              timesWrong: 0,
+              lastUserAnswer: p.selectedAnswer || 'Unanswered',
+              lastAttemptTime: p.timestamp || Date.now(),
+              lastTimeSpentMs: p.timeSpentMs || 0
+            };
+          }
+          troubleMap[qid].timesWrong++;
+        }
+      });
+
+      // 2. From examHistory
+      examHistory.forEach(ex => {
+        (ex.moduleReports || []).forEach(m => {
+          (m.questions || []).forEach(q => {
+            if (q && q.answered && !q.isCorrect) {
+              const qid = q.questionId || q.id;
+              const qMeta = qMap[qid] || q;
+              if (!troubleMap[qid]) {
+                troubleMap[qid] = {
+                  questionId: qid,
+                  question: qMeta,
+                  timesWrong: 0,
+                  lastUserAnswer: q.userAnswer || 'Unanswered',
+                  lastAttemptTime: ex.completedAt || Date.now(),
+                  lastTimeSpentMs: q.timeSpentMs || 0
+                };
+              }
+              if (troubleMap[qid].timesWrong === 0) troubleMap[qid].timesWrong = 1;
+            }
+          });
+        });
+      });
+
+      allTroubleList = Object.values(troubleMap).sort((a, b) => {
+        if (b.timesWrong !== a.timesWrong) return b.timesWrong - a.timesWrong;
+        return (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0);
+      });
+
+      // Update Counts
+      const totalCount = allTroubleList.length;
+      const mathCount = allTroubleList.filter(t => (t.question?.test === 'Math' || t.question?.section === 'Math')).length;
+      const rwCount = allTroubleList.filter(t => (t.question?.test === 'Reading and Writing' || t.question?.section === 'Reading and Writing')).length;
+      const recCount = allTroubleList.filter(t => t.timesWrong >= 2).length;
+
+      if (badge) badge.innerText = `${totalCount} Question${totalCount === 1 ? '' : 's'} Missed`;
+      const elAll = document.getElementById('tcount-all');
+      const elMath = document.getElementById('tcount-math');
+      const elRw = document.getElementById('tcount-rw');
+      const elRec = document.getElementById('tcount-rec');
+      if (elAll) elAll.innerText = totalCount;
+      if (elMath) elMath.innerText = mathCount;
+      if (elRw) elRw.innerText = rwCount;
+      if (elRec) elRec.innerText = recCount;
+
+      renderTroubleListDOM();
+    }
+
+    function filterTroubleMistakes(filter) {
+      activeTroubleFilter = filter;
+      ['all', 'math', 'rw', 'recurring'].forEach(tab => {
+        const btn = document.getElementById(`trouble-tab-${tab}`);
+        if (!btn) return;
+        if (tab === filter) {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-900 text-white shadow-xs transition-all';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all';
+        }
+      });
+      renderTroubleListDOM();
+    }
+
+    function renderTroubleListDOM() {
+      const container = document.getElementById('trouble-questions-container');
+      if (!container) return;
+
+      let filtered = allTroubleList;
+      if (activeTroubleFilter === 'math') {
+        filtered = allTroubleList.filter(t => (t.question?.test === 'Math' || t.question?.section === 'Math'));
+      } else if (activeTroubleFilter === 'rw') {
+        filtered = allTroubleList.filter(t => (t.question?.test === 'Reading and Writing' || t.question?.section === 'Reading and Writing'));
+      } else if (activeTroubleFilter === 'recurring') {
+        filtered = allTroubleList.filter(t => t.timesWrong >= 2);
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-2">
+            <i data-lucide="check-circle-2" class="w-8 h-8 mx-auto text-emerald-500"></i>
+            <p class="text-xs font-bold text-slate-700">No trouble spots in this category!</p>
+            <p class="text-[11px] text-slate-400">All questions in this view have either been answered correctly or have not yet been attempted.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = '';
+      filtered.forEach(t => {
+        const q = t.question || {};
+        const isMath = (q.test === 'Math' || q.section === 'Math');
+        const diffColor = q.difficulty === 'Hard' ? 'bg-rose-100 text-rose-800' : (q.difficulty === 'Medium' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800');
+        const timeSec = Math.round((t.lastTimeSpentMs || 0) / 1000);
+        const timeStr = timeSec > 0 ? `${timeSec}s` : '—';
+        const dateStr = t.lastAttemptTime ? new Date(t.lastAttemptTime).toLocaleDateString() : 'Recent';
+
+        const card = document.createElement('div');
+        card.className = 'p-4 sm:p-5 rounded-2xl border border-slate-200 bg-white hover:border-rose-300 hover:shadow-xs transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4';
+        
+        card.innerHTML = `
+          <div class="space-y-2 flex-1 min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${isMath ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+                ${isMath ? 'Math' : 'Reading & Writing'}
+              </span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${diffColor}">
+                ${esc(q.difficulty || 'Medium')}
+              </span>
+              <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${t.timesWrong >= 2 ? 'bg-rose-600 text-white' : 'bg-rose-100 text-rose-800'}">
+                ${t.timesWrong >= 2 ? `⚠️ Missed ${t.timesWrong}×` : 'Missed 1×'}
+              </span>
+              <span class="text-xs text-slate-400 font-mono">QID: ${esc(t.questionId)}</span>
+              <span class="text-xs text-slate-400">&bull; Last: ${esc(dateStr)}</span>
+            </div>
+
+            <div>
+              <p class="text-xs font-bold text-slate-800">${esc(q.domain || 'Domain')} &bull; <span class="font-medium text-slate-600">${esc(q.skill || 'Skill')}</span></p>
+              <p class="text-xs text-slate-600 line-clamp-2 mt-1 leading-relaxed">${esc(q.question_text || q.prompt || 'No question prompt available')}</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4 text-xs pt-1">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-slate-400 font-medium">Student Choice:</span>
+                <span class="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">${esc(t.lastUserAnswer)} ❌</span>
+              </div>
+              <div class="flex items-center space-x-1.5">
+                <span class="text-slate-400 font-medium">Correct Answer:</span>
+                <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">${esc(q.correct_answer || '—')} ✓</span>
+              </div>
+              <div class="flex items-center space-x-1.5 text-slate-500">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span>Time spent: <strong>${timeStr}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row md:flex-col items-stretch md:items-end justify-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100">
+            <button onclick="openMistakeRationaleModal('${t.questionId}')" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center">
+              <i data-lucide="help-circle" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Inspect Full Rationale &rarr;
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function launchMistakesDrill() {
+      if (allTroubleList.length === 0) {
+        alert('Great news: There are no missed questions to drill right now!');
+        return;
+      }
+      const questionsData = window.QUESTIONS_DATA || [];
+      const troubleQIds = new Set(allTroubleList.map(t => t.questionId));
+      const targetQuestions = questionsData.filter(q => troubleQIds.has(q.id));
+
+      if (targetQuestions.length === 0) {
+        alert('Could not find question data for missed items.');
+        return;
+      }
+
+      const drill = {
+        id: 'drill_mistakes_' + Date.now(),
+        title: `Targeted Mistake Drill (${targetQuestions.length} Missed Questions)`,
+        type: 'mistakes_targeted_drill',
+        totalQuestions: targetQuestions.length,
+        timeLimitMinutes: Math.round(targetQuestions.length * 1.5),
+        createdAt: Date.now(),
+        questions: targetQuestions
+      };
+
+      try {
+        sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
+        window.location.href = 'index.html?mode=custom';
+      } catch (e) {
+        alert('Error preparing mistake drill: ' + e.message);
+      }
+    }
+
+    function openMistakeRationaleModal(qid) {
+      const q = (window.QUESTIONS_DATA || []).find(item => item.id === qid);
+      if (!q) {
+        alert('Question details not found.');
+        return;
+      }
+      const progress = safeGetStorage('psat_progress', {})[qid] || {};
+      const isMath = (q.test === 'Math' || q.section === 'Math');
+      const diffColor = q.difficulty === 'Hard' ? 'bg-rose-100 text-rose-800' : (q.difficulty === 'Medium' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800');
+
+      document.getElementById('pmd-modal-id').innerText = `QID: ${q.id}`;
+      document.getElementById('pmd-modal-title').innerText = `${q.domain || ''} &bull; ${q.skill || ''}`;
+
+      const content = document.getElementById('pmd-modal-content');
+      let optionsHtml = '';
+      if (Array.isArray(q.options) && q.options.length > 0) {
+        optionsHtml = `
+          <div class="space-y-2 pt-2">
+            <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Answer Choices</h5>
+            <div class="space-y-2">
+              ${q.options.map(opt => {
+                const isCorrect = String(opt.key).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase();
+                const isUser = progress.selectedAnswer && String(opt.key).trim().toUpperCase() === String(progress.selectedAnswer).trim().toUpperCase();
+                let borderClass = 'border-slate-200 bg-white';
+                let icon = '';
+                if (isCorrect) {
+                  borderClass = 'border-emerald-500 bg-emerald-50/70 font-semibold text-emerald-950';
+                  icon = '<span class="px-2 py-0.5 bg-emerald-600 text-white text-[10px] font-bold rounded-md ml-2">Correct Answer ✓</span>';
+                } else if (isUser) {
+                  borderClass = 'border-rose-400 bg-rose-50/70 font-semibold text-rose-950';
+                  icon = '<span class="px-2 py-0.5 bg-rose-600 text-white text-[10px] font-bold rounded-md ml-2">Student Selected ❌</span>';
+                }
+                return `
+                  <div class="p-3.5 rounded-xl border ${borderClass} flex items-start justify-between text-xs">
+                    <div>
+                      <span class="font-bold mr-2 text-slate-800">${esc(opt.key)}.</span>
+                      <span class="text-slate-700">${esc(opt.text || '')}</span>
+                    </div>
+                    ${icon}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      let imageHtml = '';
+      if (q.image_url || q.question_image) {
+        const imgSrc = q.image_url || ('data/' + q.question_image);
+        imageHtml = `<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex justify-center"><img src="${esc(imgSrc)}" class="max-h-64 object-contain rounded-lg shadow-xs" alt="Question Diagram"></div>`;
+      }
+
+      content.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-100">
+          <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold ${isMath ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}">
+            ${esc(q.test || 'Practice')}
+          </span>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${diffColor}">
+            ${esc(q.difficulty || 'Medium')}
+          </span>
+          <span class="text-xs text-slate-500 font-medium">${esc(q.domain || '')} &bull; ${esc(q.skill || '')}</span>
+        </div>
+
+        <div class="space-y-3">
+          <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Prompt</h5>
+          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-serif whitespace-pre-wrap">
+            ${esc(q.question_text || q.prompt || '')}
+          </div>
+        </div>
+
+        ${imageHtml}
+        ${optionsHtml}
+
+        <div class="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
+          <h5 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="book-open" class="w-4 h-4 mr-1.5 text-amber-700"></i> Official Step-by-Step Rationale &amp; Solution
+          </h5>
+          <div class="text-xs text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
+            ${esc(q.rationale || 'No official explanation provided for this question.')}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('parent-mistake-detail-modal').classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeMistakeRationaleModal() {
+      document.getElementById('parent-mistake-detail-modal').classList.add('hidden');
+    }
+
+    async function downloadCloudBackup() {
+      const btn = event?.currentTarget;
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('https://psat-api-4915.azurewebsites.net/api/sync?student_name=default_student');
+        if (!res.ok) throw new Error(`HTTP ${res.status}: Cloud backup service unavailable`);
+        const cloudData = await res.json();
+        
+        const backupEnvelope = {
+          backupMetadata: {
+            source: 'Azure Cosmos DB',
+            student_name: 'default_student',
+            exportedAt: new Date().toISOString(),
+            version: '1.0'
+          },
+          data: cloudData
+        };
+
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupEnvelope, null, 2));
+        const downloadAnchor = document.createElement('a');
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10);
+        downloadAnchor.setAttribute('href', dataStr);
+        downloadAnchor.setAttribute('download', `psat_cosmos_backup_${dateStr}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        alert(`✓ Full Cosmos DB Cloud Backup downloaded successfully!\nFile: psat_cosmos_backup_${dateStr}.json`);
+      } catch (err) {
+        console.error('Cloud backup download failed:', err);
+        alert('Could not download cloud backup: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     let parentActiveExamReport = null;
@@ -2058,6 +2437,41 @@
         </button>
         <button onclick="closeParentExamReview()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
           Close Review
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PARENT SINGLE QUESTION MISTAKE RATIONALE MODAL -->
+  <div id="parent-mistake-detail-modal" class="hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 text-white p-5 sm:px-8 flex items-center justify-between gap-4 border-b border-slate-800 shrink-0">
+        <div class="space-y-1">
+          <div class="flex items-center space-x-2">
+            <span id="pmd-modal-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800">
+              Trouble Question Analysis
+            </span>
+            <span id="pmd-modal-id" class="text-xs text-slate-400 font-mono">QID: —</span>
+          </div>
+          <h3 id="pmd-modal-title" class="text-base font-bold text-white">Question Rationale &amp; Error Diagnostic</h3>
+        </div>
+        <button onclick="closeMistakeRationaleModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors" title="Close">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Content (Scrollable) -->
+      <div id="pmd-modal-content" class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 custom-scrollbar">
+        <!-- Dynamically rendered -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end shrink-0">
+        <button onclick="closeMistakeRationaleModal()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
+          Close
         </button>
       </div>
 
