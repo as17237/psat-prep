@@ -618,9 +618,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.35"></script>
+  <script src="srs.js?v=0.36"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.35"></script>
+  <script src="data/questions_data.js?v=0.36"></script>
   
   <script>
     function esc(s) {
@@ -649,6 +649,16 @@
     }
 
     let currentGapCount = 20;
+    let allTroubleList = [];
+    let parentActiveExamReport = null;
+    let parentExamFilterMode = 'all';
+    let selectedSkillsSet = new Set();
+    let domainToSkillsMap = {};
+    let skillToDomainMap = {};
+    let skillToSectionMap = {};
+    let skillQuestionCountMap = {};
+    let desmosCalculatorInstance = null;
+    let desmosIsExpanded = false;
 
     function syncParentFromCloud(isManual = false) {
       const txt = document.getElementById('cloud-sync-status-text');
@@ -978,8 +988,6 @@
       lucide.createIcons();
     }
 
-    let allTroubleList = [];
-
     function renderTroubleSpots() {
       const badge = document.getElementById('trouble-count-badge');
       const drillCount = document.getElementById('btn-drill-count');
@@ -1073,50 +1081,6 @@
         chipsContainer.appendChild(link);
       });
 
-      lucide.createIcons();
-    }
-      const container = document.getElementById('trouble-questions-container');
-      const summary = document.getElementById('trouble-page-summary');
-      const pageButtons = document.getElementById('trouble-page-buttons');
-      const pagBar = document.getElementById('trouble-pagination-bar');
-      if (!container) return;
-
-      let filtered = allTroubleList;
-
-      // 1. Filter by subject tab
-      if (activeTroubleFilter === 'math') {
-        filtered = filtered.filter(t => (t.question?.test === 'Math' || t.question?.section === 'Math'));
-      } else if (activeTroubleFilter === 'rw') {
-        filtered = filtered.filter(t => (t.question?.test === 'Reading and Writing' || t.question?.section === 'Reading and Writing'));
-      } else if (activeTroubleFilter === 'recurring') {
-        filtered = filtered.filter(t => t.timesWrong >= 2);
-      }
-
-      // 2. Filter by domain chip
-      if (activeTroubleDomain !== 'all') {
-        filtered = filtered.filter(t => (t.question?.domain === activeTroubleDomain));
-      }
-
-      // 3. Filter by search query
-      if (troubleSearchQuery) {
-        filtered = filtered.filter(t => {
-          const qText = (t.question?.question_text || t.question?.prompt || '').toLowerCase();
-          const dom = (t.question?.domain || '').toLowerCase();
-          const skill = (t.question?.skill || '').toLowerCase();
-          const qid = (t.questionId || '').toLowerCase();
-          return qText.includes(troubleSearchQuery) || dom.includes(troubleSearchQuery) || skill.includes(troubleSearchQuery) || qid.includes(troubleSearchQuery);
-        });
-      }
-
-      // 4. Sort
-      if (troubleSortMode === 'freq') {
-        filtered.sort((a, b) => {
-          if (b.timesWrong !== a.timesWrong) return b.timesWrong - a.timesWrong;
-          return (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0);
-        });
-      } else if (troubleSortMode === 'recent') {
-        filtered.sort((a, b) => (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0));
-      } else if (troubleSortMode === 'hard') {
       lucide.createIcons();
     }
 
@@ -1280,9 +1244,6 @@
       }
     }
 
-    let parentActiveExamReport = null;
-    let parentExamFilterMode = 'all';
-
     function openParentExamReview(examId) {
       const history = safeGetStorage('psat_exam_history', []);
       const found = history.find(h => h.examId === examId);
@@ -1434,12 +1395,6 @@
 
       lucide.createIcons();
     }
-
-    let selectedSkillsSet = new Set();
-    let domainToSkillsMap = {};
-    let skillToDomainMap = {};
-    let skillToSectionMap = {};
-    let skillQuestionCountMap = {};
 
     function switchBuilderTab(tab) {
       document.getElementById('bview-mini').classList.add('hidden');
@@ -1847,9 +1802,6 @@
     // ============================================================
     // DESMOS GRAPHING CALCULATOR & MATH REFERENCE SHEET CONTROLLER
     // ============================================================
-    let desmosCalculatorInstance = null;
-    let desmosIsExpanded = false;
-
     function toggleDesmosCalculator(forceState) {
       const modal = document.getElementById('desmos-floating-window');
       if (!modal) return;
