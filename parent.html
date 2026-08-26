@@ -666,9 +666,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.37"></script>
+  <script src="srs.js?v=0.38"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.37"></script>
+  <script src="data/questions_data.js?v=0.38"></script>
   
   <script>
     function esc(s) {
@@ -1057,13 +1057,14 @@
             troubleMap[qid] = {
               questionId: qid,
               question: qMeta,
-              timesWrong: 0,
+              timesWrong: p.timesIncorrect || 1,
+              timesCorrect: p.timesCorrect || 0,
+              timesSeen: p.timesSeen || 1,
               lastUserAnswer: p.selectedAnswer || 'Unanswered',
               lastAttemptTime: p.timestamp || Date.now(),
               lastTimeSpentMs: p.timeSpentMs || 0
             };
           }
-          troubleMap[qid].timesWrong++;
         }
       });
 
@@ -1078,13 +1079,14 @@
                 troubleMap[qid] = {
                   questionId: qid,
                   question: qMeta,
-                  timesWrong: 0,
+                  timesWrong: 1,
+                  timesCorrect: 0,
+                  timesSeen: 1,
                   lastUserAnswer: q.userAnswer || 'Unanswered',
                   lastAttemptTime: ex.completedAt || Date.now(),
                   lastTimeSpentMs: q.timeSpentMs || 0
                 };
               }
-              if (troubleMap[qid].timesWrong === 0) troubleMap[qid].timesWrong = 1;
             }
           });
         });

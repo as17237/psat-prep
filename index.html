@@ -972,9 +972,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.37"></script>
+  <script src="srs.js?v=0.38"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.37"></script>
+  <script src="data/questions_data.js?v=0.38"></script>
 
   <!-- App Core Script -->
   <script>
@@ -1448,6 +1448,24 @@
         }
       }
 
+      const prevProg = progress[q.id] || {};
+      const prevTimesSeen = prevProg.timesSeen || (prevProg.answered ? 1 : 0);
+      const prevTimesCorrect = prevProg.timesCorrect || (prevProg.answered && prevProg.isCorrect ? 1 : 0);
+      const prevTimesIncorrect = prevProg.timesIncorrect || (prevProg.answered && !prevProg.isCorrect ? 1 : 0);
+      const prevAttempts = Array.isArray(prevProg.attempts) ? prevProg.attempts.slice() : [];
+
+      const newTimesSeen = prevTimesSeen + 1;
+      const newTimesCorrect = prevTimesCorrect + (isCorrect ? 1 : 0);
+      const newTimesIncorrect = prevTimesIncorrect + (isCorrect ? 0 : 1);
+
+      prevAttempts.push({
+        at: Date.now(),
+        selectedAnswer: selectedAnswer,
+        isCorrect: isCorrect,
+        timeSpentMs: timeSpentMs,
+        source: 'practice'
+      });
+
       progress[q.id] = {
         answered: true,
         selectedAnswer: selectedAnswer,
@@ -1455,7 +1473,12 @@
         timeSpentMs: timeSpentMs,
         timingReliable: timingReliable,
         timestamp: Date.now(),
-        isFlagged: progress[q.id]?.isFlagged || false
+        isFlagged: prevProg.isFlagged || false,
+        timesSeen: newTimesSeen,
+        timesCorrect: newTimesCorrect,
+        timesIncorrect: newTimesIncorrect,
+        accuracyPercent: Math.round((newTimesCorrect / newTimesSeen) * 100),
+        attempts: prevAttempts.slice(-10)
       };
 
       // Spaced Repetition SM-2 Update
@@ -2452,6 +2475,23 @@
             const timeSpent = q.timeSpentMs || 0;
             const isReliable = timeSpent > 0;
 
+            const prevSeen = existingProgress.timesSeen || (existingProgress.answered ? 1 : 0);
+            const prevCorrect = existingProgress.timesCorrect || (existingProgress.answered && existingProgress.isCorrect ? 1 : 0);
+            const prevIncorrect = existingProgress.timesIncorrect || (existingProgress.answered && !existingProgress.isCorrect ? 1 : 0);
+            const prevAttempts = Array.isArray(existingProgress.attempts) ? existingProgress.attempts.slice() : [];
+
+            const newSeen = prevSeen + 1;
+            const newCorrect = prevCorrect + (q.isCorrect ? 1 : 0);
+            const newIncorrect = prevIncorrect + (q.isCorrect ? 0 : 1);
+
+            prevAttempts.push({
+              at: Date.now(),
+              selectedAnswer: q.userAnswer,
+              isCorrect: q.isCorrect,
+              timeSpentMs: timeSpent,
+              source: activeExam.type || 'exam'
+            });
+
             progress[q.questionId] = {
               answered: true,
               selectedAnswer: q.userAnswer,
@@ -2459,7 +2499,12 @@
               timeSpentMs: timeSpent,
               timingReliable: isReliable,
               isFlagged: existingProgress.isFlagged || false,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              timesSeen: newSeen,
+              timesCorrect: newCorrect,
+              timesIncorrect: newIncorrect,
+              accuracyPercent: Math.round((newCorrect / newSeen) * 100),
+              attempts: prevAttempts.slice(-10)
             };
 
             const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
