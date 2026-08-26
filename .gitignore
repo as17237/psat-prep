@@ -18,6 +18,14 @@ Thumbs.db
 # Logs & Temp
 *.log
 scratch/
+
+# Local Database Backups & Student Data (PII protection)
+backups/
+*.backup.json
+*.bak.json
+.env.local
+.env*.local
+
 # Node
 node_modules/
 api/node_modules/

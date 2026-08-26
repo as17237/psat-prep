@@ -177,8 +177,8 @@
   </footer>
 
   <!-- Scripts -->
-  <script src="srs.js?v=0.39"></script>
-  <script src="data/questions_data.js?v=0.39"></script>
+  <script src="srs.js?v=0.40"></script>
+  <script src="data/questions_data.js?v=0.40"></script>
 
   <script>
     function esc(s) {
@@ -270,16 +270,15 @@
       const qMap = {};
       questionsData.forEach(q => { qMap[q.id] = q; });
 
-      const troubleMap = {};
-
-      // 1. From Progress
-      Object.entries(progress).forEach(([qid, p]) => {
-        if (p && p.answered && !p.isCorrect) {
-          const qMeta = qMap[qid] || {};
-          if (!troubleMap[qid]) {
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.buildTroubleSpots) {
+        allMistakesList = PSAT_ENGINE.buildTroubleSpots(progress, examHistory, questionsData);
+      } else {
+        const troubleMap = {};
+        Object.entries(progress).forEach(([qid, p]) => {
+          if (p && p.answered && !p.isCorrect) {
             troubleMap[qid] = {
               questionId: qid,
-              question: qMeta,
+              question: qMap[qid] || {},
               timesWrong: p.timesIncorrect || 1,
               timesCorrect: p.timesCorrect || 0,
               timesSeen: p.timesSeen || 1,
@@ -288,34 +287,9 @@
               lastTimeSpentMs: p.timeSpentMs || 0
             };
           }
-        }
-      });
-
-      // 2. From Exam History
-      examHistory.forEach(ex => {
-        (ex.moduleReports || []).forEach(m => {
-          (m.questions || []).forEach(q => {
-            if (q && q.answered && !q.isCorrect) {
-              const qid = q.questionId || q.id;
-              const qMeta = qMap[qid] || q;
-              if (!troubleMap[qid]) {
-                troubleMap[qid] = {
-                  questionId: qid,
-                  question: qMeta,
-                  timesWrong: 1,
-                  timesCorrect: 0,
-                  timesSeen: 1,
-                  lastUserAnswer: q.userAnswer || 'Unanswered',
-                  lastAttemptTime: ex.completedAt || Date.now(),
-                  lastTimeSpentMs: q.timeSpentMs || 0
-                };
-              }
-            }
-          });
         });
-      });
-
-      allMistakesList = Object.values(troubleMap);
+        allMistakesList = Object.values(troubleMap);
+      }
 
       // Update counters
       const totalCount = allMistakesList.length;

@@ -694,6 +694,106 @@
   }
 
   /**
+   * Calculates an empirical practice scaled score estimate for a section (120–720 scale).
+   * Monotonic Guarantee: Score is strictly non-decreasing with raw correct answers across all tracks.
+   * Zero raw correct always yields the baseline floor (120).
+   * Upper Track scales up to 720; Lower Track is capped at 580 maximum.
+   */
+  function calculateSectionScaledScore(correct, total, track, isAdaptive) {
+    if (!total || total <= 0 || correct <= 0) return 120;
+    var rawRatio = Math.max(0, Math.min(1, correct / total));
+
+    if (!isAdaptive || !track || track === 'Standard' || track === 'Baseline') {
+      return Math.min(720, Math.max(120, Math.round(120 + rawRatio * 600)));
+    }
+
+    if (track === 'Hard') {
+      // Upper difficulty track: Floor starts at 120, smoothly scales with difficulty weighting up to 720 (100%)
+      var curved = Math.pow(rawRatio, 0.85);
+      return Math.min(720, Math.max(120, Math.round(120 + curved * 600)));
+    } else {
+      // Lower difficulty track: Capped at 580 maximum
+      var curvedLower = Math.pow(rawRatio, 1.1);
+      return Math.min(580, Math.max(120, Math.round(120 + curvedLower * 460)));
+    }
+  }
+
+  /**
+   * Aggregates student error trouble spots across individual question progress and exam history.
+   * Accurately sums cumulative error frequencies and returns a unified list sorted by frequency.
+   */
+  function buildTroubleSpots(progress, examHistory, questionsData) {
+    var prog = progress || {};
+    var hist = Array.isArray(examHistory) ? examHistory : [];
+    var allQs = Array.isArray(questionsData) ? questionsData : [];
+    var qMap = {};
+    allQs.forEach(function(q) { if (q && q.id) qMap[q.id] = q; });
+
+    var troubleMap = {};
+
+    // 1. Process from progress attempts and counters
+    Object.keys(prog).forEach(function(qid) {
+      var p = prog[qid];
+      if (!p || !p.answered) return;
+
+      var incorrectCount = (typeof p.timesIncorrect === 'number') ? p.timesIncorrect : (p.isCorrect ? 0 : 1);
+      if (incorrectCount > 0 || !p.isCorrect) {
+        var qMeta = qMap[qid] || {};
+        troubleMap[qid] = {
+          questionId: qid,
+          question: qMeta,
+          timesWrong: Math.max(1, incorrectCount),
+          timesCorrect: p.timesCorrect || (p.isCorrect ? 1 : 0),
+          timesSeen: p.timesSeen || (incorrectCount + (p.isCorrect ? 1 : 0)),
+          lastUserAnswer: p.selectedAnswer || 'Unanswered',
+          lastAttemptTime: p.timestamp || Date.now(),
+          lastTimeSpentMs: p.timeSpentMs || 0
+        };
+      }
+    });
+
+    // 2. Process all exam reports from exam history to aggregate any additional occurrences
+    hist.forEach(function(ex) {
+      if (!ex || !Array.isArray(ex.moduleReports)) return;
+      ex.moduleReports.forEach(function(m) {
+        if (!m || !Array.isArray(m.questions)) return;
+        m.questions.forEach(function(q) {
+          if (q && q.answered && !q.isCorrect) {
+            var qid = q.questionId || q.id;
+            var qMeta = qMap[qid] || q;
+            if (!troubleMap[qid]) {
+              troubleMap[qid] = {
+                questionId: qid,
+                question: qMeta,
+                timesWrong: 0,
+                timesCorrect: 0,
+                timesSeen: 0,
+                lastUserAnswer: q.userAnswer || 'Unanswered',
+                lastAttemptTime: ex.completedAt || Date.now(),
+                lastTimeSpentMs: q.timeSpentMs || 0
+              };
+            }
+            if (!prog[qid]) {
+              troubleMap[qid].timesWrong++;
+              troubleMap[qid].timesSeen++;
+            }
+            if (ex.completedAt && (!troubleMap[qid].lastAttemptTime || ex.completedAt > troubleMap[qid].lastAttemptTime)) {
+              troubleMap[qid].lastAttemptTime = ex.completedAt;
+              troubleMap[qid].lastUserAnswer = q.userAnswer || troubleMap[qid].lastUserAnswer;
+              troubleMap[qid].lastTimeSpentMs = q.timeSpentMs || troubleMap[qid].lastTimeSpentMs;
+            }
+          }
+        });
+      });
+    });
+
+    return Object.values(troubleMap).sort(function(a, b) {
+      if (b.timesWrong !== a.timesWrong) return b.timesWrong - a.timesWrong;
+      return (b.lastAttemptTime || 0) - (a.lastAttemptTime || 0);
+    });
+  }
+
+  /**
    * Evaluates a full standard PSAT 8/9 exam submission.
    */
   function scoreStandardExam(exam, userAnswersMap, questionTimesMap) {
@@ -793,27 +893,8 @@
     var rwTrack = (exam.routingTracks && exam.routingTracks.rw) ? exam.routingTracks.rw : (exam.isAdaptive ? 'Hard' : 'Standard');
     var mathTrack = (exam.routingTracks && exam.routingTracks.math) ? exam.routingTracks.math : (exam.isAdaptive ? 'Hard' : 'Standard');
 
-    var rwScaled = 120;
-    if (rwTotal > 0) {
-      if (exam.isAdaptive && rwTrack === 'Hard') {
-        rwScaled = Math.min(720, Math.max(480, Math.round(480 + (rwCorrect / rwTotal) * 240)));
-      } else if (exam.isAdaptive && rwTrack === 'Easy') {
-        rwScaled = Math.min(560, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 440)));
-      } else {
-        rwScaled = Math.min(720, Math.max(120, Math.round(120 + (rwCorrect / rwTotal) * 600)));
-      }
-    }
-
-    var mathScaled = 120;
-    if (mathTotal > 0) {
-      if (exam.isAdaptive && mathTrack === 'Hard') {
-        mathScaled = Math.min(720, Math.max(480, Math.round(480 + (mathCorrect / mathTotal) * 240)));
-      } else if (exam.isAdaptive && mathTrack === 'Easy') {
-        mathScaled = Math.min(560, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 440)));
-      } else {
-        mathScaled = Math.min(720, Math.max(120, Math.round(120 + (mathCorrect / mathTotal) * 600)));
-      }
-    }
+    var rwScaled = calculateSectionScaledScore(rwCorrect, rwTotal, rwTrack, exam.isAdaptive);
+    var mathScaled = calculateSectionScaledScore(mathCorrect, mathTotal, mathTrack, exam.isAdaptive);
 
     var totalScaled = rwScaled + mathScaled;
     var overallAcc = totalQuestionsCount > 0 ? Math.round(((rwCorrect + mathCorrect) / totalQuestionsCount) * 100) : 0;
@@ -1223,18 +1304,39 @@
         var lTime = l.timestamp || l.lastAttemptTime || 0;
         var chosen = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
 
-        var cSeen = c.timesSeen || (c.answered ? 1 : 0);
-        var lSeen = l.timesSeen || (l.answered ? 1 : 0);
-        var cCorrect = c.timesCorrect || (c.answered && c.isCorrect ? 1 : 0);
-        var lCorrect = l.timesCorrect || (l.answered && l.isCorrect ? 1 : 0);
-        var cIncorrect = c.timesIncorrect || (c.answered && !c.isCorrect ? 1 : 0);
-        var lIncorrect = l.timesIncorrect || (l.answered && !l.isCorrect ? 1 : 0);
+        var cAttempts = Array.isArray(c.attempts) ? c.attempts : [];
+        var lAttempts = Array.isArray(l.attempts) ? l.attempts : [];
 
-        chosen.timesSeen = Math.max(cSeen, lSeen);
-        chosen.timesCorrect = Math.max(cCorrect, lCorrect);
-        chosen.timesIncorrect = Math.max(cIncorrect, lIncorrect);
-        if (chosen.timesSeen > 0) {
-          chosen.accuracyPercent = Math.round((chosen.timesCorrect / chosen.timesSeen) * 100);
+        var attemptMap = {};
+        cAttempts.forEach(function(att) { if (att && att.at) attemptMap[att.at] = att; });
+        lAttempts.forEach(function(att) { if (att && att.at) attemptMap[att.at] = att; });
+
+        var combinedAttempts = Object.values(attemptMap).sort(function(a, b) { return a.at - b.at; });
+
+        if (combinedAttempts.length > 0) {
+          var totalSeen = combinedAttempts.length;
+          var totalCorrect = combinedAttempts.filter(function(a) { return a.isCorrect; }).length;
+          var totalIncorrect = totalSeen - totalCorrect;
+
+          chosen.timesSeen = totalSeen;
+          chosen.timesCorrect = totalCorrect;
+          chosen.timesIncorrect = totalIncorrect;
+          chosen.accuracyPercent = Math.round((totalCorrect / totalSeen) * 100);
+          chosen.attempts = combinedAttempts.slice(-10);
+        } else {
+          var cSeen = c.timesSeen || (c.answered ? 1 : 0);
+          var lSeen = l.timesSeen || (l.answered ? 1 : 0);
+          var cCorrect = c.timesCorrect || (c.answered && c.isCorrect ? 1 : 0);
+          var lCorrect = l.timesCorrect || (l.answered && l.isCorrect ? 1 : 0);
+          var cIncorrect = c.timesIncorrect || (c.answered && !c.isCorrect ? 1 : 0);
+          var lIncorrect = l.timesIncorrect || (l.answered && !l.isCorrect ? 1 : 0);
+
+          chosen.timesSeen = Math.max(cSeen, lSeen);
+          chosen.timesCorrect = Math.max(cCorrect, lCorrect);
+          chosen.timesIncorrect = Math.max(cIncorrect, lIncorrect);
+          if (chosen.timesSeen > 0) {
+            chosen.accuracyPercent = Math.round((chosen.timesCorrect / chosen.timesSeen) * 100);
+          }
         }
         merged[qid] = chosen;
       } else if (c) {
@@ -1458,6 +1560,8 @@
     mergeProgress: mergeProgress,
     mergeSrsState: mergeSrsState,
     mergeExamHistory: mergeExamHistory,
+    calculateSectionScaledScore: calculateSectionScaledScore,
+    buildTroubleSpots: buildTroubleSpots,
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
     pushToCloud: pushToCloud,

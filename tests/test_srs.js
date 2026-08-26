@@ -621,7 +621,106 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(rehydratedReport.moduleReports[0].questions[0].question_text, 'Sample prompt 1', 'Rehydration must restore question text');
   assert.strictEqual(rehydratedReport.moduleReports[0].questions[0].isCorrect, true);
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Demo Backup Guard, Scoring, and Cosmos DB Cloud Sync tests passed!');
+  // 7. Comprehensive Monotonicity & Section Scaling Verification
+  // -------------------------------------------------------------
+  // Test A: Monotonicity across all possible raw correct counts (0..54 for RW, 0..44 for Math)
+  ['Standard', 'Hard', 'Easy'].forEach(track => {
+    let prevScore = 0;
+    for (let c = 0; c <= 54; c++) {
+      const score = PSAT_ENGINE.calculateSectionScaledScore(c, 54, track, track !== 'Standard');
+      assert.ok(score >= prevScore, `Score must be monotonic non-decreasing: at ${c}/54 (${track}), got ${score} < prev ${prevScore}`);
+      assert.ok(score >= 120, `Score must never drop below section floor 120: got ${score}`);
+      assert.ok(score <= 720, `Score must never exceed 720: got ${score}`);
+      if (c === 0) {
+        assert.strictEqual(score, 120, `0 correct on ${track} track MUST equal 120 baseline floor, never an artificial jump`);
+      }
+      prevScore = score;
+    }
+    if (track === 'Easy') {
+      assert.ok(prevScore <= 580, `Easy track maximum score must be capped at 580: got ${prevScore}`);
+    } else {
+      assert.strictEqual(prevScore, 720, `100% accuracy on ${track} track must reach 720`);
+    }
+  });
+
+  // Test B: Verify no artificial 480 floor jump for abandoned M2 on Hard track
+  const abandonedM2Score = PSAT_ENGINE.calculateSectionScaledScore(16, 54, 'Hard', true);
+  assert.ok(abandonedM2Score < 400, `Abandoned M2 (16/54 correct on Hard track) must score ~332, not >=480: got ${abandonedM2Score}`);
+
+  // 8. MST Routing Cutoff Verification (>=58% accuracy threshold)
+  // -------------------------------------------------------------
+  const rwM1Total = 27;
+  const rwPassing = 16; // 16/27 = 59.26% >= 58%
+  const rwFailing = 15; // 15/27 = 55.56% < 58%
+  assert.ok(rwPassing / rwM1Total >= 0.58, '16/27 must qualify for Upper Hard track');
+  assert.ok(rwFailing / rwM1Total < 0.58, '15/27 must route to Standard Easy track');
+
+  const mathM1Total = 22;
+  const mathPassing = 13; // 13/22 = 59.09% >= 58%
+  const mathFailing = 12; // 12/22 = 54.55% < 58%
+  assert.ok(mathPassing / mathM1Total >= 0.58, '13/22 must qualify for Upper Hard track');
+  assert.ok(mathFailing / mathM1Total < 0.58, '12/22 must route to Standard Easy track');
+
+  // 9. Unified buildTroubleSpots Aggregation Verification
+  // -----------------------------------------------------
+  const mockTroubleProgress = {
+    'q_trouble_1': { answered: true, isCorrect: false, timesIncorrect: 3, timesCorrect: 1, timesSeen: 4, timestamp: 1000 },
+    'q_trouble_2': { answered: true, isCorrect: true, timesIncorrect: 0, timesCorrect: 2, timesSeen: 2, timestamp: 1001 }
+  };
+  const mockTroubleHistory = [
+    {
+      completedAt: 1005,
+      moduleReports: [{
+        questions: [
+          { id: 'q_trouble_1', answered: true, isCorrect: false, userAnswer: 'B', timeSpentMs: 40000 },
+          { id: 'q_trouble_3', answered: true, isCorrect: false, userAnswer: 'C', timeSpentMs: 35000 }
+        ]
+      }]
+    }
+  ];
+  const mockQuestionsData = [
+    { id: 'q_trouble_1', test: 'Math', skill: 'Algebra' },
+    { id: 'q_trouble_2', test: 'Reading and Writing', skill: 'Information and Ideas' },
+    { id: 'q_trouble_3', test: 'Math', skill: 'Geometry' }
+  ];
+  const aggregatedTrouble = PSAT_ENGINE.buildTroubleSpots(mockTroubleProgress, mockTroubleHistory, mockQuestionsData);
+  assert.strictEqual(aggregatedTrouble.length, 2, 'Must contain exactly 2 missed items (q_trouble_1 and q_trouble_3)');
+  const item1 = aggregatedTrouble.find(t => t.questionId === 'q_trouble_1');
+  const item3 = aggregatedTrouble.find(t => t.questionId === 'q_trouble_3');
+  assert.strictEqual(item1.timesWrong, 3, 'q_trouble_1 must reflect 3 misses');
+  assert.strictEqual(item3.timesWrong, 1, 'q_trouble_3 from exam history must reflect 1 miss');
+
+  // 10. mergeProgress with Disjoint Attempt Logs
+  // --------------------------------------------
+  const cloudProg = {
+    'q_disjoint': {
+      answered: true,
+      isCorrect: true,
+      timestamp: 1000,
+      attempts: [
+        { at: 1000, isCorrect: true, selectedAnswer: 'A', timeSpentMs: 30000 }
+      ]
+    }
+  };
+  const localProg = {
+    'q_disjoint': {
+      answered: true,
+      isCorrect: false,
+      timestamp: 2000,
+      attempts: [
+        { at: 2000, isCorrect: false, selectedAnswer: 'B', timeSpentMs: 25000 }
+      ]
+    }
+  };
+  const mergedDisjoint = PSAT_ENGINE.mergeProgress(cloudProg, localProg);
+  const qRes = mergedDisjoint['q_disjoint'];
+  assert.strictEqual(qRes.timesSeen, 2, '2 disjoint attempts must produce timesSeen = 2');
+  assert.strictEqual(qRes.timesCorrect, 1, '1 correct attempt must produce timesCorrect = 1');
+  assert.strictEqual(qRes.timesIncorrect, 1, '1 incorrect attempt must produce timesIncorrect = 1');
+  assert.strictEqual(qRes.accuracyPercent, 50);
+  assert.strictEqual(qRes.attempts.length, 2);
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

@@ -972,9 +972,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.39"></script>
+  <script src="srs.js?v=0.40"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.39"></script>
+  <script src="data/questions_data.js?v=0.40"></script>
 
   <!-- App Core Script -->
   <script>
@@ -2684,16 +2684,27 @@
         section: m.section,
         moduleNumber: m.moduleNumber,
         name: m.name,
+        track: m.track || 'Standard',
         questionsCount: m.questionsCount || (m.questions ? m.questions.length : 0),
         timeLimitSeconds: m.timeLimitSeconds,
         questionIds: (m.questions || []).map(q => q.id)
       }));
+
+      const leanPools = activeExam.adaptivePools ? {
+        rwM2Hard: (activeExam.adaptivePools.rwM2Hard || []).map(q => q.id),
+        rwM2Easy: (activeExam.adaptivePools.rwM2Easy || []).map(q => q.id),
+        mathM2Hard: (activeExam.adaptivePools.mathM2Hard || []).map(q => q.id),
+        mathM2Easy: (activeExam.adaptivePools.mathM2Easy || []).map(q => q.id)
+      } : null;
 
       const snapshot = {
         activeExamMeta: {
           id: activeExam.id,
           title: activeExam.title,
           type: activeExam.type,
+          isAdaptive: activeExam.isAdaptive === true,
+          routingTracks: activeExam.routingTracks || null,
+          adaptivePools: leanPools,
           totalQuestions: activeExam.totalQuestions,
           totalTimeMinutes: activeExam.totalTimeMinutes,
           breakMinutes: activeExam.breakMinutes,
@@ -2766,6 +2777,7 @@
             section: m.section,
             moduleNumber: m.moduleNumber,
             name: m.name,
+            track: m.track || 'Standard',
             questionsCount: expectedCount,
             timeLimitSeconds: m.timeLimitSeconds,
             questions: rehydratedQuestions
@@ -2780,10 +2792,20 @@
           return;
         }
 
+        const rehydratedPools = meta.adaptivePools ? {
+          rwM2Hard: (meta.adaptivePools.rwM2Hard || []).map(qid => qMap[qid]).filter(Boolean),
+          rwM2Easy: (meta.adaptivePools.rwM2Easy || []).map(qid => qMap[qid]).filter(Boolean),
+          mathM2Hard: (meta.adaptivePools.mathM2Hard || []).map(qid => qMap[qid]).filter(Boolean),
+          mathM2Easy: (meta.adaptivePools.mathM2Easy || []).map(qid => qMap[qid]).filter(Boolean)
+        } : null;
+
         activeExam = {
           id: meta.id,
           title: meta.title,
           type: meta.type,
+          isAdaptive: meta.isAdaptive === true,
+          routingTracks: meta.routingTracks || { rw: 'Baseline', math: 'Baseline' },
+          adaptivePools: rehydratedPools,
           totalQuestions: meta.totalQuestions,
           totalTimeMinutes: meta.totalTimeMinutes,
           breakMinutes: meta.breakMinutes,

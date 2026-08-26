@@ -666,9 +666,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.39"></script>
+  <script src="srs.js?v=0.40"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.39"></script>
+  <script src="data/questions_data.js?v=0.40"></script>
   
   <script>
     function esc(s) {
@@ -1047,16 +1047,15 @@
       questionsData.forEach(q => { qMap[q.id] = q; });
 
       // Aggregate mistakes
-      const troubleMap = {};
-
-      // 1. From progress
-      Object.entries(progress).forEach(([qid, p]) => {
-        if (p && p.answered && !p.isCorrect) {
-          const qMeta = qMap[qid] || {};
-          if (!troubleMap[qid]) {
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.buildTroubleSpots) {
+        allTroubleList = PSAT_ENGINE.buildTroubleSpots(progress, examHistory, questionsData);
+      } else {
+        const troubleMap = {};
+        Object.entries(progress).forEach(([qid, p]) => {
+          if (p && p.answered && !p.isCorrect) {
             troubleMap[qid] = {
               questionId: qid,
-              question: qMeta,
+              question: qMap[qid] || {},
               timesWrong: p.timesIncorrect || 1,
               timesCorrect: p.timesCorrect || 0,
               timesSeen: p.timesSeen || 1,
@@ -1065,34 +1064,9 @@
               lastTimeSpentMs: p.timeSpentMs || 0
             };
           }
-        }
-      });
-
-      // 2. From examHistory
-      examHistory.forEach(ex => {
-        (ex.moduleReports || []).forEach(m => {
-          (m.questions || []).forEach(q => {
-            if (q && q.answered && !q.isCorrect) {
-              const qid = q.questionId || q.id;
-              const qMeta = qMap[qid] || q;
-              if (!troubleMap[qid]) {
-                troubleMap[qid] = {
-                  questionId: qid,
-                  question: qMeta,
-                  timesWrong: 1,
-                  timesCorrect: 0,
-                  timesSeen: 1,
-                  lastUserAnswer: q.userAnswer || 'Unanswered',
-                  lastAttemptTime: ex.completedAt || Date.now(),
-                  lastTimeSpentMs: q.timeSpentMs || 0
-                };
-              }
-            }
-          });
         });
-      });
-
-      allTroubleList = Object.values(troubleMap);
+        allTroubleList = Object.values(troubleMap);
+      }
 
       const totalCount = allTroubleList.length;
       if (badge) badge.innerText = `${totalCount} Question${totalCount === 1 ? '' : 's'} Missed`;
