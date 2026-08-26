@@ -374,19 +374,30 @@ const mockFetch = async (url, opts) => {
     };
   }
   if (!opts || opts.method === 'GET' || !opts.method) {
+    const sName = url.includes('student_name=') ? decodeURIComponent(url.split('student_name=')[1]) : 'default_student';
     return {
       ok: true,
       status: 200,
       json: async () => ({
         success: true,
-        exists: Boolean(mockCloudDb.default_student),
-        data: mockCloudDb.default_student || null
+        exists: Boolean(mockCloudDb[sName]),
+        data: mockCloudDb[sName] || null
       })
     };
   }
   if (opts.method === 'POST') {
     const body = JSON.parse(opts.body);
-    mockCloudDb[body.student_name || 'default_student'] = body;
+    const sName = body.student_name || 'default_student';
+    const existing = mockCloudDb[sName] || {};
+    mockCloudDb[sName] = {
+      id: `student_${sName}`,
+      student_name: sName,
+      progress: Object.assign({}, existing.progress || {}, body.progress || {}),
+      srsState: Object.assign({}, existing.srsState || {}, body.srsState || {}),
+      sessionsState: Object.assign({}, existing.sessionsState || {}, body.sessionsState || {}),
+      examHistory: (body.examHistory || []).concat(existing.examHistory || []),
+      updatedAt: Date.now()
+    };
     return {
       ok: true,
       status: 200,
@@ -503,14 +514,40 @@ const mockFetch = async (url, opts) => {
 
   const quotaFailRes = await PSAT_ENGINE.pullFromCloud(rollbackStore, mockFetch, 'default_student', failingSetter);
   assert.strictEqual(quotaFailRes.success, false);
-  // 5. Mock Artifact Filter Test
-  const historyWithMock = [
-    { examId: 'custom_test_test1', title: 'Test 1', completedAt: 1700000000000 },
-    { examId: 'real_exam_1', title: 'Real Test 1', completedAt: 1787700000000 }
-  ];
-  const filteredHistory = PSAT_ENGINE.mergeExamHistory(historyWithMock, [], 15);
-  assert.strictEqual(filteredHistory.length, 1, 'Mock test must be filtered out');
-  assert.strictEqual(filteredHistory[0].examId, 'real_exam_1', 'Only real exam must remain');
+  // 5. Cleared Browser Preservation & Non-Destructive Cloud State Test
+  // Device 1 answers 20 questions and pushes to cloud
+  const dev1Store = new MockStorage();
+  const dev1Prog = {};
+  for (let i = 1; i <= 20; i++) {
+    dev1Prog[`q_${i}`] = { answered: true, isCorrect: true, timeSpentMs: 30000, timestamp: 1000 + i };
+  }
+  dev1Store.setItem('psat_progress', JSON.stringify(dev1Prog));
+  dev1Store.setItem('psat_sessions', JSON.stringify({ '2026-08-25': { date: '2026-08-25', questionsAnswered: 20, correct: 20, totalTimeMs: 600000 } }));
+  await PSAT_ENGINE.pushToCloud(dev1Store, mockFetch, 'test_student_preserve');
+
+  // Device 2 is a brand-new or cleared browser (completely empty localStorage)
+  const dev2ClearedStore = new MockStorage();
+  assert.strictEqual(dev2ClearedStore.getItem('psat_progress'), null, 'Cleared browser has null progress');
+
+  // Device 2 pulls from cloud
+  const dev2PullRes = await PSAT_ENGINE.pullFromCloud(dev2ClearedStore, mockFetch, 'test_student_preserve');
+  assert.strictEqual(dev2PullRes.success, true);
+  assert.strictEqual(dev2PullRes.totalAttempts, 20, 'Cleared browser must receive all 20 attempts from cloud');
+
+  const dev2RecoveredProg = JSON.parse(dev2ClearedStore.getItem('psat_progress'));
+  assert.strictEqual(Object.keys(dev2RecoveredProg).length, 20, 'Recovered progress must contain all 20 questions');
+
+  // Device 2 answers 5 new questions and pushes
+  for (let i = 21; i <= 25; i++) {
+    dev2RecoveredProg[`q_${i}`] = { answered: true, isCorrect: true, timeSpentMs: 25000, timestamp: 2000 + i };
+  }
+  dev2ClearedStore.setItem('psat_progress', JSON.stringify(dev2RecoveredProg));
+  await PSAT_ENGINE.pushToCloud(dev2ClearedStore, mockFetch, 'test_student_preserve');
+
+  // Device 1 pulls from cloud: must have all 25 attempts
+  await PSAT_ENGINE.pullFromCloud(dev1Store, mockFetch, 'test_student_preserve');
+  const dev1FinalProg = JSON.parse(dev1Store.getItem('psat_progress'));
+  assert.strictEqual(Object.keys(dev1FinalProg).length, 25, 'All 25 attempts must be unified and preserved across devices');
 
   // 6. Full Exam Score, Lean Compression, and Rehydration Verification
   const sampleRealExam = {

@@ -998,23 +998,8 @@
         localStorage.setItem(key, JSON.stringify(val));
         return true;
       } catch (e) {
-        console.error('Storage write or quota error for key:', key, e);
-        try {
-          // Self-healing: remove obsolete non-demo backup and prune exam history to lean format
-          if (localStorage.getItem('psat_sample_data_active') !== 'true') {
-            localStorage.removeItem('psat_pre_sample_backup');
-          }
-          let h = safeGetStorage('psat_exam_history', []);
-          if (Array.isArray(h) && h.length > 0) {
-            let leanH = h.slice(0, 5).map(item => (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.toLeanReport) ? PSAT_ENGINE.toLeanReport(item) : item);
-            localStorage.setItem('psat_exam_history', JSON.stringify(leanH));
-          }
-          localStorage.setItem(key, JSON.stringify(val));
-          return true;
-        } catch (e2) {
-          console.error('Self-healing storage pruning failed:', e2);
-          return false;
-        }
+        console.error('Storage write error for key:', key, e);
+        return false;
       }
     }
 
@@ -1097,15 +1082,23 @@
         el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
         lucide.createIcons();
       }
-      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-        PSAT_ENGINE.pushToCloud(localStorage).then(pushRes => {
-          if (pushRes && pushRes.success) {
-            return PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage);
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(pullRes => {
+          if (pullRes && pullRes.success) {
+            progress = safeGetStorage('psat_progress', {});
+            srsState = safeGetStorage('psat_srs', {});
+            sessionsState = safeGetStorage('psat_sessions', {});
+            updateHeaderStats();
+            renderPalette();
+            renderExamLobbyHistory();
+            if (typeof PSAT_ENGINE.pushToCloud === 'function') {
+              return PSAT_ENGINE.pushToCloud(localStorage);
+            }
           }
-          return pushRes;
-        }).then(pullRes => {
+          return pullRes;
+        }).then(pushRes => {
           if (el) {
-            if (pullRes && pullRes.success) {
+            if (pushRes && pushRes.success) {
               el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
               alert('Successfully synchronized student test results with Cosmos DB!');
             } else {
@@ -3109,10 +3102,6 @@
             if (el) {
               el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
               lucide.createIcons();
-            }
-            // Push local test history to Cosmos DB so offline/unsynced attempts are immediately published
-            if (typeof PSAT_ENGINE.pushToCloud === 'function') {
-              PSAT_ENGINE.pushToCloud(localStorage);
             }
           } else {
             if (el) {

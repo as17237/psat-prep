@@ -79,17 +79,68 @@ app.http('sync', {
         const body = await request.json();
         const targetStudent = body.student_name || studentName;
         const now = Date.now();
-
-        // 1. Master state document
         const masterDocId = `student_${targetStudent}`;
+
+        // Read existing master document for non-destructive server-side merge
+        let existingMaster = null;
+        try {
+          const { resource } = await c.item(masterDocId, targetStudent).read();
+          existingMaster = resource;
+        } catch (readErr) {
+          // Document does not exist yet; first push for this student
+        }
+
+        // 1. Server-side merge progress (retains all historical question attempts, newer timestamp wins)
+        const mergedProgress = Object.assign({}, existingMaster?.progress || {});
+        Object.entries(body.progress || {}).forEach(([qid, p]) => {
+          if (!p) return;
+          const existing = mergedProgress[qid];
+          if (!existing || (p.timestamp || 0) >= (existing.timestamp || 0)) {
+            mergedProgress[qid] = p;
+          }
+        });
+
+        // 2. Server-side merge SRS cards (newer lastReviewedAt wins)
+        const mergedSrs = Object.assign({}, existingMaster?.srsState || {});
+        Object.entries(body.srsState || {}).forEach(([qid, card]) => {
+          if (!card) return;
+          const existing = mergedSrs[qid];
+          if (!existing || (card.lastReviewedAt || 0) >= (existing.lastReviewedAt || 0)) {
+            mergedSrs[qid] = card;
+          }
+        });
+
+        // 3. Server-side merge daily sessions
+        const mergedSessions = Object.assign({}, existingMaster?.sessionsState || {});
+        Object.entries(body.sessionsState || {}).forEach(([dStr, sess]) => {
+          if (!sess) return;
+          const existing = mergedSessions[dStr];
+          if (existing && sess.questionsAnswered) {
+            mergedSessions[dStr] = {
+              date: dStr,
+              questionsAnswered: Math.max(existing.questionsAnswered || 0, sess.questionsAnswered || 0),
+              correct: Math.max(existing.correct || 0, sess.correct || 0),
+              totalTimeMs: Math.max(existing.totalTimeMs || 0, sess.totalTimeMs || 0)
+            };
+          } else {
+            mergedSessions[dStr] = sess;
+          }
+        });
+
+        // 4. Server-side merge exam history (deduplicated by examId)
+        const examMap = {};
+        (existingMaster?.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
+        (body.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
+        const mergedExams = Object.values(examMap).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+
         const masterDoc = {
           id: masterDocId,
           student_name: targetStudent,
           doc_type: 'student_master_profile',
-          progress: body.progress || {},
-          srsState: body.srsState || {},
-          sessionsState: body.sessionsState || {},
-          examHistory: (body.examHistory || []).slice(0, 30),
+          progress: mergedProgress,
+          srsState: mergedSrs,
+          sessionsState: mergedSessions,
+          examHistory: mergedExams.slice(0, 50),
           updatedAt: now,
           clientTimestamp: body.clientTimestamp || new Date().toISOString()
         };

@@ -1099,12 +1099,12 @@
     var cap = (typeof maxCap === 'number') ? maxCap : 15;
     var histMap = {};
     (cloudHistory || []).forEach(function(h) {
-      if (h && (h.examId || h.completedAt) && h.examId !== 'custom_test_test1') {
+      if (h && (h.examId || h.completedAt)) {
         histMap[h.examId || h.completedAt] = h;
       }
     });
     (localHistory || []).forEach(function(h) {
-      if (h && (h.examId || h.completedAt) && h.examId !== 'custom_test_test1') {
+      if (h && (h.examId || h.completedAt)) {
         histMap[h.examId || h.completedAt] = h;
       }
     });
@@ -1212,34 +1212,25 @@
             var ok4 = setter('psat_exam_history', mergedHist);
 
             if (!ok1 || !ok2 || !ok3 || !ok4) {
-              // Self-healing: try pruning local exam cache to 3 lean items
-              var lean3Hist = mergeExamHistory(cloud.examHistory, localHist, 3);
-              var rOk1 = setter('psat_progress', mergedProg);
-              var rOk2 = setter('psat_srs', mergedSrs);
-              var rOk3 = setter('psat_sessions', mergedSess);
-              var rOk4 = setter('psat_exam_history', lean3Hist);
+              // Rollback to original uncorrupted state on partial quota write failure
+              try {
+                if (store) {
+                  if (localProgRaw !== null && store.setItem) store.setItem('psat_progress', localProgRaw);
+                  else if (store.removeItem) store.removeItem('psat_progress');
 
-              if (!rOk1 || !rOk2 || !rOk3 || !rOk4) {
-                // Rollback to original uncorrupted state on partial quota write failure
-                try {
-                  if (store) {
-                    if (localProgRaw !== null && store.setItem) store.setItem('psat_progress', localProgRaw);
-                    else if (store.removeItem) store.removeItem('psat_progress');
+                  if (localSrsRaw !== null && store.setItem) store.setItem('psat_srs', localSrsRaw);
+                  else if (store.removeItem) store.removeItem('psat_srs');
 
-                    if (localSrsRaw !== null && store.setItem) store.setItem('psat_srs', localSrsRaw);
-                    else if (store.removeItem) store.removeItem('psat_srs');
+                  if (localSessRaw !== null && store.setItem) store.setItem('psat_sessions', localSessRaw);
+                  else if (store.removeItem) store.removeItem('psat_sessions');
 
-                    if (localSessRaw !== null && store.setItem) store.setItem('psat_sessions', localSessRaw);
-                    else if (store.removeItem) store.removeItem('psat_sessions');
-
-                    if (localHistRaw !== null && store.setItem) store.setItem('psat_exam_history', localHistRaw);
-                    else if (store.removeItem) store.removeItem('psat_exam_history');
-                  }
-                } catch (rollbackErr) {
-                  console.error('Error during storage rollback:', rollbackErr);
+                  if (localHistRaw !== null && store.setItem) store.setItem('psat_exam_history', localHistRaw);
+                  else if (store.removeItem) store.removeItem('psat_exam_history');
                 }
-                return { success: false, error: 'Storage quota exceeded while writing merged data', quotaExceeded: true };
+              } catch (rollbackErr) {
+                console.error('Error during storage rollback:', rollbackErr);
               }
+              return { success: false, error: 'Storage quota exceeded while writing merged data', quotaExceeded: true };
             }
 
             return {

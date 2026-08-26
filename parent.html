@@ -598,22 +598,7 @@
         return true;
       } catch (e) {
         console.error('Storage write error for key:', key, e);
-        try {
-          // Self-healing: remove obsolete non-demo backup and prune exam history to lean format
-          if (localStorage.getItem('psat_sample_data_active') !== 'true') {
-            localStorage.removeItem('psat_pre_sample_backup');
-          }
-          let h = safeGetStorage('psat_exam_history', []);
-          if (Array.isArray(h) && h.length > 0) {
-            let leanH = h.slice(0, 5).map(item => (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.toLeanReport) ? PSAT_ENGINE.toLeanReport(item) : item);
-            localStorage.setItem('psat_exam_history', JSON.stringify(leanH));
-          }
-          localStorage.setItem(key, JSON.stringify(val));
-          return true;
-        } catch (e2) {
-          console.error('Self-healing storage pruning failed:', e2);
-          return false;
-        }
+        return false;
       }
     }
 
@@ -839,7 +824,7 @@
       const badge = document.getElementById('parent-exam-count-badge');
       if (!container) return;
 
-      const history = safeGetStorage('psat_exam_history', []).filter(h => h && h.examId !== 'custom_test_test1');
+      const history = safeGetStorage('psat_exam_history', []).filter(h => h && (h.examId || h.completedAt));
       if (badge) badge.innerText = `${history.length} Completed Test${history.length === 1 ? '' : 's'}`;
 
       if (history.length === 0) {
