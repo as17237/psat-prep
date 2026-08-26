@@ -666,9 +666,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.38"></script>
+  <script src="srs.js?v=0.39"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.38"></script>
+  <script src="data/questions_data.js?v=0.39"></script>
   
   <script>
     function esc(s) {
@@ -1692,13 +1692,15 @@
       const timeVal = parseInt(document.getElementById('cust-time').value, 10) || 30;
       const isUntimed = document.getElementById('cust-untimed').checked;
 
+      const progress = safeGetStorage('psat_progress', {});
       const filters = {
         skills: Array.from(selectedSkillsSet),
         difficulties: diffVal === 'All' ? null : [diffVal],
         questionType: qtypeVal,
         count: countVal,
         timeLimitMinutes: timeVal,
-        isUntimed: isUntimed
+        isUntimed: isUntimed,
+        progressMap: progress
       };
 
       const customTest = PSAT_ENGINE.generateCustomTest(questions, filters);

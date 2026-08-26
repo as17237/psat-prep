@@ -972,9 +972,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.38"></script>
+  <script src="srs.js?v=0.39"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.38"></script>
+  <script src="data/questions_data.js?v=0.39"></script>
 
   <!-- App Core Script -->
   <script>
@@ -1915,12 +1915,14 @@
     }
 
     function startStandardExam(opts) {
-      activeExam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, opts);
+      const mergedOpts = Object.assign({ progressMap: progress }, opts || {});
+      activeExam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, mergedOpts);
       initExamSession();
     }
 
     function startMiniExam(opts) {
-      activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions, opts);
+      const mergedOpts = Object.assign({ progressMap: progress }, opts || {});
+      activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions, mergedOpts);
       initExamSession();
     }
 

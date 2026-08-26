@@ -326,8 +326,40 @@
   }
 
   /**
+   * Partitions and shuffles a pool prioritizing unseen questions first (Bank Coverage Guarantee).
+   * Questions never seen by the student are drawn first; seen questions are only recycled if needed.
+   */
+  function _prioritizeUnseen(pool, progressMap) {
+    var progress = progressMap || {};
+    var unseen = [];
+    var seen = [];
+    pool.forEach(function(q) {
+      var p = progress[q.id];
+      var seenCount = p ? (p.timesSeen || (p.answered ? 1 : 0)) : 0;
+      if (seenCount === 0) {
+        unseen.push(q);
+      } else {
+        seen.push({ question: q, timesSeen: seenCount, lastAttemptTime: p.timestamp || 0 });
+      }
+    });
+
+    var result = _shuffle(unseen);
+
+    if (seen.length > 0) {
+      seen.sort(function(a, b) {
+        if (a.timesSeen !== b.timesSeen) return a.timesSeen - b.timesSeen;
+        return a.lastAttemptTime - b.lastAttemptTime;
+      });
+      result = result.concat(seen.map(function(item) { return item.question; }));
+    }
+
+    return result;
+  }
+
+  /**
    * Assembles a standard 98-question PSAT 8/9 exam.
    * Supports both Official Multi-Stage Adaptive (MST) mode and Linear Mode.
+   * Prioritizes unseen questions from the 3,059 question bank to guarantee full bank coverage.
    * Section 1: 54 Reading & Writing (two 32-min modules of 27 Qs each)
    * Break: 10 minutes
    * Section 2: 44 Math (two 35-min modules of 22 Qs each, with realistic MCQ & SPR mix)
@@ -335,30 +367,31 @@
   function generateStandardPSAT89Exam(allQuestions, options) {
     var opts = options || {};
     var isAdaptive = (opts.isAdaptive !== false);
+    var progressMap = opts.progressMap || opts.progress || {};
 
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
-    var shuffledRw = _shuffle(rwPool);
-    var shuffledMath = _shuffle(mathPool);
+    var orderedRw = _prioritizeUnseen(rwPool, progressMap);
+    var orderedMath = _prioritizeUnseen(mathPool, progressMap);
 
     // Module 1 (Baseline / Routing Stage): Broad mix of Easy, Medium, Hard
-    var rwM1Qs = shuffledRw.slice(0, 27);
+    var rwM1Qs = orderedRw.slice(0, 27);
     
     // For Module 2: Prepare both Harder track and Easier track pools
-    var remainingRw = shuffledRw.slice(27);
+    var remainingRw = orderedRw.slice(27);
     var rwHardPool = remainingRw.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
     var rwEasyPool = remainingRw.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
     
-    var rwM2Hard = _shuffle(rwHardPool).slice(0, 27);
-    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_shuffle(remainingRw).slice(0, 27 - rwM2Hard.length));
+    var rwM2Hard = _prioritizeUnseen(rwHardPool, progressMap).slice(0, 27);
+    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_prioritizeUnseen(remainingRw, progressMap).slice(0, 27 - rwM2Hard.length));
     
-    var rwM2Easy = _shuffle(rwEasyPool).slice(0, 27);
-    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_shuffle(remainingRw).slice(0, 27 - rwM2Easy.length));
+    var rwM2Easy = _prioritizeUnseen(rwEasyPool, progressMap).slice(0, 27);
+    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_prioritizeUnseen(remainingRw, progressMap).slice(0, 27 - rwM2Easy.length));
 
     // Math Section: M1 Baseline (~17 MCQs + ~5 SPRs)
-    var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
-    var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
+    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap);
+    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap);
 
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
     
@@ -450,17 +483,18 @@
   function generateMiniPSAT89Exam(allQuestions, options) {
     var opts = options || {};
     var isAdaptive = (opts.isAdaptive !== false);
+    var progressMap = opts.progressMap || opts.progress || {};
 
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
-    var shuffledRw = _shuffle(rwPool);
-    var shuffledMath = _shuffle(mathPool);
+    var orderedRw = _prioritizeUnseen(rwPool, progressMap);
+    var orderedMath = _prioritizeUnseen(mathPool, progressMap);
 
-    var rwM1Qs = shuffledRw.slice(0, 4);
+    var rwM1Qs = orderedRw.slice(0, 4);
 
-    var mathMcqs = shuffledMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; });
-    var mathSprs = shuffledMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; });
+    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap);
+    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap);
 
     var mathHardPool = mathMcqs.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
     var mathEasyPool = mathMcqs.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
@@ -639,8 +673,10 @@
       return true;
     });
 
+    var progressMap = f.progressMap || f.progress || {};
     var count = Math.min(filtered.length, Math.max(1, f.count || 20));
-    var shuffled = _shuffle(filtered).slice(0, count);
+    var prioritized = _prioritizeUnseen(filtered, progressMap);
+    var selected = prioritized.slice(0, count);
 
     var timeLimitMinutes = f.timeLimitMinutes ? parseInt(f.timeLimitMinutes, 10) : Math.round(count * 1.5);
 
@@ -648,12 +684,12 @@
       id: 'custom_test_' + Date.now(),
       title: f.title || 'Custom Practice Test',
       type: 'custom_test',
-      totalQuestions: shuffled.length,
+      totalQuestions: selected.length,
       timeLimitMinutes: timeLimitMinutes,
       isUntimed: f.isUntimed === true,
       filters: f,
       createdAt: Date.now(),
-      questions: shuffled
+      questions: selected
     };
   }
 
@@ -1422,6 +1458,8 @@
     mergeProgress: mergeProgress,
     mergeSrsState: mergeSrsState,
     mergeExamHistory: mergeExamHistory,
+    _shuffle: _shuffle,
+    _prioritizeUnseen: _prioritizeUnseen,
     pushToCloud: pushToCloud,
     pullFromCloud: pullFromCloud
   };

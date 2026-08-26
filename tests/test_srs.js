@@ -156,6 +156,17 @@ assert.strictEqual(miniAdaptive.isAdaptive, true);
 assert.ok(miniAdaptive.adaptivePools.mathM2Hard.length >= 4);
 assert.ok(miniAdaptive.adaptivePools.mathM2Easy.length >= 4);
 
+// 5d. Bank Coverage & Unseen Prioritization Guarantee
+const seenProgress = {
+  'rw_1': { answered: true, timesSeen: 2 },
+  'rw_2': { answered: true, timesSeen: 1 }
+};
+const prioritizedRw = PSAT_ENGINE._prioritizeUnseen(mockFullBank.filter(q => q.test === 'Reading and Writing'), seenProgress);
+assert.notStrictEqual(prioritizedRw[0].id, 'rw_1', 'Seen question rw_1 must not take precedence over unseen');
+assert.notStrictEqual(prioritizedRw[0].id, 'rw_2', 'Seen question rw_2 must not take precedence over unseen');
+const lastItems = prioritizedRw.slice(-2).map(q => q.id);
+assert.ok(lastItems.includes('rw_1'), 'Frequently seen item rw_1 must be sorted to the end of the rotation queue');
+
 // 6. Exam Scoring Engine
 const userAnswers = {};
 standardExam.modules.forEach(mod => {
