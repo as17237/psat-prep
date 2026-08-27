@@ -1,0 +1,770 @@
+<!-- depth: default -->
+<title>Does It Do The Job?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Command of Evidence · 8 questions you missed</p>
+    <h1>Does it<br><em>do the job?</em></h1>
+    <p class="standfirst">Every one of these gives you a chart or a table and four statements. Here is the thing: in most of them, <strong>more than one statement is true.</strong> True is not what you are picking. You are picking the one that does a specific job — and the question always tells you what that job is.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Read the big idea first; it is the same idea in all eight questions. Then work through the questions in order. Each one shows what you picked and why it pulled you in — that part matters more than the right answer.
+    </div>
+  </header>
+
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The big idea</span></div>
+      <h2>Find the job first. Then check which statement does it.</h2>
+    </div>
+
+    <p class="lede">You got these eight wrong in five different ways, but four of them are the same mistake: you picked a statement that was <strong>true about the data</strong> but didn't do what the question asked for.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>The last sentence before the blank is the job</h3>
+          <p>These questions always name their job, usually right before the gap. Learn to spot the phrasing:</p>
+          <ul>
+            <li>"…support the <strong>underlined conclusion</strong>" → the job is to back up that exact sentence.</li>
+            <li>"…support the biologists' <strong>claim</strong>" → find the claim, then back it up.</li>
+            <li>"…complete the <strong>student's conclusion</strong>" → whatever you pick has to follow from the data.</li>
+            <li>"…support the student's <strong>hypothesis</strong>" → the hypothesis is the target, not the topic.</li>
+          </ul>
+          <div class="keybox">Before looking at a single answer choice, <b>say the job out loud in your own words.</b> "I need something that shows the pollution came and went, not steadily." Then you are checking four statements against one clear test instead of judging which one "sounds best".</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>True is cheap. The test writers give away true statements on purpose</h3>
+          <p>Look at what happened in question 4 on this page. The claim is that the condor programme <em>has been reasonably successful</em>. You chose: "the numbers in captivity and in the wild decreased only slightly from 2019 to 2020."</p>
+          <p>Check it against the graph and it is <strong>completely true</strong>. Wild went 338 → 330, captive went 180 → 175. Both dipped slightly. Nothing wrong with the sentence.</p>
+          <p>But now ask the job question: does "the numbers went slightly <em>down</em>" show that a rescue programme is <em>succeeding</em>? No. If anything it argues the other way.</p>
+          <div class="keybox">A true statement that argues nothing, or argues the wrong way, is still wrong. <b>Being able to verify a choice against the chart is not the same as it doing the job.</b> That single confusion cost you four of these eight.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Translate the chart's words into the passage's words before you start</h3>
+          <p>Test writers rarely label a chart with the same words the passage uses. In question 6 the passage talks about <em>bonding trust</em> and <em>bridging trust</em>; the graph's legend says <em>know personally</em> and <em>meet for the first time</em>. Nowhere does it tell you which is which — you have to match them from the definitions.</p>
+          <div class="keybox">Do this translation <b>in writing, on the graph itself</b>, before reading any choice. Write "bonding" next to the right bar. Get this backwards and every choice looks equally plausible — which is exactly what happened to you.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>Count the conditions, and check every one</h3>
+          <p>When a question names two requirements, a choice has to satisfy <strong>both</strong>. Question 8 asks for a maple that is native to North America <em>and</em> won't grow past 60 feet. Sugar maple is native — so it passes the first test, and it is genuinely tempting. It grows to 75 feet, so it fails the second.</p>
+          <div class="keybox">Underline each condition separately, then run every choice past <b>all</b> of them. A choice that passes the first test and fails the second is the most common wrong answer there is, because it feels right the moment you stop reading.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The four questions to ask, every time</h3>
+      <p><strong>1. What is the job?</strong> Say it in your own words before reading the choices.<br>
+      <strong>2. Which words on the chart mean which words in the passage?</strong> Label them.<br>
+      <strong>3. How many conditions are there?</strong> Check every choice against all of them.<br>
+      <strong>4. Does this true statement actually do the job?</strong> True is not enough.</p>
+    </div>
+  </section>
+
+  <!-- Q1 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 1</span><span class="qid">1b9fa866</span><span class="qtopic">Hard · you chose B · answer is A</span></div>
+      <h2>The chart is only half the argument</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Percentage of nonhexagonal cells, by species</caption>
+          <thead><tr><th>Species</th><th>5-sided</th><th>7-sided</th><th>8-sided</th><th>Total odd cells</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Black dwarf honeybee</th><td class="num">2.5</td><td class="num">2.4</td><td class="num">0</td><td class="num">4.9</td></tr>
+            <tr><th scope="row">Dwarf honeybee</th><td class="num">2.6</td><td class="num">2.1</td><td class="num">0.2</td><td class="num">4.9</td></tr>
+            <tr><th scope="row">Western honeybee</th><td class="num win">0.45</td><td class="num win">0.37</td><td class="num win">0.08</td><td class="num win">0.9</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text">Hives are mostly hexagonal cells. Worker cells are smaller than drone cells, and <strong>the bigger that size difference, the harder it is to join the sections</strong> — so bees fill the gaps with odd-shaped cells. A student consults data on three species, concluding that ______</p>
+    </div>
+
+    <p class="plain">The job: finish a conclusion that follows from the graph.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>The passage hands you a chain of cause — write it down</h3>
+          <p>This is the part that makes the question Hard. The graph alone cannot answer it. The passage gives you a chain, and you have to run the data through it:</p>
+          <div class="keybox">bigger size difference &rarr; harder to join sections &rarr; <b>more odd-shaped cells needed</b></div>
+          <p>Read that chain backwards and it becomes a measuring tool: <strong>fewer odd cells means a smaller size difference.</strong> Odd cells are a symptom, and you are being asked to diagnose the cause.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Now the graph is easy to read</h3>
+          <p>Western honeybee: about 0.9% odd cells in total. The other two: about 4.9% each — more than five times as many.</p>
+          <p>Run that through the chain. Far fewer odd cells for the western honeybee means a far smaller construction problem, which means its worker and drone cells are <strong>closer in size</strong>. That is choice A, word for word.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why B pulled you in</h3>
+          <p>B says the bees "reserve eight-sided cells for drone eggs". It sounds technical and specific, and it does use the graph.</p>
+          <p>But go back to the first sentence of the passage: eggs are laid in <strong>hexagonal</strong> cells. The odd-shaped cells are gap filler — no eggs go in them at all. B does not just fail to do the job; <strong>it contradicts the passage.</strong></p>
+          <div class="keybox">When a choice makes a claim about something the passage already settled, that beats any data reasoning. <b>Check the choice against the text before you check it against the chart.</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">C</span><p>"Many more geometrical shapes." The western honeybee uses the same three shapes as the dwarf honeybee — 5, 7 and 8-sided. Same number of shapes, far smaller amounts. C confuses <em>how many kinds</em> with <em>how much</em>.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Backwards. Fewer odd cells means <em>more</em> hexagonal cells, not fewer. If the odd shapes are only 0.9% of the hive, the hexagons must be 99.1% — the highest of the three, not the lowest.</p></div>
+    </div>
+  </section>
+
+  <!-- Q2 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 2</span><span class="qid">6488f498</span><span class="qtopic">Hard · you chose A · answer is D</span></div>
+      <h2>One word decides the whole question</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Delta 15-N values in seagrass, four sites</caption>
+          <thead><tr><th>Site</th><th>Feb 2016</th><th>Oct 2016</th><th>Feb 2017</th><th>Oct 2017</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Akumal Bay <em>(tourism)</em></th><td class="num">—</td><td class="num win">3.3</td><td class="num win">2.0</td><td class="num win">6.3</td></tr>
+            <tr><th scope="row">Tulum <em>(tourism)</em></th><td class="num">6.1</td><td class="num win">5.9</td><td class="num win">2.3</td><td class="num win">5.5</td></tr>
+            <tr><th scope="row">Mahahual <em>(low)</em></th><td class="num">0.7</td><td class="num">—</td><td class="num">2.5</td><td class="num">3.4</td></tr>
+            <tr><th scope="row">Xahuayxol <em>(low)</em></th><td class="num">0.9</td><td class="num">0.3</td><td class="num">−0.9</td><td class="num">1.4</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text">Higher delta 15-N means more human wastewater. The tourism sites had influxes of wastewater. <span class="u">However, the researchers concluded that this happened intermittently.</span></p>
+    </div>
+
+    <p class="plain">The job: find data supporting the underlined sentence — and only that sentence.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Everything turns on one word</h3>
+          <div class="word"><b>Intermittently.</b> On and off. Starting and stopping, rather than going on steadily.</div>
+          <p>The passage already told you the tourism sites had wastewater. You are not being asked to prove that. You are being asked to prove it came and went.</p>
+          <div class="keybox">So the job is: <b>show the tourism sites going up and down, not holding steady.</b> That is the only thing that matters. Two sites, three or four readings each.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Follow the two tourism rows across</h3>
+          <p><strong>Akumal Bay:</strong> 3.3, then down to 2.0, then up to 6.3.<br>
+          <strong>Tulum:</strong> 5.9, then down to 2.3, then back up to 5.5.</p>
+          <p>Down, then up. Both of them. That is exactly what "on and off" looks like in numbers — and D says it plainly: values "fluctuated considerably across the three measurements from October 2016 to October 2017."</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why A pulled you in</h3>
+          <p>A compares the tourism sites with the low-tourism sites, and everything it says is true — the tourism values generally are higher, and in February 2017 Akumal Bay (2.0) is below Mahahual (2.5) and Xahuayxol is lower still.</p>
+          <p>But comparing <em>tourism versus non-tourism</em> supports a different claim: that tourism sites got more wastewater. The passage already granted that. The underlined sentence is about <strong>timing</strong>, not about which site is worse.</p>
+          <div class="keybox">A is a right answer to the question next door. When a choice is clearly true and clearly relevant, <b>check which sentence it supports</b> — not just whether it is supported.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p>Talks about missing data and the highest value in Tulum. A gap in a table shows nothing about whether pollution came and went.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p>Says values "remained relatively constant" at two of the sites — the exact opposite of intermittent. And it is false: Akumal Bay went 3.3 to 2.0.</p></div>
+    </div>
+  </section>
+
+  <!-- Q3 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 3</span><span class="qid">7c1e22ca</span><span class="qtopic">Hard · you chose C · answer is D</span></div>
+      <h2>"More than offset" tells you exactly which two bars to compare</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Modelled radial growth of sugar maples, cm per year</caption>
+          <thead><tr><th>Climate scenario</th><th>With nitrogen</th><th>Without nitrogen</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Current</th><td class="num">0.21</td><td class="num win">0.16</td></tr>
+            <tr><th scope="row">Moderate change</th><td class="num win">0.185</td><td class="num">0.15</td></tr>
+            <tr><th scope="row">Extreme change</th><td class="num">0.06</td><td class="num">0.04</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text">Climate change hurts growth, but the researchers concluded that nitrogen deposition could <strong>more than offset</strong> that damage — provided the change is moderate rather than extreme.</p>
+    </div>
+
+    <p class="plain">The job: show nitrogen more than making up for moderate climate damage, and failing to under extreme.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Turn "more than offset" into a comparison you can look up</h3>
+          <p>Offsetting damage means getting back to where you started. <em>More</em> than offsetting means ending up better off than where you started.</p>
+          <p>So what is "where you started"? The undamaged baseline: <strong>current climate, without nitrogen — 0.16</strong>.</p>
+          <div class="keybox">The claim becomes a single comparison: is <b>with nitrogen under moderate change</b> bigger than <b>without nitrogen under current climate</b>? That is 0.185 against 0.16. Yes — and only just, which is why this question is Hard.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Then check the second half of the claim</h3>
+          <p>The researchers also said it fails under extreme change. With nitrogen under extreme change is 0.06 — far below the 0.16 baseline. Nitrogen cannot rescue that.</p>
+          <p>D states both halves: growth with nitrogen under moderate change (0.185) exceeded growth without nitrogen under the current climate (0.16), but that baseline exceeded growth with nitrogen under extreme change (0.06).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why C pulled you in</h3>
+          <p>C compares with-nitrogen and without-nitrogen <em>inside</em> moderate change: 0.185 against 0.15. True, and it does show nitrogen helping.</p>
+          <p>But helping is not the claim. The claim is that nitrogen more than <em>cancels the damage</em> — and you cannot show that without comparing against the undamaged baseline. C never leaves the moderate-change row, so it can only show nitrogen is better than no nitrogen. Everyone already agreed on that.</p>
+          <div class="keybox">When a claim says one thing makes up for another, <b>the comparison always crosses between the two situations.</b> A comparison that stays inside one row cannot prove it.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>Compares with-nitrogen current (0.21) against with-nitrogen moderate (0.185). Both have nitrogen, so this shows the damage, not the rescue.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p>Every number in B is correct — 0.16 &gt; 0.15, and 0.15 &gt; 0.06. But its first comparison is between two <em>no-nitrogen</em> bars, which measures the climate damage rather than nitrogen's rescue. A choice can be entirely true and still answer nothing.</p></div>
+    </div>
+  </section>
+
+  <!-- Q4 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 4</span><span class="qid">858be80e</span><span class="qtopic">Hard · you chose B · answer is D</span></div>
+      <h2>True, and completely beside the point</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>California condor populations, 2014–2020</caption>
+          <thead><tr><th>Year</th><th>2014</th><th>2015</th><th>2016</th><th>2017</th><th>2018</th><th>2019</th><th>2020</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Wild</th><td class="num win">228</td><td class="num win">268</td><td class="num win">277</td><td class="num win">291</td><td class="num win">313</td><td class="num win">338</td><td class="num win">330</td></tr>
+            <tr><th scope="row">Captive</th><td class="num">193</td><td class="num">168</td><td class="num">171</td><td class="num">172</td><td class="num">177</td><td class="num">181</td><td class="num">175</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text">Condors were captured in 1987 to breed them, and captive birds have been released since 1992. Many biologists claim <strong>the programme has been reasonably successful.</strong></p>
+    </div>
+
+    <p class="plain">The job: find data that makes the programme look like it worked.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>What would success actually look like in this table?</h3>
+          <p>The whole point of the programme is to get condors <em>back into the wild</em>. So success means the wild row growing — and ideally overtaking the captive row, because that means the birds are surviving out there rather than only in cages.</p>
+          <div class="keybox">Decide what success would look like <b>before</b> you read the choices. Here: the wild number should go up. Now you have a test instead of four opinions.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Read the wild row</h3>
+          <p>228 → 268 → 277 → 291 → 313 → 338 → 330. Up every year but the last, and 330 at the end against 228 at the start — over a hundred more birds. It also sits above the captive row the whole time.</p>
+          <p>That is D: the wild population increased overall and exceeded the number in captivity.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why B pulled you in — and this is the important one</h3>
+          <p>B says both groups decreased only slightly from 2019 to 2020. Check it: wild 338 → 330, captive 181 → 175. <strong>Both true.</strong> You could verify it in five seconds, which is exactly what makes it feel safe.</p>
+          <p>But apply the job test. Does "the numbers went down a bit" support "the programme has been successful"? It does the opposite — it is the one part of the graph that looks like bad news.</p>
+          <div class="keybox">This is the mistake to take away from the whole page. <b>You checked whether the statement was true, and stopped there.</b> The remaining question is always: does this true thing argue <i>for</i> the claim? Here it argues against it.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>False. Captive numbers did not steadily decrease — they dropped once from 193 to 168, then rose almost every year after.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p>The gap between wild and captive went from 35 in 2014 to 119 in 2017. That is not "relatively steady" — and a steady gap would not show success anyway.</p></div>
+    </div>
+  </section>
+
+  <!-- Q5 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 5</span><span class="qid">ac8cfb10</span><span class="qtopic">Hard · you chose C · answer is D</span></div>
+      <h2>No chart at all — just find what the hypothesis needs</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text"><em>Gidra</em>, a newsletter formed in 1969 by Asian American students at UCLA, raised awareness of social and political issues. Around 4,000 copies were published each month. A student hypothesises that <strong><em>Gidra</em>'s influence cannot be measured by the number of newsletters published monthly alone.</strong></p>
+      <p class="q-text" style="margin-top:14px"><strong>Which finding, if true, would most directly support the student's hypothesis?</strong></p>
+    </div>
+
+    <p class="plain">The job: find something showing the printed count misses part of the story.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Read the hypothesis very literally</h3>
+          <p>It is not "Gidra was influential." It is narrower and stranger: <em>counting copies is not a good way to measure the influence.</em></p>
+          <div class="keybox">So you need a finding that shows the number 4,000 <b>understates</b> the reach. Something that means one printed copy reached more than one person, or that influence flowed through a channel printing doesn't capture.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Test each choice against that one sentence</h3>
+          <ul>
+            <li><strong>A</strong> — the founders paid for it themselves. About funding, not reach.</li>
+            <li><strong>B</strong> — it also featured art and literature. About content, not reach.</li>
+            <li><strong>C</strong> — it was based at UCLA's Asian American Studies Center. About location, not reach.</li>
+            <li><strong>D</strong> — <strong>people passed their copies on to others after reading.</strong> Now one copy reaches two, three, five readers. The 4,000 figure counts copies, not readers — so it undercounts the influence. That is the hypothesis, exactly.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why C pulled you in</h3>
+          <p>C is a real fact that sounds important — an official university centre suggests weight and legitimacy. It feels like it is about influence.</p>
+          <p>But the hypothesis is not "was Gidra influential." It is "does the print count measure the influence." Where the office was tells you nothing about how many people read it.</p>
+          <div class="keybox">With no chart to check against, the trap shifts: choices that are <b>true and impressive but off-target</b>. Keep re-reading the hypothesis word for word between choices — it is very easy to drift into answering "was it influential?" instead.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Q6 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 6</span><span class="qid">9f55dec4</span><span class="qtopic">Medium · you chose C · answer is A</span></div>
+      <h2>Label the graph before you read a single choice</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Percent of UK respondents who trust people at least somewhat</caption>
+          <thead><tr><th>Year</th><th>Know personally &nbsp;=&nbsp; <strong>bonding</strong></th><th>Meet for the first time &nbsp;=&nbsp; <strong>bridging</strong></th></tr></thead>
+          <tbody>
+            <tr><th scope="row">2005</th><td class="num win">96</td><td class="num">46</td></tr>
+            <tr><th scope="row">2018</th><td class="num win">97</td><td class="num">55</td></tr>
+            <tr><th scope="row">2022</th><td class="num win">97</td><td class="num">53</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text"><strong>Bonding</strong> trust is trust within existing relationships. <strong>Bridging</strong> trust is trust between different groups, beyond your immediate circle. Researchers concluded that the level of <strong>bonding</strong> trust in the UK ______</p>
+    </div>
+
+    <p class="plain">The job: describe what happened to bonding trust — and only bonding.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>The graph never says "bonding" or "bridging"</h3>
+          <p>The legend says "know personally" and "meet for the first time." The passage says "bonding" and "bridging." Nobody connects them for you — that translation is the question.</p>
+          <ul>
+            <li>Bonding = trust <em>within existing relationships</em> = people you <strong>know personally</strong>. That is the tall bar: 96, 97, 97.</li>
+            <li>Bridging = trust <em>beyond your circle</em> = people you are <strong>meeting for the first time</strong>. That is the short bar: 46, 55, 53.</li>
+          </ul>
+          <div class="keybox">Write those two words directly onto the legend before going further. In the table above I have done it for you — notice how much easier the question becomes once the labels match.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Now describe each line in three words</h3>
+          <p><strong>Bonding:</strong> 96, 97, 97 — barely moves. Flat.<br>
+          <strong>Bridging:</strong> 46, 55, 53 — up nine, then down two. Bounces around.</p>
+          <p>A says bonding stayed largely consistent while bridging showed more variability. That is those two descriptions, in order.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why C pulled you in</h3>
+          <p>C says bonding "remained lower than the level of bridging trust." Bonding is 97 and bridging is 53 — bonding is nearly twice as high. C is not slightly off; it has the two series <strong>swapped.</strong></p>
+          <p>Which means the translation step is where this went wrong, not the reading of the numbers. If you had mislabelled the bars, C would look completely reasonable.</p>
+          <div class="keybox">When a choice is the exact reverse of the data, suspect a <b>mix-up between the labels</b>, not a misread of the values. Fix it by translating the legend first, every time.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p>Says bonding "consistently grew" and bridging "largely declined." Bonding went 96 to 97 — that is flat, not growth. And bridging ended higher than it started (46 to 53), so it did not decline.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Says bonding declined. It went 96 → 97 → 97. It did not decline at all.</p></div>
+    </div>
+  </section>
+
+  <!-- Q7 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 7</span><span class="qid">cc4d3cac</span><span class="qtopic">Hard · you chose B · answer is A</span></div>
+      <h2>Find the right column, then read only that column</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Properties of select rotating radio transients</caption>
+          <thead><tr><th>Name</th><th>Right ascension</th><th>Period (seconds)</th><th>Frequency (hertz)</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">J0545-03</th><td class="num">5:45</td><td class="num">1.074</td><td class="num">0.931</td></tr>
+            <tr><th scope="row">J1654-2335</th><td class="num">16:54:03</td><td class="num">0.545</td><td class="num">1.834</td></tr>
+            <tr><th scope="row">J0103+54</th><td class="num">1:03:37</td><td class="num">0.354</td><td class="num">2.822</td></tr>
+            <tr><th scope="row">J0121+53</th><td class="num">1:21</td><td class="num">2.725</td><td class="num">0.367</td></tr>
+            <tr><th scope="row">J0614-03</th><td class="num">6:15</td><td class="num win">0.136</td><td class="num">7.353</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text"><strong>The time between consecutive pulses is called a period.</strong> Looking at the table, the student determines that ______</p>
+    </div>
+
+    <p class="plain">The job: say something true about the time between pulses.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>The passage defines a word — that definition names your column</h3>
+          <p>All four choices talk about "time between consecutive pulses". The passage tells you that this is the <strong>period</strong>. So every choice must be checked against the Period column, and nothing else.</p>
+          <div class="keybox">Three of the four columns are decoys. Right ascension is a sky coordinate, irrelevant here. Frequency is related to period but is not the same number. <b>Cover the other columns with your hand.</b></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Read the Period column top to bottom</h3>
+          <p>1.074, 0.545, 0.354, 2.725, <strong>0.136</strong>. The smallest is 0.136 — J0614-03. Shortest time between pulses. That is A.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why B pulled you in</h3>
+          <p>B says J0545-03 and J0121+53 have the <em>same</em> time between pulses. Their periods are 1.074 and 2.725 — not close.</p>
+          <p>But look at their names and their right ascension values: <strong>1:21</strong> and <strong>5:45</strong>, and the names themselves are J0<strong>545</strong>-03 and J0<strong>121</strong>+53. There is a lot of visual rhyming between those two rows. It is very easy to feel a match that is not in the column you need.</p>
+          <div class="keybox">Before comparing anything, say the column name to yourself: <b>"Period. 1.074 against 2.725."</b> Naming the column out loud is what stops your eye landing in the wrong one.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">C</span><p>Says J1654-2335 has the longest period. Its period is 0.545; J0121+53 is 2.725, which is five times longer. C picked a row by its long, impressive-looking name rather than by its number.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Says J0103+54 and J0121+53 both exceed one second. J0121+53 does at 2.725, but J0103+54 is 0.354 — well under. Half right is wrong.</p></div>
+    </div>
+  </section>
+
+  <!-- Q8 -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 8</span><span class="qid">a795332a</span><span class="qtopic">Medium · you chose B · answer is C</span></div>
+      <h2>Two conditions means two checks</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The data</p>
+      <div class="tblwrap">
+        <table class="data">
+          <caption>Maximum height of maple trees when fully grown</caption>
+          <thead><tr><th>Tree type</th><th>Max height (feet)</th><th>Native to North America</th><th>Passes both?</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Sugar maple</th><td class="num">75</td><td>yes</td><td class="check" style="color:var(--brick)">too tall</td></tr>
+            <tr><th scope="row">Silver maple</th><td class="num">70</td><td>yes</td><td class="check" style="color:var(--brick)">too tall</td></tr>
+            <tr><th scope="row">Red maple</th><td class="num win">60</td><td>yes</td><td class="check">✓ both</td></tr>
+            <tr><th scope="row">Japanese maple</th><td class="num">25</td><td>no</td><td class="check" style="color:var(--brick)">not native</td></tr>
+            <tr><th scope="row">Norway maple</th><td class="num">50</td><td>no</td><td class="check" style="color:var(--brick)">not native</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="q-text">A student needs a maple that is <strong>native to North America</strong> and <strong>won't grow more than 60 feet</strong>. She selects a ______</p>
+    </div>
+
+    <p class="plain">The job: find the one tree that satisfies both requirements.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Count the conditions before you look at the table</h3>
+          <p>There are two, joined by "and":</p>
+          <ul>
+            <li><strong>Native to North America</strong> — the last column must say yes.</li>
+            <li><strong>No more than 60 feet</strong> — the height must be 60 or below. "Not more than" includes exactly 60.</li>
+          </ul>
+          <div class="keybox">Two conditions means <b>two passes through the table</b>, not one. Cross out failures as you go and whatever survives both is your answer.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>First pass: native. Second pass: height</h3>
+          <p>Native knocks out Japanese and Norway. Three left: sugar (75), silver (70), red (60).</p>
+          <p>Height knocks out sugar and silver. <strong>Red maple</strong> is the only one standing — choice C.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why B pulled you in</h3>
+          <p>Sugar maple is native — so it passes the first test, and it is the most famous maple on the list. The moment it clears one requirement it feels like the answer.</p>
+          <p>But it grows to 75 feet, and the limit is 60. It fails the second test by fifteen feet.</p>
+          <div class="keybox">This is the most common wrong-answer shape on the whole test: <b>a choice that passes the first condition and fails the second.</b> It works because most people stop checking as soon as something matches. The fix is mechanical — never accept a choice until you have run it past <i>every</i> condition.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>Silver maple — same mistake as B. Native, but 70 feet.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Norway maple — the opposite mistake. Short enough at 50 feet, but not native. Passes the second condition and fails the first.</p></div>
+    </div>
+  </section>
+
+  <section class="close">
+    <h2>Your checklist for the next one of these</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Say the job in your own words before reading the choices.</strong> "I need something that shows it came and went." Now you have a test rather than four opinions.</span></li>
+      <li><span class="n">2</span><span><strong>Translate the chart's labels into the passage's words.</strong> Write them on the graph. If a choice looks exactly backwards, this is usually why.</span></li>
+      <li><span class="n">3</span><span><strong>Count the conditions and check every one.</strong> Passing the first and failing the second is the most common wrong answer there is.</span></li>
+      <li><span class="n">4</span><span><strong>Name the column out loud before comparing numbers.</strong> Most tables include one or two columns that exist purely to be misread.</span></li>
+      <li><span class="n">5</span><span><strong>Then the one that cost you half of these:</strong> after checking a statement is true, ask whether it argues <em>for</em> the claim. True and irrelevant is still wrong — and it is the answer that feels safest, because you just verified it.</span></li>
+    </ul>
+  </section>
+
+</div>

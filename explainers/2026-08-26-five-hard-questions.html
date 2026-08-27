@@ -1,0 +1,927 @@
+<!-- depth: default -->
+<title>Sketch, Don't Solve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .bar-a{fill:var(--teal);}
+  .bar-c{fill:var(--ink-faint);opacity:.45;}
+  .barval{font-family:"Public Sans",sans-serif;font-size:14px;font-weight:700;fill:var(--teal);text-anchor:middle;}
+  .barval2{font-family:"Public Sans",sans-serif;font-size:14px;font-weight:700;fill:var(--ink-soft);text-anchor:middle;}
+  .barlab{font-family:"Public Sans",sans-serif;font-size:11px;fill:var(--ink-soft);text-anchor:middle;}
+  .baseline{stroke:var(--rule);stroke-width:1.5;}
+  .legend{font-family:"Public Sans",sans-serif;font-size:12px;font-weight:600;}
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Five questions, worked from scratch</p>
+    <h1>Sketch,<br><em>don't solve</em></h1>
+    <p class="standfirst">These five questions look like they need heavy algebra or a third careful read. None of them do. What they need is a picture in your head — and this page builds each picture one step at a time.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Nothing here assumes you already know the shapes or the vocabulary. Every new word gets a box the first time it appears, and every graph is built from a table of real numbers you can check yourself. Work down the steps in order. Don't skip ahead to the answer — the answer is the least useful part.
+    </div>
+  </header>
+
+  <!-- ==================== Q1 ==================== -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question 1</span>
+        <span class="qid">7ced5c84</span>
+        <span class="qtopic">Advanced Math · Hard</span>
+      </div>
+      <h2>Where does a U-shape meet a flat line?</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <div class="eq"><var>y</var> = <var>ax</var><sup>2</sup> − <var>c</var></div>
+      <p class="q-text">In the equation above, <var>a</var> and <var>c</var> are positive constants. How many times does the graph of the equation above intersect the graph of the equation <span class="eq-in"><var>y</var> = <var>a</var> + <var>c</var></span> in the <var>xy</var>-plane?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>Zero</span></li>
+        <li><span class="key">B</span><span>One</span></li>
+        <li class="right"><span class="key">C</span><span>Two</span><span class="verdict">Correct</span></li>
+        <li><span class="key">D</span><span>More than two</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: draw two graphs on the same grid. Count how many points they touch.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Understand the words before the maths</h3>
+          <div class="word"><b>Positive constant.</b> A <em>constant</em> is a fixed number — it doesn't change as <var>x</var> changes. <em>Positive</em> means greater than zero. So <var>a</var> and <var>c</var> are two specific numbers that nobody has told us. All we know is that both are bigger than zero.</div>
+          <div class="word"><b>Intersect.</b> Cross or touch. Two graphs intersect wherever they pass through the same point.</div>
+          <p>Not knowing what <var>a</var> and <var>c</var> are feels like a problem. It isn't. The question only asks <em>how many</em> crossings, and that answer turns out to be the same no matter which positive numbers they are. To see the shape clearly, we'll pick easy values, then check at the end that nothing depended on our choice.</p>
+          <p>Let's use <span class="eq-in"><var>a</var> = 1</span> and <span class="eq-in"><var>c</var> = 2</span>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Build the simplest version first: <span class="eq-in"><var>y</var> = <var>x</var><sup>2</sup></span></h3>
+          <p>Before touching <var>a</var> or <var>c</var>, plot the plainest square there is. Pick some <var>x</var> values and square each one.</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Squaring a negative gives a positive: (−3) × (−3) = 9.</caption>
+              <tr><th><var>x</var></th><td>−3</td><td>−2</td><td>−1</td><td>0</td><td>1</td><td>2</td><td>3</td></tr>
+              <tr><th><var>y</var> = <var>x</var><sup>2</sup></th><td>9</td><td>4</td><td>1</td><td class="lo">0</td><td>1</td><td>4</td><td>9</td></tr>
+            </table>
+          </div>
+          <p>Two things jump out of that row of numbers:</p>
+          <ul>
+            <li><strong>It's a mirror.</strong> −3 and 3 both give 9. −2 and 2 both give 4. The left half and right half are identical, because squaring cancels the minus sign.</li>
+            <li><strong>It never goes below 0.</strong> The smallest value in the row is 0, at <span class="eq-in"><var>x</var> = 0</span>. Nothing you square can come out negative.</li>
+          </ul>
+          <p>A graph that mirrors itself and can't go below zero has only one shape available: a valley sitting on the origin. That shape has a name.</p>
+          <div class="word"><b>Parabola.</b> The U-shaped curve you get from squaring. Its turning point — the very bottom of the U, or the very top if it's upside down — is called the <b>vertex</b>.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>What does the <var>a</var> in front do?</h3>
+          <p><span class="eq-in"><var>y</var> = <var>ax</var><sup>2</sup></span> means: work out <var>x</var><sup>2</sup> first, then multiply the answer by <var>a</var>. So every height on the graph gets multiplied by <var>a</var>.</p>
+          <ul>
+            <li>If <span class="eq-in"><var>a</var> = 2</span>, every point is twice as high — a narrower, steeper U.</li>
+            <li>If <span class="eq-in"><var>a</var> = ½</span>, every point is half as high — a wider, flatter U.</li>
+          </ul>
+          <div class="keybox">Here's the part that matters: <b>multiplying by a positive number never changes a sign.</b> Heights that were positive stay positive. So no positive <var>a</var> can flip the U upside down. It only makes it narrower or wider. That's why "<var>a</var> is positive" is all you need to know that it <b>opens upward</b>.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>What does the <span class="eq-in">− <var>c</var></span> do?</h3>
+          <p>It subtracts <var>c</var> from every height. Every single point drops by the same amount, so the whole curve <strong>slides straight down by <var>c</var></strong>. It isn't stretched or tilted — just moved.</p>
+          <p>Watch it happen with <span class="eq-in"><var>c</var> = 2</span>. This is the row from step 2 with 2 taken off each value:</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Same shape as before, sitting 2 lower. The bottom is now at −2 instead of 0.</caption>
+              <tr><th><var>x</var></th><td>−3</td><td>−2</td><td>−1</td><td>0</td><td>1</td><td>2</td><td>3</td></tr>
+              <tr><th><var>y</var> = <var>x</var><sup>2</sup> − 2</th><td>7</td><td>2</td><td>−1</td><td class="lo">−2</td><td>−1</td><td>2</td><td>7</td></tr>
+            </table>
+          </div>
+          <p>Still a mirror. Still a U. The vertex has moved from <span class="eq-in">(0, 0)</span> down to <span class="eq-in">(0, −2)</span>.</p>
+          <div class="keybox">In general, the vertex of <span class="eq-in"><var>y</var> = <var>ax</var><sup>2</sup> − <var>c</var></span> sits at <b>(0, −<var>c</var>)</b>. And since <var>c</var> is positive, <b>−<var>c</var> is negative</b> — so the bottom of the U is always <b>below</b> the <var>x</var>-axis. You never needed a formula for that; it came straight from the table.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">5</div>
+        <div>
+          <h3>Now the second graph: why <span class="eq-in"><var>y</var> = <var>a</var> + <var>c</var></span> is a flat line</h3>
+          <p>Look closely at <span class="eq-in"><var>y</var> = <var>a</var> + <var>c</var></span>. <strong>There is no <var>x</var> in it anywhere.</strong> That's the whole trick.</p>
+          <p><var>a</var> and <var>c</var> are fixed numbers, so <span class="eq-in"><var>a</var> + <var>c</var></span> is just some fixed number too. With our values it's <span class="eq-in">1 + 2 = 3</span>. Since <var>x</var> never appears, moving along the <var>x</var>-axis changes nothing — <var>y</var> is 3 when <var>x</var> is 0, when <var>x</var> is 100, when <var>x</var> is −50.</p>
+          <div class="keybox"><b>No <var>x</var> in the equation means a horizontal line.</b> The height is always the same, so the graph is flat.</div>
+          <p>Is that line above or below the <var>x</var>-axis? <var>a</var> is positive and <var>c</var> is positive, and a positive plus a positive is always positive. So <span class="eq-in"><var>a</var> + <var>c</var></span> is <strong>above</strong> the axis — always, whatever the actual numbers are.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">6</div>
+        <div>
+          <h3>Put both on one grid and count</h3>
+          <p>You now know two facts, and they're all you need:</p>
+          <ul>
+            <li>The U opens upward, and its lowest point is <strong>below</strong> the axis.</li>
+            <li>The line is flat, and it sits <strong>above</strong> the axis.</li>
+          </ul>
+          <p>So the line is above the bottom of the U. Now follow the curve with your finger: start at the bottom of the U, below the line. Travel right — the U climbs, and it climbs forever, so at some point it must pass through the line. That's one crossing. Go back to the bottom and travel left instead — same thing, because the U is a mirror image. That's the second.</p>
+
+          <figure>
+            <div class="figbox">
+              <svg viewBox="0 0 520 300" role="img" aria-label="An upward parabola with its vertex below the x-axis, crossed by a horizontal line above the x-axis at two points.">
+                <line class="gridline" x1="0" y1="152" x2="520" y2="152"/>
+                <line class="axis" x1="0" y1="230" x2="520" y2="230"/>
+                <line class="axis" x1="260" y1="8" x2="260" y2="292"/>
+                <polyline class="curve" points="36.0,15.8 50.0,48.0 64.0,78.2 78.0,106.2 92.0,132.2 106.0,156.2 120.0,178.0 134.0,197.8 148.0,215.4 162.0,231.0 176.0,244.6 190.0,256.0 204.0,265.4 218.0,272.6 232.0,277.8 246.0,281.0 260.0,282.0 274.0,281.0 288.0,277.8 302.0,272.6 316.0,265.4 330.0,256.0 344.0,244.6 358.0,231.0 372.0,215.4 386.0,197.8 400.0,178.0 414.0,156.2 428.0,132.2 442.0,106.2 456.0,78.2 470.0,48.0 484.0,15.8"/>
+                <line class="hline" x1="14" y1="152" x2="506" y2="152"/>
+                <circle class="dot" cx="103.5" cy="152" r="5.5"/>
+                <circle class="dot" cx="416.5" cy="152" r="5.5"/>
+                <circle cx="260" cy="282" r="4.5" fill="var(--teal)"/>
+                <text class="svgmath" x="462" y="144">y = a + c</text>
+                <text class="svgnote" x="424" y="168">flat, and above 0</text>
+                <text class="svgmath" x="272" y="290">vertex (0, −c)</text>
+                <text class="svgnote" x="272" y="272">below 0, because c is positive</text>
+                <text class="svgtext" x="86" y="136" fill="var(--brick)">1st</text>
+                <text class="svgtext" x="424" y="136" fill="var(--brick)">2nd</text>
+              </svg>
+            </div>
+            <figcaption>Drawn with <span class="eq-in"><var>a</var> = 1</span> and <span class="eq-in"><var>c</var> = 2</span>, so the U is <span class="eq-in"><var>y</var> = <var>x</var><sup>2</sup> − 2</span> and the line is <span class="eq-in"><var>y</var> = 3</span>.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">7</div>
+        <div>
+          <h3>Check that our made-up numbers didn't matter</h3>
+          <p>We picked <span class="eq-in"><var>a</var> = 1</span>, <span class="eq-in"><var>c</var> = 2</span>. Would anything change with different positive numbers? Re-read the two facts from step 6:</p>
+          <ul>
+            <li>"Opens upward" came from <var>a</var> being positive — true for every positive <var>a</var>.</li>
+            <li>"Vertex below the axis" came from <var>c</var> being positive — true for every positive <var>c</var>.</li>
+            <li>"Line above the axis" came from positive + positive being positive — always true.</li>
+          </ul>
+          <p>Nothing leaned on the specific values. The picture is the same every time, so the count is too.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — Two.</strong></p>
+      <p>An upward U whose bottom is below a flat line has to come up through that line on both sides.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>Zero</strong> would need the line to be <em>below</em> the bottom of the U, so they never meet. But the bottom is below the axis and the line is above it, so the line is definitely higher.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>One</strong> happens in exactly one situation: the line touches the U precisely at its vertex, grazing it. That would need the line's height to equal <span class="eq-in">−<var>c</var></span>, but the line's height is <span class="eq-in"><var>a</var> + <var>c</var></span> — a positive number, and <span class="eq-in">−<var>c</var></span> is negative. They can't be equal.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>More than two</strong> is impossible for <em>any</em> straight line and <em>any</em> parabola, no matter the numbers. Once the U has turned around and started climbing, it never comes back down to try again. Worth memorising: a straight line can cut a parabola at most twice.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================== Q2 ==================== -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question 2</span>
+        <span class="qid">1224cb23</span>
+        <span class="qtopic">Advanced Math · Hard</span>
+      </div>
+      <h2>A curve that only ever climbs</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <div class="eq"><var>y</var> = 9<span class="paren">(</span><span class="frac"><span class="fnum"><var>a</var></span><span class="fden">7</span></span><span class="paren">)</span><sup><var>x</var>+<var>c</var></sup> − <var>b</var></div>
+      <p class="q-text">How many times does the graph of the given equation in the <var>xy</var>-plane cross the <var>x</var>-axis, where <var>a</var>, <var>b</var>, and <var>c</var> are positive constants such that <span class="eq-in"><var>a</var> &gt; 7</span> and <span class="eq-in"><var>b</var> &gt; <var>c</var></span>?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>Zero</span></li>
+        <li class="right"><span class="key">B</span><span>One</span><span class="verdict">Correct</span></li>
+        <li><span class="key">C</span><span>Two</span></li>
+        <li><span class="key">D</span><span>Three</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: this curve starts low and ends high. How many times does it pass through height zero on the way?</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>"Cross the <var>x</var>-axis" just means "reach height zero"</h3>
+          <p>The <var>x</var>-axis is the line where <span class="eq-in"><var>y</var> = 0</span>. So the question is: <strong>how many times does this curve pass through height 0?</strong></p>
+          <p>That is worth saying out loud, because it means you only need three things: where the curve starts, where it ends, and whether it ever turns around. You never have to work out <em>where</em> it crosses.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Pick friendly numbers so you can see what the curve does</h3>
+          <p><var>a</var>, <var>b</var> and <var>c</var> are unknown, so choose values that obey every rule given and make the arithmetic easy. The rules are: all three positive, <span class="eq-in"><var>a</var> &gt; 7</span>, and <span class="eq-in"><var>b</var> &gt; <var>c</var></span>.</p>
+          <p>Take <span class="eq-in"><var>a</var> = 14</span>, <span class="eq-in"><var>b</var> = 36</span>, <span class="eq-in"><var>c</var> = 1</span>. All positive, 14 is bigger than 7, and 36 is bigger than 1. The equation becomes:</p>
+          <div class="eq"><var>y</var> = 9 × 2<sup><var>x</var>+1</sup> − 36</div>
+          <div class="keybox">The useful part is <span class="eq-in"><var>a</var>/7 = 14/7 = <b>2</b></span>. A base of 2 means the curve <b>doubles</b> — which is the easiest kind of growth to picture.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>An <var>x</var> in the exponent means "keep doubling"</h3>
+          <div class="word"><b>Exponent.</b> The small raised number saying how many times to multiply. <span class="eq-in">2<sup>3</sup></span> means 2 × 2 × 2 = 8. The 2 is the <b>base</b>; the 3 is the exponent.</div>
+          <p>Normally the exponent is a fixed number. Here it is <span class="eq-in"><var>x</var> + 1</span>, so it changes as you move along the graph. Every time <var>x</var> goes up by 1, the exponent goes up by 1 — which means one more multiplication by 2.</p>
+          <div class="keybox">Stepping right <b>doubles</b> the value. It doesn't add a fixed amount — it multiplies. That is what makes the curve bend upward instead of staying straight, and it means the curve <b>only ever goes up</b>.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>Going left, it halves — and halving never reaches zero</h3>
+          <p>If stepping right doubles, stepping left halves. Keep halving and the number shrinks: 36, 18, 9, 4.5, 2.25 …</p>
+          <p>But halving a positive number <strong>can never reach zero, and can never turn it negative.</strong> It gets tinier and tinier and stays above zero forever.</p>
+          <p>So the <span class="eq-in">9 × 2<sup><var>x</var>+1</sup></span> part is always positive: nearly nothing on the far left, enormous on the right.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">5</div>
+        <div>
+          <h3>The <span class="eq-in">− 36</span> drops the whole curve, and gives it a floor</h3>
+          <p>Same rule as question 1: subtracting moves every point down by that amount. The rising shape is unchanged; it just sits 36 lower.</p>
+          <p>Before, the curve's lowest possible level was 0 — approached but never reached. Now that level is <span class="eq-in">−36</span>. Watch it in the numbers:</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Each step right doubles the first part, so 9 → 18 → 36 → 72 → 144, and 36 comes off every one.</caption>
+              <tr><th><var>x</var></th><td>−1</td><td>0</td><td class="lo">1</td><td>2</td><td>3</td></tr>
+              <tr><th><var>y</var></th><td>−27</td><td>−18</td><td class="lo">0</td><td>36</td><td>108</td></tr>
+            </table>
+          </div>
+          <div class="keybox">Because <var>b</var> is positive, the floor <span class="eq-in">−<var>b</var></span> is <b>below zero</b>. So the curve <b>starts below the axis</b> — and it climbs from there without ever stopping.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">6</div>
+        <div>
+          <h3>Count the crossings</h3>
+          <p>Three facts, and the answer falls straight out:</p>
+          <ul>
+            <li>It starts <strong>below</strong> zero — its floor is <span class="eq-in">−<var>b</var></span>.</li>
+            <li>It ends <strong>above</strong> zero — it doubles forever.</li>
+            <li>It <strong>only ever goes up</strong>, so it never turns around.</li>
+          </ul>
+          <p>To get from below zero to above zero, it must pass through zero. And because it never comes back down, it can never cross a second time. Exactly one.</p>
+
+          <figure>
+            <div class="figbox">
+              <svg viewBox="0 0 520 300" role="img" aria-label="A rising curve that hugs a floor below the x-axis on the left and climbs steeply through the x-axis exactly once.">
+                <line class="axis" x1="0" y1="220" x2="520" y2="220"/>
+                <line class="dash" x1="8" y1="280" x2="512" y2="280"/>
+                <polyline class="curve" points="20.0,279.1 31.5,278.9 43.0,278.8 54.5,278.6 66.0,278.4 77.5,278.1 89.0,277.9 100.5,277.5 112.0,277.2 123.5,276.7 135.0,276.3 146.5,275.7 158.0,275.1 169.5,274.3 181.0,273.5 192.5,272.5 204.0,271.4 215.5,270.1 227.0,268.6 238.5,267.0 250.0,265.0 261.5,262.8 273.0,260.2 284.5,257.3 296.0,253.9 307.5,250.0 319.0,245.5 330.5,240.4 342.0,234.5 353.5,227.8 365.0,220.0 376.5,211.1 388.0,200.8 399.5,189.1 411.0,175.5 422.5,160.0 434.0,142.1 445.5,121.6 457.0,98.1 468.5,71.0 480.0,40.0"/>
+                <circle class="dot" cx="365" cy="220" r="5.5"/>
+                <text class="svgtext" x="300" y="206" fill="var(--brick)">the only crossing</text>
+                <text class="svgmath" x="20" y="272">y = −b</text>
+                <text class="svgnote" x="86" y="272">the floor — never reached, never gone below</text>
+                <text class="svgnote" x="20" y="212">y = 0</text>
+                <text class="svgnote" x="404" y="66">doubles forever</text>
+              </svg>
+            </div>
+            <figcaption>Notice what you did <em>not</em> do: work out where the crossing is. You only needed to know it starts low, ends high, and never turns back.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">7</div>
+        <div>
+          <h3>Check the friendly numbers didn't decide it</h3>
+          <p>You picked 14, 36 and 1. Would other values change the answer? Look at what each fact actually rested on:</p>
+          <ul>
+            <li>"It doubles" came from <span class="eq-in"><var>a</var> &gt; 7</span>, which makes <span class="eq-in"><var>a</var>/7</span> bigger than 1. Any such <var>a</var> gives growth — maybe slower than doubling, but always upward.</li>
+            <li>"The floor is below zero" came from <var>b</var> being positive. True for every positive <var>b</var>.</li>
+          </ul>
+          <p>Neither leaned on your specific choices, so the count is one no matter what the real values are.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">8</div>
+        <div>
+          <h3>Notice the fact you never used</h3>
+          <p>The question told you <span class="eq-in"><var>b</var> &gt; <var>c</var></span>. Look back through every step — it appears nowhere. You needed <var>b</var> positive, and you needed <span class="eq-in"><var>a</var> &gt; 7</span>. How <var>b</var> compares to <var>c</var> never mattered.</p>
+          <div class="keybox">Hard questions often hand you a fact you don't need, so that you'll hunt for a use and lose time. <b>Finishing with a leftover fact is normal.</b> It is not a sign you did something wrong.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — One.</strong></p>
+      <p>A curve that only climbs can pass any given height at most once. This one starts below zero and ends above it, so it passes exactly once.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>Zero</strong> would mean the curve never reaches height 0 — it would have to stay entirely below the axis, or entirely above it. But the table shows it at −27 and later at +108, so it is on both sides of zero. It has to cross somewhere in between.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>Two</strong> and <strong>D — Three</strong> both need the curve to turn around. To cross zero a second time it would have to come back <em>down</em>. A curve that multiplies by something bigger than 1 at every step never does. Both can be eliminated the moment you notice the base is above 1 — before any other work.</p></div>
+      <div class="trapitem"><span class="trapkey">·</span><p>These two questions are secretly the same question. Both ask "how many crossings", and neither wants you to find <em>where</em>. You sketch the shape, note where it sits relative to the line, and count. That's the single most useful habit on this page.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================== Q3 ==================== -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question 3</span>
+        <span class="qid">d98c3c8c</span>
+        <span class="qtopic">Advanced Math · Hard</span>
+      </div>
+      <h2>Lift a hill by 3 and the summit rises by 3</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <div class="eq"><var>f</var>(<var>t</var>) = 55<var>t</var> − 2<var>t</var><sup>2</sup></div>
+      <p class="q-text">The function <var>f</var> is defined by the given equation. The function <var>g</var> is defined by <span class="eq-in"><var>g</var>(<var>t</var>) = <var>f</var>(<var>t</var>) + 3</span>. Which expression represents the maximum value of <span class="eq-in"><var>g</var>(<var>t</var>)</span>?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span class="eq-in">3 + (55/2)<sup>2</sup></span></li>
+        <li class="right"><span class="key">B</span><span class="eq-in">3 + 2(55/4)<sup>2</sup></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span class="eq-in">3 − 2(55/4)<sup>2</sup></span></li>
+        <li class="trap"><span class="key">D</span><span class="eq-in">3 − (55/2)<sup>2</sup></span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: find the highest point of one curve, then add 3.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Read what the two lines actually say</h3>
+          <div class="word"><b>Function.</b> A machine with one input and one output. <span class="eq-in"><var>f</var>(<var>t</var>)</span> is read "<var>f</var> of <var>t</var>" and means: put <var>t</var> in, get a number out. It is <b>not</b> <var>f</var> times <var>t</var>.</div>
+          <p>The first line is a recipe. Put in <span class="eq-in"><var>t</var> = 10</span> and you get <span class="eq-in">55(10) − 2(100) = 350</span>.</p>
+          <p>The second line says <span class="eq-in"><var>g</var>(<var>t</var>) = <var>f</var>(<var>t</var>) + 3</span>: run the <var>f</var> machine, then add 3. That's all <var>g</var> ever does.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>So you never have to think about <var>g</var> again</h3>
+          <p>If <var>g</var> is always exactly 3 more than <var>f</var>, then <var>g</var>'s highest point is exactly 3 more than <var>f</var>'s highest point.</p>
+          <div class="keybox">The whole question is now: <b>what is the highest value of <var>f</var>? Add 3 to it.</b> Two jobs, in that order.</div>
+
+          <figure>
+            <div class="figbox">
+              <svg viewBox="0 0 520 300" role="img" aria-label="Two identical hill-shaped curves, one drawn above the other, showing the summit rises by the same amount the curve was lifted.">
+                <line class="axis" x1="20" y1="272" x2="510" y2="272"/>
+                <path class="curve-ghost" d="M 60 272 Q 275 -18 490 272"/>
+                <path class="curve" d="M 60 248 Q 275 -42 490 248"/>
+                <line class="dash" x1="275" y1="105" x2="275" y2="129"/>
+                <circle cx="275" cy="129" r="4.5" fill="var(--ink-faint)"/>
+                <circle cx="275" cy="105" r="5.5" fill="var(--teal)"/>
+                <text class="svgmath" x="292" y="100">top of g</text>
+                <text class="svgmath" x="292" y="142">top of f</text>
+                <text class="svgtext" x="196" y="122" fill="var(--amber)">+3</text>
+                <text class="svgnote" x="60" y="292">same shape, same width, peak in the same place — only the height changes</text>
+              </svg>
+            </div>
+            <figcaption>Lifting a hill by 3 lifts its summit by 3. Nothing else about it changes. (Drawn bigger than 3 so you can see the gap.)</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Job one: check that <var>f</var> is a hill, so it <i>has</i> a highest point</h3>
+          <p>Put a few values in and see what comes out.</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Up, then down. That's a hill, so there is a top to find.</caption>
+              <tr><th><var>t</var></th><td>0</td><td>10</td><td class="lo">15</td><td>20</td><td>27.5</td></tr>
+              <tr><th><var>f</var>(<var>t</var>)</th><td>0</td><td>350</td><td class="lo">375</td><td>300</td><td>0</td></tr>
+            </table>
+          </div>
+          <p>In question 1 the squared term was <em>positive</em> and gave an upward U. Here the squared term is <strong>negative</strong> — that's the <span class="eq-in">− 2<var>t</var><sup>2</sup></span> — which flips the U upside down into a hill.</p>
+          <p>The table shows the top is somewhere near 15. Now pin it down exactly.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>Find where the top is</h3>
+          <p>A parabola is a <strong>mirror</strong>, so the top sits exactly halfway between the two places it touches zero. Find those two places by factoring — both terms share a <var>t</var>:</p>
+          <div class="eq">55<var>t</var> − 2<var>t</var><sup>2</sup> = <var>t</var>(55 − 2<var>t</var>)</div>
+          <p>A multiplication is zero only when one of its parts is zero. So either <span class="eq-in"><var>t</var> = 0</span>, or <span class="eq-in">55 − 2<var>t</var> = 0</span>, which gives <span class="eq-in"><var>t</var> = 27.5</span>. Both match the table above.</p>
+          <p>Halfway between 0 and 27.5:</p>
+          <div class="eq"><var>t</var> = 27.5 ÷ 2 = 13.75</div>
+          <div class="keybox">Written as a fraction, <b>13.75 = 55/4</b> — and that is the form the answer choices use, so keep it in mind. Note also that <b>27.5 = 55/2</b>: that's where the hill comes back <i>down</i> to zero, not where the top is. Two of the wrong answers are built from mixing these two up.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">5</div>
+        <div>
+          <h3>Job one, finished: how high is the top?</h3>
+          <p>Put <span class="eq-in"><var>t</var> = 13.75</span> into the recipe. Two pieces to work out:</p>
+          <div class="eq">55 × 13.75 = 756.25<br>2 × 13.75<sup>2</sup> = 378.125</div>
+          <p>Then subtract the second from the first:</p>
+          <div class="eq">756.25 − 378.125 = 378.125</div>
+          <div class="faster"><span class="tag">That's not a typo</span>The number you take away and the number you're left with really are the same. That happens because 378.125 is exactly <b>half</b> of 756.25 — and taking half of something away leaves the other half. It's a coincidence of this particular question, not a rule, so don't go looking for it elsewhere.</div>
+          <p>So the highest value of <var>f</var> is <strong>378.125</strong>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">6</div>
+        <div>
+          <h3>Job two: add 3, then find that number among the choices</h3>
+          <div class="eq">378.125 + 3 = 381.125</div>
+          <p>The choices are written as expressions rather than plain numbers, so work each one out and look for 381.125. This is the reliable move whenever answers are written as expressions — comparing numbers is much safer than comparing symbols.</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Only B matches.</caption>
+              <tr><th>Choice</th><th>Works out to</th></tr>
+              <tr><td>A &nbsp; 3 + (55/2)<sup>2</sup></td><td>759.25</td></tr>
+              <tr><td class="lo">B &nbsp; 3 + 2(55/4)<sup>2</sup></td><td class="lo">381.125</td></tr>
+              <tr><td>C &nbsp; 3 − 2(55/4)<sup>2</sup></td><td>−375.125</td></tr>
+              <tr><td>D &nbsp; 3 − (55/2)<sup>2</sup></td><td>−753.25</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — <span class="eq-in">3 + 2(55/4)<sup>2</sup></span></strong>, which equals 381.125.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>Uses <strong>55/2</strong> instead of 55/4 — the place where the curve hits zero, not where it peaks. This is the single most common slip on this question.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p>Right number, wrong sign: <strong>subtracts</strong> instead of adding.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Both mistakes at once — wrong <var>t</var> value and wrong sign.</p></div>
+      <div class="trapitem"><span class="trapkey">!</span><p><strong>A shortcut worth having.</strong> C and D are both <em>negative</em>. But the table in step 3 shows <var>f</var> reaching 375, and <var>g</var> is even higher. A curve that climbs to 375 cannot have a negative maximum. You could have crossed out C and D in seconds, leaving a coin flip between A and B before doing any real work.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================== Q4 ==================== -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question 4</span>
+        <span class="qid">fde9312b</span>
+        <span class="qtopic">Craft and Structure · Hard</span>
+      </div>
+      <h2>What job is this phrase doing?</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">In response to concerns that some recent financial crises were exacerbated by consumers misunderstanding risks associated with credit cards, loans, and other financial products, policymakers in many countries have instituted risk-disclosure requirements on sellers of those products. Enrique Seira et al. investigated a variety of risk-disclosure messages sent to thousands of credit card customers and found that the messages had only small and short-lived effects on behavior. Seira et al. asserted that such effects may nevertheless be worth pursuing, <span class="u">given the negligible cost of messaging</span>.</p>
+      <p class="q-text" style="margin-top:16px"><strong>Which choice best describes the function of the underlined portion in the text as a whole?</strong></p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span>It notes a factor that led Seira et al. to not dismiss risk-disclosure messaging altogether despite their evidence of its limited utility.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span>It acknowledges a type of risk-disclosure messaging that Seira et al. may not have fully accounted for in their study.</span></li>
+        <li class="trap"><span class="key">C</span><span>It describes a consideration that explains why Seira et al. recommended risk-disclosure messaging even though its effects may be small relative to its costs.</span></li>
+        <li class="trap"><span class="key">D</span><span>It points out a circumstance that Seira et al. conceded may make risk-disclosure messaging more effective than their study suggests.</span></li>
+      </ul>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>"Function" here has nothing to do with maths</h3>
+          <div class="word"><b>Function (in reading).</b> The <em>job</em> a sentence does for the argument around it. Not what it means — what it's <em>there for</em>.</div>
+          <p>Compare: "It was raining, <em>so I took an umbrella</em>." The meaning of the underlined half is that you took an umbrella. Its <em>function</em> is to state the result of the rain. The question is always asking the second kind of thing.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Translate the hard words first</h3>
+          <p>This passage is dense on purpose. Swap in plain words:</p>
+          <div class="word"><b>Exacerbated</b> — made worse.</div>
+          <div class="word"><b>Instituted</b> — put in place, set up.</div>
+          <div class="word"><b>Risk-disclosure requirements</b> — rules forcing companies to warn you about the risks.</div>
+          <div class="word"><b>et al.</b> — "and others". Seira and his fellow researchers.</div>
+          <div class="word"><b>Asserted</b> — claimed, stated.</div>
+          <div class="word"><b>Nevertheless</b> — even so; despite what was just said.</div>
+          <div class="word"><b>Negligible</b> — so small it hardly counts. Nearly nothing.</div>
+          <div class="word"><b>Utility</b> — usefulness.</div>
+          <div class="word"><b>Dismiss</b> — throw out, give up on.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Retell the passage as a short story</h3>
+          <p>With plain words, the whole thing is four beats:</p>
+          <ul>
+            <li>People got confused about credit card risks, and that made financial crises worse.</li>
+            <li>So governments made companies send warning messages.</li>
+            <li>Researchers checked whether the warnings worked. They barely did — small effects that faded fast.</li>
+            <li>But the researchers said: keep doing it anyway, because the messages cost almost nothing.</li>
+          </ul>
+          <p>The underlined phrase is that last beat — the <strong>"because"</strong> at the end.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>Let the connector words tell you the job</h3>
+          <p>Two small words in the final sentence do all the signposting. Most students read straight past them.</p>
+          <div class="anat">
+            <div class="anat-row">
+              <div class="anat-tag">The finding</div>
+              <div>
+                <div class="anat-txt">…the messages had only <strong>small and short-lived effects</strong>.</div>
+                <div class="anat-why">Bad news for the messages. This is what the study actually found.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">The pivot</div>
+              <div>
+                <div class="anat-txt">…may <strong>nevertheless</strong> be worth pursuing…</div>
+                <div class="anat-why"><em>Nevertheless</em> means "despite what I just said." They're keeping the idea alive <em>in spite of</em> their own weak result. So whatever comes next has to be their reason for not giving up.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">The reason</div>
+              <div>
+                <div class="anat-txt"><span class="hi">given the negligible cost of messaging</span></div>
+                <div class="anat-why"><em>Given</em> introduces a reason — it's a formal way of saying "because of". The cost is almost nothing, and when something costs almost nothing, even a tiny benefit is worth having.</div>
+              </div>
+            </div>
+          </div>
+          <div class="keybox">So the job of the underlined phrase is: <b>to give the reason they didn't give up on the idea, even though their own evidence was weak.</b></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">5</div>
+        <div>
+          <h3>Say it yourself before reading the choices</h3>
+          <p>This is the habit that makes these questions much easier. Finish this sentence out loud <em>before</em> looking at A, B, C, D:</p>
+          <p><em>"The underlined part is here to …"</em> → <em>"…explain why they still think it's worth doing even though it barely worked."</em></p>
+          <p>Now go find the choice that says that. A says almost exactly it: <em>a factor that led them to not dismiss it altogether despite evidence of its limited utility.</em> Match.</p>
+          <p>If you read the four choices <em>first</em>, all of them sound plausible — they're written to. Deciding what you're looking for before you look is what stops that.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A.</strong> The underlined phrase gives the reason the researchers didn't abandon the idea despite weak results.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>The dangerous one.</strong> It uses every word the right answer uses — small effects, costs, a consideration. But read what it actually claims: effects are small <em>relative to its costs</em>. That's backwards. The passage says the <strong>costs</strong> are tiny compared to the effects, which is exactly why it's still worth doing. C describes a bad deal; the passage describes a cheap bet. When two choices use the same words, check <em>which way round</em> the comparison runs.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p>Calls the phrase a <em>type</em> of messaging. It isn't a type of anything — it's a statement about cost. Nothing in the passage mentions different kinds of messages being missed.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p>Says the phrase makes messaging <em>more effective</em>. It doesn't touch effectiveness — effectiveness is still low and nobody disputes that. What the phrase changes is whether low effectiveness is <em>acceptable</em>. Cheap and barely-works is still worth it; that's not the same as working better.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================== Q5 ==================== -->
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question 5</span>
+        <span class="qid">e465d17e</span>
+        <span class="qtopic">Command of Evidence · Hard</span>
+      </div>
+      <h2>Real numbers, wrong story</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <div class="tblwrap">
+            <table class="data">
+              <caption>Mean ratings after 21 days · higher = greater well-being</caption>
+              <thead>
+                <tr><th scope="col">Measure</th><th scope="col">Aware of taking a placebo</th><th scope="col">Control group</th><th scope="col">Which is higher?</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">Global improvement</th><td class="num win">5.0</td><td class="num">3.9</td><td class="check">aware ↑</td></tr>
+                <tr><th scope="row">Symptom severity reduction</th><td class="num win">92.00</td><td class="num">46.00</td><td class="check">aware ↑</td></tr>
+                <tr><th scope="row">Quality of life improvement</th><td class="num win">11.4</td><td class="num">5.4</td><td class="check">aware ↑</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+      <figure style="margin:18px 0 4px">
+        <div class="figbox">
+          <svg viewBox="0 0 520 236" role="img" aria-label="Three paired bar charts. In every pair the aware-of-placebo bar is taller than the control bar.">
+            <rect class="bar-a" x="24" y="12" width="12" height="12"/>
+            <text class="legend" x="42" y="22" fill="var(--teal)">aware of placebo</text>
+            <rect class="bar-c" x="170" y="12" width="12" height="12"/>
+            <text class="legend" x="188" y="22" fill="var(--ink-soft)">control group</text>
+            <rect class="bar-a" x="46" y="64.0" width="38" height="104.0"/>
+            <rect class="bar-c" x="100" y="86.9" width="38" height="81.1"/>
+            <text class="barval" x="65" y="57">5.0</text>
+            <text class="barval2" x="119" y="79.9">3.9</text>
+            <line class="baseline" x1="40" y1="168" x2="144" y2="168"/>
+            <text class="barlab" x="92" y="184">Global</text>
+            <text class="barlab" x="92" y="196">improvement</text>
+            <rect class="bar-a" x="216" y="64.0" width="38" height="104.0"/>
+            <rect class="bar-c" x="270" y="116.0" width="38" height="52.0"/>
+            <text class="barval" x="235" y="57">92.00</text>
+            <text class="barval2" x="289" y="109">46.00</text>
+            <line class="baseline" x1="210" y1="168" x2="314" y2="168"/>
+            <text class="barlab" x="262" y="184">Symptom severity</text>
+            <text class="barlab" x="262" y="196">reduction</text>
+            <rect class="bar-a" x="386" y="64.0" width="38" height="104.0"/>
+            <rect class="bar-c" x="440" y="118.7" width="38" height="49.3"/>
+            <text class="barval" x="405" y="57">11.4</text>
+            <text class="barval2" x="459" y="111.7">5.4</text>
+            <line class="baseline" x1="380" y1="168" x2="484" y2="168"/>
+            <text class="barlab" x="432" y="184">Quality of life</text>
+            <text class="barlab" x="432" y="196">improvement</text>
+          </svg>
+        </div>
+        <figcaption>The same three rows, drawn. In every pair the teal bar is taller — that is the whole answer, visible at a glance. <strong>Each pair has its own scale</strong>, because 92 and 5.0 would not fit sensibly on one; compare the two bars <em>within</em> a pair, never across pairs.</figcaption>
+      </figure>
+
+      <p class="q-text">To test whether a medication is effective, scientists compare outcomes for patients taking it and patients taking a placebo (a medically inactive substance). Patients normally aren't told they're receiving a placebo, but a research team conducted a study to see if there might be a medical benefit to telling them. The team used various measures to evaluate participants, with <strong>higher ratings indicating greater well-being</strong> in each measure. Compared to the mean ratings after 21 days for participants in the control group, the mean ratings for participants who were aware of taking a placebo ______</p>
+      <p class="q-text" style="margin-top:16px"><strong>Which choice most effectively uses data from the table to complete the statement?</strong></p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>ranged from 5.0 to 92.00, indicating that well-being varied widely from participant to participant.</span></li>
+        <li class="trap"><span class="key">B</span><span>were lower for two measures, with the rating for only one measure indicating greater well-being for these participants.</span></li>
+        <li class="trap"><span class="key">C</span><span>ranged from 3.9 to 46.00, with no rating indicating greater well-being in any measure for these participants.</span></li>
+        <li class="right"><span class="key">D</span><span>were higher for all three measures, indicating greater overall well-being for these participants.</span><span class="verdict">Correct</span></li>
+      </ul>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Understand the setup before the numbers</h3>
+          <div class="word"><b>Placebo.</b> A fake treatment — a sugar pill — with no medicine in it.</div>
+          <div class="word"><b>Control group.</b> The group used as a baseline for comparison. Here: the people who were <em>not</em> told they were taking a placebo.</div>
+          <div class="word"><b>Mean.</b> The average. Add all the values and divide by how many there are.</div>
+          <p>The study asks an odd question: if we <em>tell</em> people their pill is fake, do they still do better? So there are two groups — those who knew, and the control group.</p>
+          <div class="keybox">One line in the passage decides the whole question: <b>higher ratings mean greater well-being.</b> Without it you couldn't tell whether a bigger number was good or bad news. Always hunt for that sentence in a table question.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Read the table's structure before its contents</h3>
+          <p>Check what the rows are and what each column is, so you don't compare the wrong things.</p>
+          <ul>
+            <li>Each <strong>row</strong> is a different measure — a different way of scoring well-being.</li>
+            <li>The <strong>middle column</strong> is the group who <em>knew</em> they were on a placebo.</li>
+            <li>The <strong>right column</strong> is the control group.</li>
+          </ul>
+          <p>The sentence you're completing is about the group who <em>knew</em>. So the middle column is your subject, and the right column is what you're comparing it against.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Compare one row at a time</h3>
+          <p>Look back at the table at the top of this question — everything you need is in it.</p>
+          <p>Row by row: 5.0 beats 3.9. 92.00 beats 46.00. 11.4 beats 5.4. The aware group is higher in every row — three out of three.</p>
+          <div class="keybox">Now write your own one-line summary <b>before</b> reading the choices: <b>"the aware group scored higher on all three measures."</b> Same habit as question 4 — decide what you're looking for, then look.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>Test each choice against the table</h3>
+          <p>Every wrong choice here contains numbers that genuinely appear in the table. <strong>Being real is not the test.</strong> The test is whether the <em>sentence built around</em> those numbers is true. Check them one at a time:</p>
+          <ul>
+            <li><strong>A</strong> — 5.0 and 92.00 are real. But it claims well-being "varied widely from participant to participant." Look at what the table gives you: <em>means</em>. One average per group. An average tells you nothing about how much individual people differed from each other. This claim isn't supported by anything in the table.</li>
+            <li><strong>B</strong> — says two measures were lower. Count them: zero were lower. Straightforwardly false.</li>
+            <li><strong>C</strong> — 3.9 and 46.00 are real numbers, but they come from the <em>control</em> column. The sentence is about the aware group. Wrong column entirely.</li>
+            <li><strong>D</strong> — higher for all three measures. That's exactly what we found in step 3.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>D.</strong> The aware group's mean rating was higher on all three measures, and since higher means better, that indicates greater overall well-being.</p>
+    </div>
+
+    <div class="traps">
+      <h3>The three ways a table choice goes wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>A claim the data can't support.</strong> Averages can't tell you about variation between individuals. If a choice mentions spread, range between people, or consistency, check whether you were actually given that — or just means.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>Simply false.</strong> Checkable in seconds by counting rows. Always count.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>Right numbers, wrong column.</strong> Before accepting any choice, confirm which column its numbers came from and which group the sentence is about.</p></div>
+    </div>
+  </section>
+
+  <!-- ==================== CLOSE ==================== -->
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>To draw any curve, ask three questions in order.</strong> What's the basic shape? Which way does it open and how steep? Where has it been slid to? A number added or subtracted at the end always slides the graph up or down, and changes nothing else.</span></li>
+      <li><span class="n">2</span><span><strong>"How many times?" is a counting question, not a solving question.</strong> Sketch both shapes, see where they sit relative to each other, count. A straight line meets a parabola at most twice. A curve that only ever climbs meets any height at most once.</span></li>
+      <li><span class="n">3</span><span><strong>When the choices are expressions, turn them all into numbers.</strong> Work out your own answer as a number first, then evaluate all four and match. And strike out any choice that's the wrong sign before you start.</span></li>
+      <li><span class="n">4</span><span><strong>For reading questions, answer in your own words before looking at the choices.</strong> Say "this phrase is here to ___" out loud. The connector words — <em>nevertheless</em>, <em>given</em>, <em>despite</em>, <em>because</em> — tell you the job.</span></li>
+      <li><span class="n">5</span><span><strong>Real numbers don't make a choice right.</strong> Check which column they came from, check every row, and check the claim wrapped around them is something the data can actually show.</span></li>
+    </ul>
+  </section>
+
+</div>

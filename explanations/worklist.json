@@ -1,0 +1,243 @@
+{
+  "generated_from": "2026-08-26T10:55:21.078Z",
+  "total": 68,
+  "wrong": 20,
+  "groups": [
+    {
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "domain": "Information and Ideas",
+      "file": "explanations/command-of-evidence.html",
+      "count": 17,
+      "wrong": [
+        "1b9fa866",
+        "6488f498",
+        "7c1e22ca",
+        "858be80e",
+        "ac8cfb10",
+        "cc4d3cac",
+        "9f55dec4",
+        "a795332a"
+      ],
+      "hard_correct": [
+        "13aa32c8",
+        "1504ffc3",
+        "2c5b7402",
+        "57c0f4fa",
+        "89ad9aae",
+        "918e9322",
+        "ccefb5e4",
+        "e465d17e",
+        "ed8fb966"
+      ]
+    },
+    {
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "domain": "Advanced Math",
+      "file": "explanations/nonlinear-functions.html",
+      "count": 6,
+      "wrong": [
+        "0664c858",
+        "25161d0e",
+        "ce6b914c"
+      ],
+      "hard_correct": [
+        "02e9349f",
+        "7ba3505c",
+        "d32a142a"
+      ]
+    },
+    {
+      "skill": "Equivalent expressions",
+      "test": "Math",
+      "domain": "Advanced Math",
+      "file": "explanations/equivalent-expressions.html",
+      "count": 6,
+      "wrong": [
+        "537cb683",
+        "ec84bf71"
+      ],
+      "hard_correct": [
+        "2726c972",
+        "3cedd21c",
+        "9d4a3242",
+        "ae1d2e3c"
+      ]
+    },
+    {
+      "skill": "Central Ideas and Details",
+      "test": "Reading and Writing",
+      "domain": "Information and Ideas",
+      "file": "explanations/central-ideas-and-details.html",
+      "count": 6,
+      "wrong": [
+        "3caa2431",
+        "f4f1a62b"
+      ],
+      "hard_correct": [
+        "3b04a15e",
+        "5978197b",
+        "6785f049",
+        "6eecc3d4"
+      ]
+    },
+    {
+      "skill": "Area and volume",
+      "test": "Math",
+      "domain": "Geometry and Trigonometry",
+      "file": "explanations/area-and-volume.html",
+      "count": 3,
+      "wrong": [
+        "885c51ec",
+        "b2578d47"
+      ],
+      "hard_correct": [
+        "8d18de31"
+      ]
+    },
+    {
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "domain": "Advanced Math",
+      "file": "explanations/nonlinear-equations-in-one-variable-and-systems-of-e.html",
+      "count": 7,
+      "wrong": [
+        "e80003f5"
+      ],
+      "hard_correct": [
+        "093011cd",
+        "1a20a239",
+        "220f67ab",
+        "5fc21cab",
+        "7ced5c84",
+        "95d68def"
+      ]
+    },
+    {
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "domain": "Information and Ideas",
+      "file": "explanations/inferences.html",
+      "count": 3,
+      "wrong": [
+        "c188a048"
+      ],
+      "hard_correct": [
+        "dc29fcae",
+        "ea1de10e"
+      ]
+    },
+    {
+      "skill": "Right triangles and trigonometry",
+      "test": "Math",
+      "domain": "Geometry and Trigonometry",
+      "file": "explanations/right-triangles-and-trigonometry.html",
+      "count": 2,
+      "wrong": [
+        "63b013ca"
+      ],
+      "hard_correct": [
+        "2ed98c1c"
+      ]
+    },
+    {
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "domain": "Craft and Structure",
+      "file": "explanations/words-in-context.html",
+      "count": 5,
+      "wrong": [],
+      "hard_correct": [
+        "1a53947b",
+        "5115604f",
+        "7a4e133e",
+        "d698ce1a",
+        "dbece047"
+      ]
+    },
+    {
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "domain": "Craft and Structure",
+      "file": "explanations/text-structure-and-purpose.html",
+      "count": 5,
+      "wrong": [],
+      "hard_correct": [
+        "5ce6e9cc",
+        "9e480713",
+        "a328d081",
+        "fc0b31c2",
+        "fde9312b"
+      ]
+    },
+    {
+      "skill": "Cross-Text Connections",
+      "test": "Reading and Writing",
+      "domain": "Craft and Structure",
+      "file": "explanations/cross-text-connections.html",
+      "count": 3,
+      "wrong": [],
+      "hard_correct": [
+        "64a676a1",
+        "9086691f",
+        "a2d8df04"
+      ]
+    },
+    {
+      "skill": "Percentages",
+      "test": "Math",
+      "domain": "Problem-Solving and Data Analysis",
+      "file": "explanations/percentages.html",
+      "count": 1,
+      "wrong": [],
+      "hard_correct": [
+        "16832745"
+      ]
+    },
+    {
+      "skill": "Linear equations in two variables",
+      "test": "Math",
+      "domain": "Algebra",
+      "file": "explanations/linear-equations-in-two-variables.html",
+      "count": 1,
+      "wrong": [],
+      "hard_correct": [
+        "200d4f91"
+      ]
+    },
+    {
+      "skill": "Lines, angles, and triangles",
+      "test": "Math",
+      "domain": "Geometry and Trigonometry",
+      "file": "explanations/lines-angles-and-triangles.html",
+      "count": 1,
+      "wrong": [],
+      "hard_correct": [
+        "605188d3"
+      ]
+    },
+    {
+      "skill": "One-variable data: Distributions and measures of center and spread",
+      "test": "Math",
+      "domain": "Problem-Solving and Data Analysis",
+      "file": "explanations/one-variable-data-distributions-and-measures-of-cent.html",
+      "count": 1,
+      "wrong": [],
+      "hard_correct": [
+        "89bfd23d"
+      ]
+    },
+    {
+      "skill": "Linear equations in one variable",
+      "test": "Math",
+      "domain": "Algebra",
+      "file": "explanations/linear-equations-in-one-variable.html",
+      "count": 1,
+      "wrong": [],
+      "hard_correct": [
+        "a96d6772"
+      ]
+    }
+  ]
+}

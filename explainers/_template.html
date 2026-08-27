@@ -1,0 +1,320 @@
+<title>TITLE — replace with a short, specific name</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+<!--
+  ===========================================================================
+  EXPLAINER TEMPLATE  ·  do not write an explainer into this file.
+  Copy it to explainers/<id>.html and replace the blocks below.
+  Keep the CSS above byte-identical so every explainer reads as one set.
+  ===========================================================================
+
+  Works for any question in the bank — either test, any domain, multiple
+  choice or free response, any difficulty. Delete what a given question
+  does not need; scale the number of steps to its difficulty.
+
+  Blocks available (all styled above):
+    .qsec            one question section — repeat for a themed set
+    .steps > .step   a numbered step:  <div class="snum">1</div> then content
+    .word            vocabulary box — <b>Term.</b> plain-English meaning
+    .keybox          the one idea of a step, called out
+    .faster          optional: the algebra shortcut, named after the main route
+    .vt > table.vals a value table; class="lo" emphasises a cell
+    .figbox > svg    a diagram; .curve .axis .hline .dash .dot classes
+    .plain           one italic line: what the question is really asking
+    .anat            sentence-anatomy rows, for reading questions
+    table.data       a data table reproduced from the question
+    .answer          the answer block
+    .traps           why each wrong choice tempts
+-->
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · KICKER</p>
+    <h1>HEADLINE<br><em>second line</em></h1>
+    <p class="standfirst">One or two sentences: what this looks like, and what it actually needs.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Nothing here assumes you already know the shapes or the vocabulary. Every new word gets a box the first time it appears, and anything drawn is built from real numbers you can check yourself. Work down the steps in order. Don't skip ahead to the answer — the answer is the least useful part.
+    </div>
+  </header>
+
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Question N</span>
+        <span class="qid">QUESTIONID</span>
+        <span class="qtopic">DOMAIN · DIFFICULTY</span>
+      </div>
+      <h2>A plain-English title for the idea being tested</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <!-- Equations/tables/figures: transcribe from the IMAGE, not the text layer. -->
+      <div class="eq">EQUATION (delete if there isn't one)</div>
+      <p class="q-text">Question text, with anything missing restored from the image.</p>
+
+      <!-- MULTIPLE CHOICE: mark the key .right, the rest .trap -->
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>…</span></li>
+        <li class="right"><span class="key">B</span><span>…</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span>…</span></li>
+        <li class="trap"><span class="key">D</span><span>…</span></li>
+      </ul>
+
+      <!-- FREE RESPONSE: no choices. Use this instead, listing every accepted form.
+      <ul class="choices">
+        <li class="right"><span class="key">✓</span><span>Accepted: <span class="eq-in">1/5</span> or <span class="eq-in">.2</span></span><span class="verdict">Both count</span></li>
+      </ul>
+      -->
+    </div>
+
+    <p class="plain">In plain words: what is actually being asked.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Step heading</h3>
+          <div class="word"><b>Term.</b> Plain-English meaning.</div>
+          <p>Body.</p>
+          <div class="keybox">The one thing to take from this step.</div>
+          <div class="faster"><span class="tag">The faster way, once you've met it</span>The algebraic shortcut, named but never used as the main path.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — …</strong></p>
+      <p>One sentence on why, in the language of the mental model.</p>
+    </div>
+
+    <div class="traps">
+      <!-- Multiple choice: what slip produces each wrong option.
+           Free response: the likely wrong paths, and the accepted forms. -->
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>What slip produces it, and why it looks right.</p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Now try these two</h3>
+      <p class="intro">Same idea, easier numbers. Work each one out before opening the answer — that is the whole point.</p>
+
+      <div class="pq">
+        <p class="pqtag">QUESTIONID · DIFFICULTY</p>
+        <p class="q-text">Practice question text, restored from its image.</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>…</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B.</b> One or two sentences — and say which step of the model above did the work.</p></div>
+        </details>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in N lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Portable rule.</strong> Stated so it applies to the next question of this type, not just this one.</span></li>
+    </ul>
+  </section>
+
+</div>
