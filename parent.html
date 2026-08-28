@@ -784,13 +784,19 @@
       if (!confirm('Reset Beta Sandbox data to fresh state?')) return;
       
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
-        PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
+        const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
+        if (!snap || !snap.success) {
+          alert('❌ Reset Cancelled: Could not create pre-reset safety snapshot (' + ((snap && snap.error) || 'Storage error') + '). Beta sandbox data has not been modified.');
+          return;
+        }
       }
 
       localStorage.removeItem('beta_psat_progress');
       localStorage.removeItem('beta_psat_srs');
       localStorage.removeItem('beta_psat_sessions');
       localStorage.removeItem('beta_psat_exam_history');
+      localStorage.removeItem('beta_psat_sample_data_active');
+      localStorage.removeItem('beta_psat_pre_sample_backup');
       localStorage.removeItem('beta_psat_pending_sync_count');
       localStorage.removeItem('beta_psat_last_cloud_sync_time');
 

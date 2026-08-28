@@ -1213,34 +1213,40 @@
    * Demo Mode State & Data Protection Manager
    * Handles safe archival of real student data before sample loading and lossless recovery.
    */
-  function isDemoModeActive(storage) {
+  /**
+   * Checks whether synthetic sample diagnostic data is currently loaded.
+   */
+  function isDemoModeActive(storage, loc) {
     var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!store) return false;
+    var env = getEnvironmentConfig(loc);
     try {
-      return store.getItem('psat_sample_data_active') === 'true';
+      return store.getItem(env.storagePrefix + 'psat_sample_data_active') === 'true';
     } catch (e) {
       return false;
     }
   }
 
-  function backupRealData(storage, safeGetFn, safeSetFn) {
+  function backupRealData(storage, safeGetFn, safeSetFn, loc) {
     var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!store) return false;
+    var env = getEnvironmentConfig(loc);
+    var prefix = env.storagePrefix;
 
-    // CRITICAL: Only write backup if demo mode is NOT already active
-    if (isDemoModeActive(store)) {
+    // CRITICAL: Only write backup if demo mode is NOT already active in this environment
+    if (isDemoModeActive(store, loc)) {
       return false; // Backup already contains real data; do not overwrite with sample data!
     }
 
     var getFn = safeGetFn || function(key, def) {
       try {
-        var v = store.getItem(key);
+        var v = store.getItem(prefix + key);
         return v ? JSON.parse(v) : def;
       } catch (e) { return def; }
     };
     var setFn = safeSetFn || function(key, val) {
       try {
-        store.setItem(key, JSON.stringify(val));
+        store.setItem(prefix + key, JSON.stringify(val));
         return true;
       } catch (e) { return false; }
     };
@@ -1255,24 +1261,26 @@
     return setFn('psat_pre_sample_backup', backup);
   }
 
-  function restoreRealData(storage, safeGetFn, safeSetFn) {
+  function restoreRealData(storage, safeGetFn, safeSetFn, loc) {
     var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!store) return false;
+    var env = getEnvironmentConfig(loc);
+    var prefix = env.storagePrefix;
 
     var getFn = safeGetFn || function(key, def) {
       try {
-        var v = store.getItem(key);
+        var v = store.getItem(prefix + key);
         return v ? JSON.parse(v) : def;
       } catch (e) { return def; }
     };
     var setFn = safeSetFn || function(key, val) {
       try {
-        store.setItem(key, JSON.stringify(val));
+        store.setItem(prefix + key, JSON.stringify(val));
         return true;
       } catch (e) { return false; }
     };
     var removeFn = function(key) {
-      try { store.removeItem(key); } catch (e) {}
+      try { store.removeItem(prefix + key); } catch (e) {}
     };
 
     var backup = getFn('psat_pre_sample_backup', null);
@@ -1585,17 +1593,18 @@
    * Creates a durable pre-action client snapshot in localStorage before critical state changes.
    * Capped to the last 5 snapshots to avoid storage bloat.
    */
-  function createClientSnapshot(store, reason) {
+  function createClientSnapshot(store, reason, loc) {
     if (!store) return { success: false, error: 'No storage available' };
-    var env = getEnvironmentConfig();
+    var env = getEnvironmentConfig(loc);
     var prefix = env.storagePrefix;
     var pKey = prefix + 'psat_progress';
     var sKey = prefix + 'psat_srs';
     var sessKey = prefix + 'psat_sessions';
     var hKey = prefix + 'psat_exam_history';
 
+    var snapId = 'snap_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     var snapshot = {
-      id: 'snap_' + Date.now(),
+      id: snapId,
       timestamp: Date.now(),
       reason: reason || 'manual_snapshot',
       env: env.envName,
@@ -1633,9 +1642,9 @@
     }
   }
 
-  function listClientSnapshots(store) {
+  function listClientSnapshots(store, loc) {
     if (!store) return [];
-    var env = getEnvironmentConfig();
+    var env = getEnvironmentConfig(loc);
     var indexKey = env.storagePrefix + 'psat_client_snapshots';
     try {
       var idxRaw = store.getItem(indexKey);
@@ -1645,10 +1654,12 @@
     }
   }
 
-  function restoreClientSnapshot(store, snapshotId) {
+  function restoreClientSnapshot(store, snapshotId, loc) {
     if (!store || !snapshotId) return { success: false, error: 'Invalid parameters' };
-    var env = getEnvironmentConfig();
-    var snapKey = env.storagePrefix + 'psat_snapshot_' + snapshotId;
+    var env = getEnvironmentConfig(loc);
+    var snapKey = snapshotId.indexOf(env.storagePrefix + 'psat_snapshot_') === 0 ? 
+      snapshotId : 
+      (env.storagePrefix + 'psat_snapshot_' + snapshotId);
     try {
       var raw = store.getItem(snapKey);
       if (!raw) return { success: false, error: 'Snapshot not found' };
@@ -1656,7 +1667,10 @@
       if (!snap || !snap.data) return { success: false, error: 'Malformed snapshot data' };
 
       // Pre-restore snapshot of current state before rollback
-      createClientSnapshot(store, 'pre_snapshot_rollback');
+      var preSnap = createClientSnapshot(store, 'pre_snapshot_rollback', loc);
+      if (!preSnap || !preSnap.success) {
+        return { success: false, error: 'Pre-restore safety snapshot failed: ' + ((preSnap && preSnap.error) || 'Storage error') };
+      }
 
       var prefix = env.storagePrefix;
       store.setItem(prefix + 'psat_progress', JSON.stringify(snap.data.progress || {}));
@@ -1672,13 +1686,13 @@
   /**
    * Pushes progress and exam history to Cosmos DB cloud API.
    */
-  function pushToCloud(store, customFetch, studentName) {
-    var env = getEnvironmentConfig();
+  function pushToCloud(store, customFetch, studentName, loc) {
+    var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
     var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
-    if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+    if (isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
     var progress = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_progress') : null) || '{}');
     var srs = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_srs') : null) || '{}');
@@ -1716,24 +1730,35 @@
   /**
    * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
    */
-  function pullFromCloud(store, customFetch, studentName, safeSetStorageFn) {
-    var env = getEnvironmentConfig();
+  function pullFromCloud(store, customFetch, studentName, safeSetStorageFn, loc) {
+    var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
     var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
-    if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+    if (isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
     var setter = safeSetStorageFn || function(key, val) {
       try {
         if (store && store.setItem) {
-          store.setItem(key, JSON.stringify(val));
+          store.setItem(prefix + key, JSON.stringify(val));
           return true;
         }
         return false;
       } catch (e) {
         console.error('Storage quota write error for key:', key, e);
         return false;
+      }
+    };
+
+    var getter = function(key) {
+      try {
+        if (store && store.getItem) {
+          return store.getItem(prefix + key);
+        }
+        return null;
+      } catch (e) {
+        return null;
       }
     };
 
@@ -1748,10 +1773,10 @@
           }
           if (result.exists && result.data) {
             var cloud = result.data;
-            var localProgRaw = (store && store.getItem ? store.getItem(prefix + 'psat_progress') : null);
-            var localHistRaw = (store && store.getItem ? store.getItem(prefix + 'psat_exam_history') : null);
-            var localSessRaw = (store && store.getItem ? store.getItem(prefix + 'psat_sessions') : null);
-            var localSrsRaw = (store && store.getItem ? store.getItem(prefix + 'psat_srs') : null);
+            var localProgRaw = getter('psat_progress');
+            var localHistRaw = getter('psat_exam_history');
+            var localSessRaw = getter('psat_sessions');
+            var localSrsRaw = getter('psat_srs');
 
             var localProg = JSON.parse(localProgRaw || '{}');
             var localHist = JSON.parse(localHistRaw || '[]');
@@ -1763,10 +1788,11 @@
             var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
             var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
 
-            var ok1 = setter(prefix + 'psat_progress', mergedProg);
-            var ok2 = setter(prefix + 'psat_srs', mergedSrs);
-            var ok3 = setter(prefix + 'psat_sessions', mergedSess);
-            var ok4 = setter(prefix + 'psat_exam_history', mergedHist);
+            // Pass unprefixed keys to setter (the browser storage wrapper safeSetStorage prefixes them)
+            var ok1 = setter('psat_progress', mergedProg);
+            var ok2 = setter('psat_srs', mergedSrs);
+            var ok3 = setter('psat_sessions', mergedSess);
+            var ok4 = setter('psat_exam_history', mergedHist);
 
             if (!ok1 || !ok2 || !ok3 || !ok4) {
               // Rollback to original uncorrupted state on partial quota write failure

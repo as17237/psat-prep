@@ -871,7 +871,125 @@ const mockFetch = async (url, opts) => {
   const restoredProg = JSON.parse(mockStorage.getItem('psat_progress'));
   assert.ok(restoredProg.q1 && restoredProg.q1.isCorrect, 'Original data must be restored from snapshot');
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, and Cosmos DB Cloud Sync tests passed!');
+  // 17. Beta Cloud Pull via Browser Storage Adapter (No Double Prefixing)
+  // ------------------------------------------------------------------
+  const betaStore = {};
+  const betaStorageMock = {
+    getItem: k => betaStore[k] !== undefined ? betaStore[k] : null,
+    setItem: (k, v) => { betaStore[k] = String(v); },
+    removeItem: k => { delete betaStore[k]; }
+  };
+  const browserSafeSetStorage = (key, val) => {
+    betaStorageMock.setItem('beta_' + key, JSON.stringify(val));
+    return true;
+  };
+  const fakeBetaFetch = () => Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({
+      success: true,
+      exists: true,
+      data: {
+        progress: { 'q_beta_1': { answered: true, isCorrect: true, selectedAnswer: 'A' } },
+        srsState: { 'q_beta_1': { repetitions: 1 } },
+        sessionsState: {},
+        examHistory: []
+      }
+    })
+  });
+  const pullBetaRes = await PSAT_ENGINE.pullFromCloud(betaStorageMock, fakeBetaFetch, 'beta_default_student', browserSafeSetStorage, { pathname: '/beta/index.html' });
+  assert.strictEqual(pullBetaRes.success, true, 'Beta cloud pull must succeed');
+  assert.ok(betaStore['beta_psat_progress'], 'Data must land at beta_psat_progress');
+  const betaProgObj = JSON.parse(betaStore['beta_psat_progress']);
+  assert.ok(betaProgObj['q_beta_1'] && betaProgObj['q_beta_1'].isCorrect, 'Beta question data must be stored correctly');
+  assert.strictEqual(betaStore['beta_beta_psat_progress'], undefined, 'Must NEVER double-prefix to beta_beta_psat_progress');
+
+  // 18. Pre-Restore Snapshot Failure Abort Guard Test
+  // ------------------------------------------------------------------
+  const failingStorageMap = {
+    'psat_progress': JSON.stringify({ 'original_q': { answered: true, isCorrect: true } }),
+    'psat_snapshot_snap_valid': JSON.stringify({
+      id: 'snap_valid',
+      timestamp: 12345,
+      reason: 'backup',
+      data: { progress: { 'restored_q': true }, srs: {}, sessions: {}, examHistory: [] }
+    }),
+    'psat_client_snapshots': JSON.stringify([{ id: 'snap_valid', key: 'psat_snapshot_snap_valid' }])
+  };
+  let failQuotaOnSnapshot = false;
+  const failingStorage = {
+    getItem: k => failingStorageMap[k] !== undefined ? failingStorageMap[k] : null,
+    setItem: (k, v) => {
+      if (failQuotaOnSnapshot && k.indexOf('psat_snapshot_') !== -1) {
+        throw new Error('QuotaExceededError');
+      }
+      failingStorageMap[k] = String(v);
+    },
+    removeItem: k => { delete failingStorageMap[k]; }
+  };
+  failQuotaOnSnapshot = true;
+  const abortRestoreRes = PSAT_ENGINE.restoreClientSnapshot(failingStorage, 'snap_valid', { pathname: '/index.html' });
+  assert.strictEqual(abortRestoreRes.success, false, 'restoreClientSnapshot must fail if pre-restore snapshot fails');
+  assert.ok(abortRestoreRes.error && abortRestoreRes.error.indexOf('Pre-restore safety snapshot failed') !== -1);
+  const uncorruptedProg = JSON.parse(failingStorage.getItem('psat_progress'));
+  assert.ok(uncorruptedProg.original_q && uncorruptedProg.original_q.isCorrect, 'Original progress must remain 100% untouched after aborted restore');
+  assert.strictEqual(uncorruptedProg.restored_q, undefined, 'Restored data must NOT have been written');
+
+  // 19. Environment-Aware Demo Mode Isolation Test (Beta vs Production)
+  // ------------------------------------------------------------------
+  const prodDataString = JSON.stringify({ 'prod_q1': { answered: true, isCorrect: true, selectedAnswer: 'B' } });
+  const prodSrsString = JSON.stringify({ 'prod_q1': { repetitions: 3, intervalDays: 6 } });
+  const prodHistString = JSON.stringify([{ id: 'prod_exam_1', title: 'Prod Exam 1' }]);
+  
+  const combinedStorageMap = {
+    'psat_progress': prodDataString,
+    'psat_srs': prodSrsString,
+    'psat_exam_history': prodHistString,
+    'psat_sessions': '{}',
+    'beta_psat_progress': JSON.stringify({ 'beta_orig': { answered: true, isCorrect: true } }),
+    'beta_psat_srs': '{}',
+    'beta_psat_sessions': '{}',
+    'beta_psat_exam_history': '[]'
+  };
+  const combinedStorage = {
+    getItem: k => combinedStorageMap[k] !== undefined ? combinedStorageMap[k] : null,
+    setItem: (k, v) => { combinedStorageMap[k] = String(v); },
+    removeItem: k => { delete combinedStorageMap[k]; }
+  };
+  
+  const betaLoc = { pathname: '/beta/index.html' };
+  const prodLoc = { pathname: '/index.html' };
+  
+  // 1. Beta backup real data
+  const backedUp = PSAT_ENGINE.backupRealData(combinedStorage, null, null, betaLoc);
+  assert.strictEqual(backedUp, true, 'Beta backup real data must succeed');
+  assert.ok(combinedStorageMap['beta_psat_pre_sample_backup'], 'Beta backup key must exist');
+  assert.strictEqual(combinedStorageMap['psat_pre_sample_backup'], undefined, 'Production backup key must NOT be created');
+  
+  combinedStorage.setItem('beta_psat_sample_data_active', 'true');
+  assert.strictEqual(PSAT_ENGINE.isDemoModeActive(combinedStorage, betaLoc), true, 'Beta demo mode must be active');
+  assert.strictEqual(PSAT_ENGINE.isDemoModeActive(combinedStorage, prodLoc), false, 'Prod demo mode must NOT be active');
+  
+  // 2. Beta load sample data
+  combinedStorage.setItem('beta_psat_progress', JSON.stringify({ 'beta_sample_q': true }));
+  
+  // 3. Beta restore real data
+  const restoredBeta = PSAT_ENGINE.restoreRealData(combinedStorage, null, null, betaLoc);
+  assert.strictEqual(restoredBeta, true, 'Beta restore real data must succeed');
+  assert.strictEqual(PSAT_ENGINE.isDemoModeActive(combinedStorage, betaLoc), false, 'Beta demo mode must be deactivated');
+  
+  const restoredBetaProg = JSON.parse(combinedStorageMap['beta_psat_progress']);
+  assert.ok(restoredBetaProg.beta_orig, 'Beta real data must be restored');
+  assert.strictEqual(restoredBetaProg.beta_sample_q, undefined, 'Beta sample data must be removed');
+  
+  // 4. Assert production keys are byte-for-byte identical
+  assert.strictEqual(combinedStorageMap['psat_progress'], prodDataString, 'psat_progress must be byte-for-byte unchanged');
+  assert.strictEqual(combinedStorageMap['psat_srs'], prodSrsString, 'psat_srs must be byte-for-byte unchanged');
+  assert.strictEqual(combinedStorageMap['psat_exam_history'], prodHistString, 'psat_exam_history must be byte-for-byte unchanged');
+  assert.strictEqual(combinedStorageMap['psat_sample_data_active'], undefined, 'Production sample data flag must never be created');
+  assert.strictEqual(combinedStorageMap['psat_pre_sample_backup'], undefined, 'Production sample backup key must never be created');
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 
