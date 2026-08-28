@@ -23,6 +23,22 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
+  <!-- Beta Sandbox Environment Top Banner -->
+  <div id="beta-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-xs flex flex-wrap items-center justify-between shadow-md border-b border-amber-600 z-50">
+    <div class="flex items-center space-x-2">
+      <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-wider">🧪 Beta Sandbox</span>
+      <span class="text-slate-950">Isolated Test Environment &bull; Profile: <code class="bg-black/10 px-1 py-0.5 rounded text-slate-950 font-mono">beta_default_student</code> (Live Student Data Protected)</span>
+    </div>
+    <div class="flex items-center space-x-2 pt-1 sm:pt-0">
+      <button onclick="cloneProdDataToBeta()" class="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
+        <i data-lucide="copy" class="w-3.5 h-3.5 mr-1"></i> Copy Prod Data to Beta
+      </button>
+      <button onclick="resetBetaSandbox()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1"></i> Reset Beta
+      </button>
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1018,9 +1034,13 @@
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    const APP_ENV = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getEnvironmentConfig) ?
+      PSAT_ENGINE.getEnvironmentConfig() :
+      { isBeta: (window.location.pathname.indexOf('/beta') !== -1 || window.location.search.indexOf('env=beta') !== -1), storagePrefix: (window.location.pathname.indexOf('/beta') !== -1 || window.location.search.indexOf('env=beta') !== -1) ? 'beta_' : '', studentName: 'default_student', envName: 'Production' };
+
     function safeGetStorage(key, defaultVal) {
       try {
-        const item = localStorage.getItem(key);
+        const item = localStorage.getItem(APP_ENV.storagePrefix + key);
         return item ? JSON.parse(item) : defaultVal;
       } catch (e) {
         console.warn('Storage read error for key:', key, e);
@@ -1030,12 +1050,77 @@
 
     function safeSetStorage(key, val) {
       try {
-        localStorage.setItem(key, JSON.stringify(val));
+        localStorage.setItem(APP_ENV.storagePrefix + key, JSON.stringify(val));
+        if (key === 'psat_progress' || key === 'psat_exam_history' || key === 'psat_srs') {
+          const currentPending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(currentPending + 1));
+          updateSyncStatusBadge();
+        }
         return true;
       } catch (e) {
         console.error('Storage write error for key:', key, e);
         return false;
       }
+    }
+
+    function cloneProdDataToBeta() {
+      if (!APP_ENV.isBeta) return;
+      if (!confirm('Copy Production Data into Beta Sandbox?\n\nThis will snapshot the current live student profile into your Beta sandbox so you can test realistic data. Production data will NOT be modified.')) return;
+      
+      const prodProgress = localStorage.getItem('psat_progress');
+      const prodSrs = localStorage.getItem('psat_srs');
+      const prodSessions = localStorage.getItem('psat_sessions');
+      const prodHistory = localStorage.getItem('psat_exam_history');
+
+      if (prodProgress) localStorage.setItem('beta_psat_progress', prodProgress);
+      if (prodSrs) localStorage.setItem('beta_psat_srs', prodSrs);
+      if (prodSessions) localStorage.setItem('beta_psat_sessions', prodSessions);
+      if (prodHistory) localStorage.setItem('beta_psat_exam_history', prodHistory);
+
+      alert('✓ Production data snapshot copied into Beta Sandbox! Reloading...');
+      location.reload();
+    }
+
+    function resetBetaSandbox() {
+      if (!APP_ENV.isBeta) return;
+      if (!confirm('Reset Beta Sandbox data to fresh state?')) return;
+      
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
+        PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
+      }
+
+      localStorage.removeItem('beta_psat_progress');
+      localStorage.removeItem('beta_psat_srs');
+      localStorage.removeItem('beta_psat_sessions');
+      localStorage.removeItem('beta_psat_exam_history');
+      localStorage.removeItem('beta_psat_pending_sync_count');
+      localStorage.removeItem('beta_psat_last_cloud_sync_time');
+
+      alert('✓ Beta Sandbox reset to clean state! Reloading...');
+      location.reload();
+    }
+
+    function updateSyncStatusBadge() {
+      const badge = document.getElementById('hdr-cloud-badge');
+      if (!badge) return;
+      const pending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const lastSync = localStorage.getItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time');
+
+      let timeAgoStr = 'Never';
+      if (lastSync) {
+        const mins = Math.floor((Date.now() - parseInt(lastSync, 10)) / 60000);
+        if (mins < 1) timeAgoStr = 'Just now';
+        else if (mins === 1) timeAgoStr = '1m ago';
+        else if (mins < 60) timeAgoStr = `${mins}m ago`;
+        else timeAgoStr = `${Math.floor(mins / 60)}h ago`;
+      }
+
+      if (pending > 0) {
+        badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: ${pending} Pending`;
+      } else {
+        badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB: Synced (${timeAgoStr})`;
+      }
+      lucide.createIcons();
     }
 
     let questions = window.QUESTIONS_DATA || [];
@@ -1118,7 +1203,7 @@
         lucide.createIcons();
       }
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(pullRes => {
+        PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(pullRes => {
           if (pullRes && pullRes.success) {
             progress = safeGetStorage('psat_progress', {});
             srsState = safeGetStorage('psat_srs', {});
@@ -1127,27 +1212,26 @@
             renderPalette();
             renderExamLobbyHistory();
             if (typeof PSAT_ENGINE.pushToCloud === 'function') {
-              return PSAT_ENGINE.pushToCloud(localStorage);
+              return PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
             }
           }
           return pullRes;
         }).then(pushRes => {
-          if (el) {
-            if (pushRes && pushRes.success) {
-              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
-              alert('Successfully synchronized student test results with Cosmos DB!');
-            } else {
-              el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-              alert('Sync notice: Could not connect to Cosmos DB.');
-            }
-            lucide.createIcons();
+          if (pushRes && pushRes.success) {
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+            updateSyncStatusBadge();
+            alert(`✓ Successfully synchronized with Azure Cosmos DB profile (${APP_ENV.studentName})!`);
+          } else {
+            updateSyncStatusBadge();
+            alert('Sync notice: Could not connect to Cosmos DB. Changes remain safely cached locally.');
           }
-        }).catch(() => {
-          if (el) {
-            el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-            lucide.createIcons();
-          }
+        }).catch(err => {
+          console.warn('Manual cloud sync failed:', err);
+          updateSyncStatusBadge();
         });
+      }
+    }
       }
     }
 
@@ -3346,10 +3430,16 @@
         startCustomTestDirect(filtered);
       }
 
+      // Show Beta Sandbox banner if running in beta mode
+      if (APP_ENV.isBeta) {
+        const betaBanner = document.getElementById('beta-sandbox-banner');
+        if (betaBanner) betaBanner.classList.remove('hidden');
+      }
+      updateSyncStatusBadge();
+
       // Automatic cloud sync on app start
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
-          const el = document.getElementById('hdr-cloud-badge');
+        PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
           if (res && res.success) {
             if (res.updated) {
               progress = safeGetStorage('psat_progress', {});
@@ -3359,22 +3449,14 @@
               renderPalette();
               renderExamLobbyHistory();
             }
-            if (el) {
-              el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
-              lucide.createIcons();
-            }
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
+            updateSyncStatusBadge();
           } else {
-            if (el) {
-              el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-              lucide.createIcons();
-            }
+            updateSyncStatusBadge();
           }
         }).catch(() => {
-          const el = document.getElementById('hdr-cloud-badge');
-          if (el) {
-            el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-            lucide.createIcons();
-          }
+          updateSyncStatusBadge();
         });
       }
     });

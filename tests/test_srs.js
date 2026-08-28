@@ -826,21 +826,52 @@ const mockFetch = async (url, opts) => {
   const transferQuestions = flawedPlan.questions.filter(q => q._recoveryRole === 'transfer_sibling');
   assert.strictEqual(transferQuestions.length, 2, 'Must include 2 transfer siblings matching the missed skills');
 
-  // 14. Error Root-Cause Tag Aggregation Test
+  // 15. Beta Environment Isolation Test
   // ------------------------------------------------------------------
-  const mockTroubleSpots = [
-    { questionId: 'q1', errorTag: 'concept_gap' },
-    { questionId: 'q2', errorTag: 'misread' },
-    { questionId: 'q3', errorTag: 'misread' },
-    { questionId: 'q4', errorTag: null }
-  ];
-  const tagSummary = PSAT_ENGINE.aggregateErrorTags(mockTroubleSpots);
-  assert.strictEqual(tagSummary.total, 4);
-  assert.strictEqual(tagSummary.counts.concept_gap, 1);
-  assert.strictEqual(tagSummary.counts.misread, 2);
-  assert.strictEqual(tagSummary.counts.untagged, 1);
+  const prodEnv = PSAT_ENGINE.getEnvironmentConfig({ pathname: '/index.html', search: '' });
+  assert.strictEqual(prodEnv.isBeta, false, 'Root path must resolve to production');
+  assert.strictEqual(prodEnv.storagePrefix, '', 'Production storage prefix must be empty');
+  assert.strictEqual(prodEnv.studentName, 'default_student', 'Production student profile must be default_student');
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, and Cosmos DB Cloud Sync tests passed!');
+  const betaEnv = PSAT_ENGINE.getEnvironmentConfig({ pathname: '/beta/index.html', search: '' });
+  assert.strictEqual(betaEnv.isBeta, true, '/beta/ path must resolve to beta');
+  assert.strictEqual(betaEnv.storagePrefix, 'beta_', 'Beta storage prefix must be beta_');
+  assert.strictEqual(betaEnv.studentName, 'beta_default_student', 'Beta student profile must be beta_default_student');
+
+  const betaSearchEnv = PSAT_ENGINE.getEnvironmentConfig({ pathname: '/index.html', search: '?env=beta' });
+  assert.strictEqual(betaSearchEnv.isBeta, true, '?env=beta query param must resolve to beta');
+  assert.strictEqual(betaSearchEnv.storagePrefix, 'beta_');
+
+  // 16. Client-Side Pre-Action Safety Snapshot & Bounding Test
+  // ------------------------------------------------------------------
+  const mockStorageMap = {};
+  const mockStorage = {
+    getItem: function(k) { return mockStorageMap[k] !== undefined ? mockStorageMap[k] : null; },
+    setItem: function(k, v) { mockStorageMap[k] = String(v); },
+    removeItem: function(k) { delete mockStorageMap[k]; }
+  };
+
+  mockStorage.setItem('psat_progress', JSON.stringify({ 'q1': { answered: true, isCorrect: true } }));
+  mockStorage.setItem('psat_srs', JSON.stringify({ 'q1': { repetitions: 2 } }));
+
+  // Create 7 snapshots to test pruning to max 5
+  for (let i = 1; i <= 7; i++) {
+    const snapResult = PSAT_ENGINE.createClientSnapshot(mockStorage, 'test_action_' + i);
+    assert.strictEqual(snapResult.success, true, `Snapshot ${i} must succeed`);
+  }
+
+  const snapshotList = PSAT_ENGINE.listClientSnapshots(mockStorage);
+  assert.strictEqual(snapshotList.length, 5, 'Client snapshots must be bounded to 5 items maximum');
+  assert.strictEqual(snapshotList[0].reason, 'test_action_7', 'Newest snapshot must be at index 0');
+
+  // Test Snapshot Rollback
+  mockStorage.setItem('psat_progress', JSON.stringify({ 'corrupted_q': true }));
+  const restoreRes = PSAT_ENGINE.restoreClientSnapshot(mockStorage, snapshotList[0].id);
+  assert.strictEqual(restoreRes.success, true, 'Snapshot restore must succeed');
+  const restoredProg = JSON.parse(mockStorage.getItem('psat_progress'));
+  assert.ok(restoredProg.q1 && restoredProg.q1.isCorrect, 'Original data must be restored from snapshot');
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

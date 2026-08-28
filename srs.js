@@ -1563,18 +1563,127 @@
   }
 
   /**
+   * Resolves runtime environment configuration for beta vs production isolation.
+   */
+  function getEnvironmentConfig(loc) {
+    var l = loc || (typeof window !== 'undefined' ? window.location : null);
+    var isBeta = false;
+    if (l) {
+      var path = l.pathname || '';
+      var search = l.search || '';
+      isBeta = (path.indexOf('/beta') !== -1 || search.indexOf('env=beta') !== -1 || (typeof window !== 'undefined' && window.__IS_BETA__ === true));
+    }
+    return {
+      isBeta: isBeta,
+      storagePrefix: isBeta ? 'beta_' : '',
+      studentName: isBeta ? 'beta_default_student' : 'default_student',
+      envName: isBeta ? 'Beta Sandbox' : 'Production'
+    };
+  }
+
+  /**
+   * Creates a durable pre-action client snapshot in localStorage before critical state changes.
+   * Capped to the last 5 snapshots to avoid storage bloat.
+   */
+  function createClientSnapshot(store, reason) {
+    if (!store) return { success: false, error: 'No storage available' };
+    var env = getEnvironmentConfig();
+    var prefix = env.storagePrefix;
+    var pKey = prefix + 'psat_progress';
+    var sKey = prefix + 'psat_srs';
+    var sessKey = prefix + 'psat_sessions';
+    var hKey = prefix + 'psat_exam_history';
+
+    var snapshot = {
+      id: 'snap_' + Date.now(),
+      timestamp: Date.now(),
+      reason: reason || 'manual_snapshot',
+      env: env.envName,
+      data: {
+        progress: JSON.parse((store.getItem ? store.getItem(pKey) : null) || '{}'),
+        srs: JSON.parse((store.getItem ? store.getItem(sKey) : null) || '{}'),
+        sessions: JSON.parse((store.getItem ? store.getItem(sessKey) : null) || '{}'),
+        examHistory: JSON.parse((store.getItem ? store.getItem(hKey) : null) || '[]')
+      }
+    };
+
+    var snapKey = prefix + 'psat_snapshot_' + snapshot.id;
+    var indexKey = prefix + 'psat_client_snapshots';
+
+    try {
+      store.setItem(snapKey, JSON.stringify(snapshot));
+
+      var idxRaw = store.getItem(indexKey);
+      var index = idxRaw ? JSON.parse(idxRaw) : [];
+      index.unshift({ id: snapshot.id, timestamp: snapshot.timestamp, reason: snapshot.reason, key: snapKey });
+      
+      // Prune snapshots beyond 5
+      if (index.length > 5) {
+        var pruned = index.slice(5);
+        pruned.forEach(function(item) {
+          try { store.removeItem(item.key); } catch (e) {}
+        });
+        index = index.slice(0, 5);
+      }
+      store.setItem(indexKey, JSON.stringify(index));
+      return { success: true, snapshotId: snapshot.id, snapshotKey: snapKey };
+    } catch (err) {
+      console.error('Failed to create pre-action safety snapshot:', err);
+      return { success: false, error: err.message || 'Storage Quota Exceeded' };
+    }
+  }
+
+  function listClientSnapshots(store) {
+    if (!store) return [];
+    var env = getEnvironmentConfig();
+    var indexKey = env.storagePrefix + 'psat_client_snapshots';
+    try {
+      var idxRaw = store.getItem(indexKey);
+      return idxRaw ? JSON.parse(idxRaw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function restoreClientSnapshot(store, snapshotId) {
+    if (!store || !snapshotId) return { success: false, error: 'Invalid parameters' };
+    var env = getEnvironmentConfig();
+    var snapKey = env.storagePrefix + 'psat_snapshot_' + snapshotId;
+    try {
+      var raw = store.getItem(snapKey);
+      if (!raw) return { success: false, error: 'Snapshot not found' };
+      var snap = JSON.parse(raw);
+      if (!snap || !snap.data) return { success: false, error: 'Malformed snapshot data' };
+
+      // Pre-restore snapshot of current state before rollback
+      createClientSnapshot(store, 'pre_snapshot_rollback');
+
+      var prefix = env.storagePrefix;
+      store.setItem(prefix + 'psat_progress', JSON.stringify(snap.data.progress || {}));
+      store.setItem(prefix + 'psat_srs', JSON.stringify(snap.data.srs || {}));
+      store.setItem(prefix + 'psat_sessions', JSON.stringify(snap.data.sessions || {}));
+      store.setItem(prefix + 'psat_exam_history', JSON.stringify(snap.data.examHistory || []));
+      return { success: true, timestamp: snap.timestamp, reason: snap.reason };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  /**
    * Pushes progress and exam history to Cosmos DB cloud API.
    */
   function pushToCloud(store, customFetch, studentName) {
-    var sName = studentName || 'default_student';
+    var env = getEnvironmentConfig();
+    var sName = studentName || env.studentName;
+    var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
-    var progress = JSON.parse((store && store.getItem ? store.getItem('psat_progress') : null) || '{}');
-    var srs = JSON.parse((store && store.getItem ? store.getItem('psat_srs') : null) || '{}');
-    var sessions = JSON.parse((store && store.getItem ? store.getItem('psat_sessions') : null) || '{}');
-    var history = JSON.parse((store && store.getItem ? store.getItem('psat_exam_history') : null) || '[]');
+    var progress = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_progress') : null) || '{}');
+    var srs = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_srs') : null) || '{}');
+    var sessions = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_sessions') : null) || '{}');
+    var history = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_exam_history') : null) || '[]');
 
     var payload = {
       student_name: sName,
@@ -1608,7 +1717,9 @@
    * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
    */
   function pullFromCloud(store, customFetch, studentName, safeSetStorageFn) {
-    var sName = studentName || 'default_student';
+    var env = getEnvironmentConfig();
+    var sName = studentName || env.studentName;
+    var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store)) return Promise.resolve({ success: false, reason: 'demo_mode' });
@@ -1637,10 +1748,10 @@
           }
           if (result.exists && result.data) {
             var cloud = result.data;
-            var localProgRaw = (store && store.getItem ? store.getItem('psat_progress') : null);
-            var localHistRaw = (store && store.getItem ? store.getItem('psat_exam_history') : null);
-            var localSessRaw = (store && store.getItem ? store.getItem('psat_sessions') : null);
-            var localSrsRaw = (store && store.getItem ? store.getItem('psat_srs') : null);
+            var localProgRaw = (store && store.getItem ? store.getItem(prefix + 'psat_progress') : null);
+            var localHistRaw = (store && store.getItem ? store.getItem(prefix + 'psat_exam_history') : null);
+            var localSessRaw = (store && store.getItem ? store.getItem(prefix + 'psat_sessions') : null);
+            var localSrsRaw = (store && store.getItem ? store.getItem(prefix + 'psat_srs') : null);
 
             var localProg = JSON.parse(localProgRaw || '{}');
             var localHist = JSON.parse(localHistRaw || '[]');
@@ -1652,26 +1763,26 @@
             var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
             var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
 
-            var ok1 = setter('psat_progress', mergedProg);
-            var ok2 = setter('psat_srs', mergedSrs);
-            var ok3 = setter('psat_sessions', mergedSess);
-            var ok4 = setter('psat_exam_history', mergedHist);
+            var ok1 = setter(prefix + 'psat_progress', mergedProg);
+            var ok2 = setter(prefix + 'psat_srs', mergedSrs);
+            var ok3 = setter(prefix + 'psat_sessions', mergedSess);
+            var ok4 = setter(prefix + 'psat_exam_history', mergedHist);
 
             if (!ok1 || !ok2 || !ok3 || !ok4) {
               // Rollback to original uncorrupted state on partial quota write failure
               try {
                 if (store) {
-                  if (localProgRaw !== null && store.setItem) store.setItem('psat_progress', localProgRaw);
-                  else if (store.removeItem) store.removeItem('psat_progress');
+                  if (localProgRaw !== null && store.setItem) store.setItem(prefix + 'psat_progress', localProgRaw);
+                  else if (store.removeItem) store.removeItem(prefix + 'psat_progress');
 
-                  if (localSrsRaw !== null && store.setItem) store.setItem('psat_srs', localSrsRaw);
-                  else if (store.removeItem) store.removeItem('psat_srs');
+                  if (localSrsRaw !== null && store.setItem) store.setItem(prefix + 'psat_srs', localSrsRaw);
+                  else if (store.removeItem) store.removeItem(prefix + 'psat_srs');
 
-                  if (localSessRaw !== null && store.setItem) store.setItem('psat_sessions', localSessRaw);
-                  else if (store.removeItem) store.removeItem('psat_sessions');
+                  if (localSessRaw !== null && store.setItem) store.setItem(prefix + 'psat_sessions', localSessRaw);
+                  else if (store.removeItem) store.removeItem(prefix + 'psat_sessions');
 
-                  if (localHistRaw !== null && store.setItem) store.setItem('psat_exam_history', localHistRaw);
-                  else if (store.removeItem) store.removeItem('psat_exam_history');
+                  if (localHistRaw !== null && store.setItem) store.setItem(prefix + 'psat_exam_history', localHistRaw);
+                  else if (store.removeItem) store.removeItem(prefix + 'psat_exam_history');
                 }
               } catch (rollbackErr) {
                 console.error('Error during storage rollback:', rollbackErr);
@@ -1726,6 +1837,10 @@
     generatePostExamRecoveryPlan: generatePostExamRecoveryPlan,
     ERROR_TAGS: ERROR_TAGS,
     aggregateErrorTags: aggregateErrorTags,
+    getEnvironmentConfig: getEnvironmentConfig,
+    createClientSnapshot: createClientSnapshot,
+    listClientSnapshots: listClientSnapshots,
+    restoreClientSnapshot: restoreClientSnapshot,
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
     pushToCloud: pushToCloud,

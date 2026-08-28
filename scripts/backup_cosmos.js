@@ -57,7 +57,8 @@ async function runBackup() {
       container: containerName,
       version: '1.0'
     },
-    documents: allDocs
+    documents: allDocs,
+    studentAnswers: allDocs
   };
 
   fs.writeFileSync(backupPath, JSON.stringify(backupPayload, null, 2), 'utf8');

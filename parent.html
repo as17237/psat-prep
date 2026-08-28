@@ -18,6 +18,22 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
+  <!-- Beta Sandbox Environment Top Banner -->
+  <div id="beta-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-xs flex flex-wrap items-center justify-between shadow-md border-b border-amber-600 z-50">
+    <div class="flex items-center space-x-2">
+      <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-wider">🧪 Beta Sandbox</span>
+      <span class="text-slate-950">Isolated Test Environment &bull; Profile: <code class="bg-black/10 px-1 py-0.5 rounded text-slate-950 font-mono">beta_default_student</code> (Live Student Data Protected)</span>
+    </div>
+    <div class="flex items-center space-x-2 pt-1 sm:pt-0">
+      <button onclick="cloneProdDataToBeta()" class="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
+        <i data-lucide="copy" class="w-3.5 h-3.5 mr-1"></i> Copy Prod Data to Beta
+      </button>
+      <button onclick="resetBetaSandbox()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1"></i> Reset Beta
+      </button>
+    </div>
+  </div>
+
   <!-- Parent Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -716,9 +732,13 @@
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
+    const APP_ENV = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getEnvironmentConfig) ?
+      PSAT_ENGINE.getEnvironmentConfig() :
+      { isBeta: (window.location.pathname.indexOf('/beta') !== -1 || window.location.search.indexOf('env=beta') !== -1), storagePrefix: (window.location.pathname.indexOf('/beta') !== -1 || window.location.search.indexOf('env=beta') !== -1) ? 'beta_' : '', studentName: 'default_student', envName: 'Production' };
+
     function safeGetStorage(key, defaultVal) {
       try {
-        const item = localStorage.getItem(key);
+        const item = localStorage.getItem(APP_ENV.storagePrefix + key);
         return item ? JSON.parse(item) : defaultVal;
       } catch (e) {
         console.warn('Storage read error for key:', key, e);
@@ -728,11 +748,75 @@
 
     function safeSetStorage(key, val) {
       try {
-        localStorage.setItem(key, JSON.stringify(val));
+        localStorage.setItem(APP_ENV.storagePrefix + key, JSON.stringify(val));
+        if (key === 'psat_progress' || key === 'psat_exam_history' || key === 'psat_srs') {
+          const currentPending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(currentPending + 1));
+          updateParentSyncStatusBadge();
+        }
         return true;
       } catch (e) {
         console.error('Storage write error for key:', key, e);
         return false;
+      }
+    }
+
+    function cloneProdDataToBeta() {
+      if (!APP_ENV.isBeta) return;
+      if (!confirm('Copy Production Data into Beta Sandbox?\n\nThis will snapshot the current live student profile into your Beta sandbox so you can test realistic data. Production data will NOT be modified.')) return;
+      
+      const prodProgress = localStorage.getItem('psat_progress');
+      const prodSrs = localStorage.getItem('psat_srs');
+      const prodSessions = localStorage.getItem('psat_sessions');
+      const prodHistory = localStorage.getItem('psat_exam_history');
+
+      if (prodProgress) localStorage.setItem('beta_psat_progress', prodProgress);
+      if (prodSrs) localStorage.setItem('beta_psat_srs', prodSrs);
+      if (prodSessions) localStorage.setItem('beta_psat_sessions', prodSessions);
+      if (prodHistory) localStorage.setItem('beta_psat_exam_history', prodHistory);
+
+      alert('✓ Production data snapshot copied into Beta Sandbox! Reloading...');
+      location.reload();
+    }
+
+    function resetBetaSandbox() {
+      if (!APP_ENV.isBeta) return;
+      if (!confirm('Reset Beta Sandbox data to fresh state?')) return;
+      
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
+        PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
+      }
+
+      localStorage.removeItem('beta_psat_progress');
+      localStorage.removeItem('beta_psat_srs');
+      localStorage.removeItem('beta_psat_sessions');
+      localStorage.removeItem('beta_psat_exam_history');
+      localStorage.removeItem('beta_psat_pending_sync_count');
+      localStorage.removeItem('beta_psat_last_cloud_sync_time');
+
+      alert('✓ Beta Sandbox reset to clean state! Reloading...');
+      location.reload();
+    }
+
+    function updateParentSyncStatusBadge() {
+      const textEl = document.getElementById('cloud-sync-status-text');
+      if (!textEl) return;
+      const pending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const lastSync = localStorage.getItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time');
+
+      let timeAgoStr = '';
+      if (lastSync) {
+        const mins = Math.floor((Date.now() - parseInt(lastSync, 10)) / 60000);
+        if (mins < 1) timeAgoStr = ' (Just now)';
+        else if (mins === 1) timeAgoStr = ' (1m ago)';
+        else if (mins < 60) timeAgoStr = ` (${mins}m ago)`;
+        else timeAgoStr = ` (${Math.floor(mins / 60)}h ago)`;
+      }
+
+      if (pending > 0) {
+        textEl.innerText = `Cosmos DB: ${pending} Pending`;
+      } else {
+        textEl.innerText = `Cosmos DB Synced${timeAgoStr}`;
       }
     }
 
@@ -765,21 +849,23 @@
       if (txt) txt.innerText = 'Syncing...';
       
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage).then(res => {
+        PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
           if (res && res.success) {
             renderParentMetrics();
-            if (txt) txt.innerText = 'Cosmos DB Synced ✓';
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
+            updateParentSyncStatusBadge();
             if (isManual) {
               if (res.updated) {
-                alert(`Successfully synced latest student progress from Cosmos DB! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
+                alert(`Successfully synced latest student progress from Cosmos DB profile (${APP_ENV.studentName})! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
               } else if (res.empty) {
-                alert('Cosmos DB is connected, but no student test attempts or reports have been submitted yet.');
+                alert(`Cosmos DB is connected, but no student test attempts or reports have been submitted yet for ${APP_ENV.studentName}.`);
               } else {
                 alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
               }
             }
           } else {
-            if (txt) txt.innerText = 'Sync Failed ⚠';
+            updateParentSyncStatusBadge();
             if (res && res.quotaExceeded) {
               if (isManual) alert('Sync Error: Local browser storage is full (quota exceeded). Please clear older test data or export audit data.');
             } else {
@@ -789,7 +875,7 @@
           }
           lucide.createIcons();
         }).catch(err => {
-          if (txt) txt.innerText = 'Sync Failed ⚠';
+          updateParentSyncStatusBadge();
           console.warn('Sync failed:', err);
           if (isManual) alert('Sync failed: Could not reach Cosmos DB sync endpoint.');
         });
@@ -801,10 +887,15 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
+      if (APP_ENV.isBeta) {
+        const banner = document.getElementById('beta-sandbox-banner');
+        if (banner) banner.classList.remove('hidden');
+      }
       renderParentMetrics();
       initCustomDomainSkills();
       setGapCount(20);
       syncParentFromCloud(false);
+      updateParentSyncStatusBadge();
     });
 
     function renderParentMetrics() {
@@ -1826,7 +1917,16 @@
       const questions = window.QUESTIONS_DATA || [];
       if (questions.length === 0) return;
 
-      // 1. Back up existing user data safely (only when demo mode is not active)
+      // 1. Mandatory Pre-Action Safety Snapshot Guard
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
+        const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_sample_data_activation');
+        if (!snap.success) {
+          alert('❌ Action Cancelled: Could not create pre-sample safety snapshot (' + snap.error + '). Your real student records have not been modified.');
+          return;
+        }
+      }
+
+      // 2. Back up existing user data safely (only when demo mode is not active)
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.backupRealData) {
         PSAT_ENGINE.backupRealData(localStorage, safeGetStorage, safeSetStorage);
       } else {
@@ -1838,7 +1938,7 @@
         };
         safeSetStorage('psat_pre_sample_backup', existingBackup);
       }
-      localStorage.setItem('psat_sample_data_active', 'true');
+      localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
 
       const samplePayload = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.generateSampleDiagnosticPayload) ?
         PSAT_ENGINE.generateSampleDiagnosticPayload(questions, PSAT_ENGINE.localDateKey()) :
@@ -1910,19 +2010,81 @@
       reader.onload = function(e) {
         try {
           const data = JSON.parse(e.target.result);
-          if (data.questionAttempts) safeSetStorage('psat_progress', data.questionAttempts);
-          if (data.spacedRepetitionCards) safeSetStorage('psat_srs', data.spacedRepetitionCards);
-          if (data.sessionsLog) safeSetStorage('psat_sessions', data.sessionsLog);
-          if (data.examHistoryLog) safeSetStorage('psat_exam_history', data.examHistoryLog);
-          if (data.summary && data.summary.isSampleData) {
-            localStorage.setItem('psat_sample_data_active', 'true');
-          } else {
-            localStorage.removeItem('psat_sample_data_active');
+          if (!data || typeof data !== 'object') {
+            alert('❌ Invalid File: JSON structure could not be parsed.');
+            return;
           }
-          alert('Successfully imported student test history and audit data! Reloading dashboard...');
+
+          // Normalize input fields from different backup/audit formats
+          const impProgress = data.questionAttempts || data.progress || null;
+          const impSrs = data.spacedRepetitionCards || data.srsState || data.srs || null;
+          const impSessions = data.sessionsLog || data.sessionsState || data.sessions || null;
+          const impExams = data.examHistoryLog || data.examHistory || null;
+
+          const hasValidContent = (impProgress && Object.keys(impProgress).length > 0) ||
+                                 (impSrs && Object.keys(impSrs).length > 0) ||
+                                 (impSessions && Object.keys(impSessions).length > 0) ||
+                                 (Array.isArray(impExams) && impExams.length > 0);
+
+          if (!hasValidContent) {
+            alert('❌ Invalid Import: The selected file does not contain recognized student attempts, SRS cards, or exam records.');
+            return;
+          }
+
+          // 1. Mandatory Pre-Import Safety Snapshot
+          if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
+            const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_file_import');
+            if (!snap.success) {
+              alert('❌ Import Cancelled: Could not create pre-import safety snapshot (' + snap.error + '). Your existing student data has not been modified.');
+              return;
+            }
+          }
+
+          // 2. Interactive Merge vs Replace Prompt
+          const isMerge = confirm(
+            'Import Strategy Choice:\n\n' +
+            '• Click "OK" to MERGE imported test records with current data (Safest — retains existing attempts).\n' +
+            '• Click "Cancel" to REPLACE current student data entirely with this backup file.\n\n' +
+            '(A safety recovery snapshot has already been saved).'
+          );
+
+          if (isMerge && typeof PSAT_ENGINE !== 'undefined') {
+            const currProg = safeGetStorage('psat_progress', {});
+            const currSrs = safeGetStorage('psat_srs', {});
+            const currSess = safeGetStorage('psat_sessions', {});
+            const currHist = safeGetStorage('psat_exam_history', []);
+
+            const mergedProg = PSAT_ENGINE.mergeProgress(impProgress, currProg);
+            const mergedSrs = PSAT_ENGINE.mergeSrsState(impSrs, currSrs);
+            const mergedSess = PSAT_ENGINE.mergeSessionsState(impSessions, currSess, mergedProg);
+            const mergedHist = PSAT_ENGINE.mergeExamHistory(impExams, currHist, 15);
+
+            safeSetStorage('psat_progress', mergedProg);
+            safeSetStorage('psat_srs', mergedSrs);
+            safeSetStorage('psat_sessions', mergedSess);
+            safeSetStorage('psat_exam_history', mergedHist);
+            alert(`✓ Successfully MERGED imported data! (${Object.keys(mergedProg).length} total attempts active)`);
+          } else {
+            if (impProgress) safeSetStorage('psat_progress', impProgress);
+            if (impSrs) safeSetStorage('psat_srs', impSrs);
+            if (impSessions) safeSetStorage('psat_sessions', impSessions);
+            if (impExams) safeSetStorage('psat_exam_history', impExams);
+            alert('✓ Successfully REPLACED student data from backup file!');
+          }
+
+          if (data.summary && data.summary.isSampleData) {
+            localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
+          } else {
+            localStorage.removeItem(APP_ENV.storagePrefix + 'psat_sample_data_active');
+          }
+
+          if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+            PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
+          }
+
           location.reload();
         } catch (err) {
-          alert('Failed to import audit file: Invalid JSON structure.');
+          alert('Failed to import audit file: ' + err.message);
         }
       };
       reader.readAsText(file);
