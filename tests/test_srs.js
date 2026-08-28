@@ -782,7 +782,58 @@ const mockFetch = async (url, opts) => {
   assert.ok(top2Ids.includes('q_med_info_ideas'), 'Medium Information & Ideas must be prioritized in top items');
   assert.strictEqual(highYieldDraw[2].id, 'q_easy_unimportant', 'Easy standard domain item must be placed after high-yield pool');
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, and Cosmos DB Cloud Sync tests passed!');
+  // 13. Post-Exam 10-Question Recovery Plan Generator Test
+  // ------------------------------------------------------------------
+  const mockAllQs = [
+    { id: 'q_missed_1', test: 'Math', domain: 'Algebra', skill: 'Linear equations in one variable', difficulty: 'Hard', correct_answer: 'A' },
+    { id: 'q_missed_2', test: 'Reading and Writing', domain: 'Information and Ideas', skill: 'Command of Evidence', difficulty: 'Hard', correct_answer: 'B' },
+    { id: 'q_sibling_math', test: 'Math', domain: 'Algebra', skill: 'Linear equations in one variable', difficulty: 'Medium', correct_answer: 'C' },
+    { id: 'q_sibling_rw', test: 'Reading and Writing', domain: 'Information and Ideas', skill: 'Command of Evidence', difficulty: 'Medium', correct_answer: 'D' },
+    { id: 'q_pad_1', test: 'Math', domain: 'Advanced Math', skill: 'Nonlinear functions', difficulty: 'Hard', correct_answer: 'A' },
+    { id: 'q_pad_2', test: 'Math', domain: 'Advanced Math', skill: 'Equivalent expressions', difficulty: 'Hard', correct_answer: 'B' },
+    { id: 'q_pad_3', test: 'Reading and Writing', domain: 'Craft and Structure', skill: 'Words in Context', difficulty: 'Hard', correct_answer: 'C' },
+    { id: 'q_pad_4', test: 'Reading and Writing', domain: 'Craft and Structure', skill: 'Text Structure and Purpose', difficulty: 'Hard', correct_answer: 'D' },
+    { id: 'q_pad_5', test: 'Math', domain: 'Algebra', skill: 'Linear functions', difficulty: 'Medium', correct_answer: 'A' },
+    { id: 'q_pad_6', test: 'Math', domain: 'Geometry and Trigonometry', skill: 'Area and volume', difficulty: 'Medium', correct_answer: 'B' }
+  ];
+
+  const mockExamReport = {
+    totalQuestions: 2,
+    totalCorrect: 0,
+    moduleReports: [
+      {
+        questions: [
+          { questionId: 'q_missed_1', userAnswer: 'C', correct_answer: 'A' },
+          { questionId: 'q_missed_2', userAnswer: 'A', correct_answer: 'B' }
+        ]
+      }
+    ]
+  };
+
+  const plan = PSAT_ENGINE.generatePostExamRecoveryPlan(mockExamReport, mockAllQs, {}, { count: 10 });
+  assert.ok(plan, 'Recovery plan must be generated');
+  assert.strictEqual(plan.questions.length, 10, 'Plan must contain requested 10 items');
+  assert.strictEqual(plan.directMissesCount, 2, 'Must include 2 direct missed items');
+  assert.strictEqual(plan.transferCount, 2, 'Must include 2 concept transfer siblings');
+  const planIds = plan.questions.map(q => q.id);
+  assert.ok(planIds.includes('q_missed_1') && planIds.includes('q_missed_2'), 'Direct misses must be present in plan');
+  assert.ok(planIds.includes('q_sibling_math') && planIds.includes('q_sibling_rw'), 'Transfer siblings must be present in plan');
+
+  // 14. Error Root-Cause Tag Aggregation Test
+  // ------------------------------------------------------------------
+  const mockTroubleSpots = [
+    { questionId: 'q1', errorTag: 'concept_gap' },
+    { questionId: 'q2', errorTag: 'misread' },
+    { questionId: 'q3', errorTag: 'misread' },
+    { questionId: 'q4', errorTag: null }
+  ];
+  const tagSummary = PSAT_ENGINE.aggregateErrorTags(mockTroubleSpots);
+  assert.strictEqual(tagSummary.total, 4);
+  assert.strictEqual(tagSummary.counts.concept_gap, 1);
+  assert.strictEqual(tagSummary.counts.misread, 2);
+  assert.strictEqual(tagSummary.counts.untagged, 1);
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

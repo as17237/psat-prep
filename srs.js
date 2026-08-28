@@ -713,6 +713,150 @@
   }
 
   /**
+   * Generates a targeted 10-Question Post-Exam Recovery Drill:
+   * 1. Collects missed questions from the exam report (up to 5 questions).
+   * 2. Finds fresh sibling questions from the exact same skill / domain for transfer testing (up to 5 questions).
+   * 3. If fewer than 5 were missed, pads with high-yield domain reinforcement.
+   */
+  function generatePostExamRecoveryPlan(examReport, allQuestions, progressMap, options) {
+    if (!examReport || !Array.isArray(allQuestions)) {
+      return null;
+    }
+    var opts = options || {};
+    var targetCount = opts.count || 10;
+    var progress = progressMap || {};
+
+    var qMap = {};
+    allQuestions.forEach(function(q) { if (q && q.id) qMap[q.id] = q; });
+
+    // 1. Collect missed questions from exam report
+    var missedQuestions = [];
+    var seenMissedIds = {};
+
+    if (Array.isArray(examReport.moduleReports)) {
+      examReport.moduleReports.forEach(function(mod) {
+        if (Array.isArray(mod.questions)) {
+          mod.questions.forEach(function(mq) {
+            var qId = mq.questionId || mq.id;
+            var isSpr = (mq.type === 'free_response' || mq.question_type === 'free_response');
+            var isCorrect = isSpr ? gradeFreeResponse(mq.userAnswer, mq.correct_answer) : (String(mq.userAnswer || '').trim().toUpperCase() === String(mq.correct_answer || '').trim().toUpperCase());
+            if (!isCorrect && qMap[qId] && !seenMissedIds[qId]) {
+              seenMissedIds[qId] = true;
+              missedQuestions.push(Object.assign({}, qMap[qId], {
+                _recoveryRole: 'missed_review',
+                _recoveryReason: 'Direct Exam Miss'
+              }));
+            }
+          });
+        }
+      });
+    }
+
+    var maxDirectMisses = Math.min(missedQuestions.length, Math.floor(targetCount / 2));
+    var directMisses = missedQuestions.slice(0, maxDirectMisses);
+
+    // 2. Find skill transfer sibling questions for each missed item
+    var transferQuestions = [];
+    var usedIds = {};
+    Object.keys(seenMissedIds).forEach(function(id) { usedIds[id] = true; });
+
+    directMisses.forEach(function(mq) {
+      var siblings = allQuestions.filter(function(q) {
+        if (usedIds[q.id]) return false;
+        return q.test === mq.test && q.skill === mq.skill;
+      });
+
+      if (siblings.length === 0) {
+        siblings = allQuestions.filter(function(q) {
+          if (usedIds[q.id]) return false;
+          return q.test === mq.test && q.domain === mq.domain && q.difficulty === mq.difficulty;
+        });
+      }
+
+      var prioritizedSiblings = _prioritizeUnseen(siblings, progress, { isHighYield: true });
+      if (prioritizedSiblings.length > 0) {
+        var chosen = prioritizedSiblings[0];
+        usedIds[chosen.id] = true;
+        transferQuestions.push(Object.assign({}, chosen, {
+          _recoveryRole: 'transfer_sibling',
+          _recoveryReason: 'Concept Transfer: ' + (mq.skill || mq.domain)
+        }));
+      }
+    });
+
+    var selected = directMisses.concat(transferQuestions);
+
+    // 3. If under target count, pad with remaining direct misses
+    if (selected.length < targetCount) {
+      var remainingMisses = missedQuestions.slice(maxDirectMisses);
+      remainingMisses.forEach(function(rm) {
+        if (selected.length < targetCount && !usedIds[rm.id]) {
+          usedIds[rm.id] = true;
+          selected.push(rm);
+        }
+      });
+    }
+
+    // 4. If still under target count (e.g. high-scoring exam with 1-2 misses), pad with high-yield reinforcement
+    if (selected.length < targetCount) {
+      var padPool = allQuestions.filter(function(q) { return !usedIds[q.id]; });
+      var padPrioritized = _prioritizeUnseen(padPool, progress, { isHighYield: true });
+      var padSlice = padPrioritized.slice(0, targetCount - selected.length);
+      padSlice.forEach(function(pq) {
+        selected.push(Object.assign({}, pq, {
+          _recoveryRole: 'reinforcement',
+          _recoveryReason: 'High-Yield Reinforcement: ' + (pq.skill || pq.domain)
+        }));
+      });
+    }
+
+    return {
+      id: 'recovery_' + Date.now(),
+      title: 'Post-Exam Targeted Recovery Plan (' + selected.length + ' Questions)',
+      type: 'custom_test',
+      totalQuestions: selected.length,
+      timeLimitMinutes: Math.round(selected.length * 1.5),
+      isUntimed: false,
+      directMissesCount: directMisses.length,
+      transferCount: transferQuestions.length,
+      createdAt: Date.now(),
+      questions: selected
+    };
+  }
+
+  var ERROR_TAGS = {
+    'concept_gap': { id: 'concept_gap', label: 'Concept Gap', icon: 'book-open', color: 'rose', description: 'Did not know the mathematical rule or grammatical principle' },
+    'misread': { id: 'misread', label: 'Misread Question / Trap', icon: 'alert-triangle', color: 'amber', description: 'Understood concept but misread the prompt or fell for a trap choice' },
+    'calc_error': { id: 'calc_error', label: 'Calculation Slip', icon: 'calculator', color: 'blue', description: 'Simple arithmetic or algebraic computation error' },
+    'time_pressure': { id: 'time_pressure', label: 'Rushed / Time Pressure', icon: 'clock', color: 'indigo', description: 'Had to rush or ran out of time' },
+    'vocab_trap': { id: 'vocab_trap', label: 'Vocabulary / Wording', icon: 'type', color: 'purple', description: 'Unfamiliar word or nuanced context clue' }
+  };
+
+  /**
+   * Aggregates student error tags across trouble spot items.
+   */
+  function aggregateErrorTags(troubleSpots) {
+    var counts = {
+      concept_gap: 0,
+      misread: 0,
+      calc_error: 0,
+      time_pressure: 0,
+      vocab_trap: 0,
+      untagged: 0
+    };
+    var total = 0;
+    (troubleSpots || []).forEach(function(ts) {
+      total++;
+      if (ts.errorTag && counts[ts.errorTag] !== undefined) {
+        counts[ts.errorTag]++;
+      } else {
+        counts.untagged++;
+      }
+    });
+    return { counts: counts, total: total };
+  }
+
+  /**
    * Calculates an empirical practice scaled score estimate for a section (120–720 scale).
    * Monotonic Guarantee: Score is strictly non-decreasing with raw correct answers across all tracks.
    * Zero raw correct always yields the baseline floor (120).
@@ -766,7 +910,8 @@
           timesSeen: p.timesSeen || (incorrectCount + (p.isCorrect ? 1 : 0)),
           lastUserAnswer: p.selectedAnswer || 'Unanswered',
           lastAttemptTime: p.timestamp || Date.now(),
-          lastTimeSpentMs: p.timeSpentMs || 0
+          lastTimeSpentMs: p.timeSpentMs || 0,
+          errorTag: p.errorTag || null
         };
       }
     });
@@ -1578,6 +1723,9 @@
     mergeExamHistory: mergeExamHistory,
     calculateSectionScaledScore: calculateSectionScaledScore,
     buildTroubleSpots: buildTroubleSpots,
+    generatePostExamRecoveryPlan: generatePostExamRecoveryPlan,
+    ERROR_TAGS: ERROR_TAGS,
+    aggregateErrorTags: aggregateErrorTags,
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
     pushToCloud: pushToCloud,

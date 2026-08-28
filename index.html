@@ -948,6 +948,31 @@
             </div>
 
           </div>
+        <!-- Post-Exam Targeted Recovery Plan Card -->
+        <div id="report-recovery-card" class="hidden bg-gradient-to-r from-rose-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-7 rounded-3xl shadow-lg border border-rose-800/40 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <span class="text-xs font-black uppercase tracking-wider text-rose-400 bg-rose-950 px-3 py-1 rounded-full border border-rose-700/60 flex items-center">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5 mr-1.5 text-rose-400"></i> Recommended Post-Exam Action
+            </span>
+            <span id="recovery-q-breakdown" class="text-xs font-mono text-slate-300">10 Questions • ~15 Minutes</span>
+          </div>
+
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div class="space-y-1.5 max-w-2xl">
+              <h3 class="text-xl font-black text-white flex items-center">
+                🎯 10-Question Targeted Recovery Plan
+              </h3>
+              <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Turn your test misses into score gains right now. This custom drill combines <strong><span id="recovery-misses-cnt">0</span> exam questions you missed</strong> with <strong><span id="recovery-transfer-cnt">0</span> fresh transfer questions</strong> from the same skills to verify you've mastered the underlying concepts.
+              </p>
+            </div>
+
+            <div class="shrink-0">
+              <button onclick="launchPostExamRecoveryDrill()" class="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center">
+                <i data-lucide="play" class="w-4 h-4 mr-2 text-slate-950"></i> Launch 10-Question Recovery Drill &rarr;
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Module Breakdown Dynamic Grid -->
@@ -2617,6 +2642,28 @@
         });
       }
 
+      // Post-Exam Targeted Recovery Plan Generation
+      const recoveryCard = document.getElementById('report-recovery-card');
+      if (recoveryCard && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.generatePostExamRecoveryPlan) {
+        if (fullReport.totalCorrect < fullReport.totalQuestions) {
+          const plan = PSAT_ENGINE.generatePostExamRecoveryPlan(fullReport, window.QUESTIONS_DATA || questions, progress, { count: 10 });
+          if (plan && plan.questions && plan.questions.length > 0) {
+            window._activeRecoveryPlan = plan;
+            const missesEl = document.getElementById('recovery-misses-cnt');
+            const transEl = document.getElementById('recovery-transfer-cnt');
+            const breakEl = document.getElementById('recovery-q-breakdown');
+            if (missesEl) missesEl.innerText = plan.directMissesCount;
+            if (transEl) transEl.innerText = plan.transferCount;
+            if (breakEl) breakEl.innerText = `${plan.questions.length} Questions • ~${Math.round(plan.questions.length * 1.5)} Minutes`;
+            recoveryCard.classList.remove('hidden');
+          } else {
+            recoveryCard.classList.add('hidden');
+          }
+        } else {
+          recoveryCard.classList.add('hidden');
+        }
+      }
+
       const btn = document.getElementById('btn-save-exam');
       if (btn) {
         btn.innerText = '✓ Saved to Practice & Exam History';
@@ -2625,6 +2672,15 @@
       }
 
       filterReportQuestions('all');
+    }
+
+    function launchPostExamRecoveryDrill() {
+      if (!window._activeRecoveryPlan) {
+        alert('No recovery plan available.');
+        return;
+      }
+      sessionStorage.setItem('psat_active_custom_test', JSON.stringify(window._activeRecoveryPlan));
+      startCustomTestDirect(window._activeRecoveryPlan);
     }
 
     function renderExamLobbyHistory() {
@@ -2969,6 +3025,30 @@
             </div>
           </div>
 
+          <!-- Error Root-Cause Tag Selector -->
+          ${!q.isCorrect ? `
+            <div class="p-3 bg-rose-50/60 rounded-xl border border-rose-200/60 space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-rose-900 flex items-center">
+                  <i data-lucide="tag" class="w-3.5 h-3.5 mr-1 text-rose-600"></i> Why did you miss this? (Error Tagging)
+                </span>
+                <span class="text-[11px] text-slate-500">Categorizes error in Parent Portal</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5 pt-1" id="tag-bar-${esc(q.questionId)}">
+                ${Object.values(PSAT_ENGINE.ERROR_TAGS || {}).map(t => {
+                  const currentTag = (progress[q.questionId] && progress[q.questionId].errorTag) || q.errorTag;
+                  const isActive = (currentTag === t.id);
+                  return `
+                    <button type="button" onclick="setQuestionErrorTag('${esc(q.questionId)}', '${t.id}')"
+                      class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+                      ${t.label}
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
           <details class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1.5">
             <summary class="font-bold text-indigo-700 cursor-pointer flex items-center justify-between">
               <span>View Official Step-by-Step Rationale</span>
@@ -2981,6 +3061,30 @@
       });
 
       lucide.createIcons();
+    }
+
+    function setQuestionErrorTag(qid, tagId) {
+      if (!progress[qid]) {
+        progress[qid] = { answered: true, isCorrect: false, timestamp: Date.now() };
+      }
+      progress[qid].errorTag = tagId;
+      safeSetStorage('psat_progress', progress);
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+        PSAT_ENGINE.pushToCloud(localStorage);
+      }
+      // Re-render tag buttons for this question
+      const bar = document.getElementById(`tag-bar-${qid}`);
+      if (bar && PSAT_ENGINE.ERROR_TAGS) {
+        bar.innerHTML = Object.values(PSAT_ENGINE.ERROR_TAGS).map(t => {
+          const isActive = (progress[qid].errorTag === t.id);
+          return `
+            <button type="button" onclick="setQuestionErrorTag('${qid}', '${t.id}')"
+              class="px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+              ${t.label}
+            </button>
+          `;
+        }).join('');
+      }
     }
 
     function saveExamResultsToHistory() {

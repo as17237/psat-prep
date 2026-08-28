@@ -591,6 +591,27 @@
           <!-- Answer Choices -->
           ${optionsHtml}
 
+          <!-- Mistake Root-Cause Error Tagging -->
+          <div class="p-4 bg-rose-50/60 rounded-2xl border border-rose-200/60 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-rose-900 flex items-center">
+                <i data-lucide="tag" class="w-4 h-4 mr-1.5 text-rose-600"></i> Why did you miss this? (Select Error Tag)
+              </span>
+              <span class="text-[11px] text-slate-500 font-medium">Categorizes learning gap in Parent Dashboard</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5 pt-1" id="mtag-bar-${esc(t.questionId)}">
+              ${Object.values(PSAT_ENGINE.ERROR_TAGS || {}).map(tg => {
+                const isActive = (t.errorTag === tg.id || (progress[t.questionId] && progress[t.questionId].errorTag === tg.id));
+                return `
+                  <button type="button" onclick="setMistakeErrorTag('${esc(t.questionId)}', '${tg.id}')"
+                    class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+                    ${tg.label}
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
           <!-- Official Step-by-Step Rationale -->
           <div class="p-6 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2.5">
             <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
@@ -656,6 +677,37 @@
         window.location.href = 'index.html?mode=custom';
       } catch (e) {
         alert('Error preparing mistake drill: ' + e.message);
+      }
+    }
+
+    function setMistakeErrorTag(qid, tagId) {
+      const progress = safeGetStorage('psat_progress', {});
+      if (!progress[qid]) {
+        progress[qid] = { answered: true, isCorrect: false, timestamp: Date.now() };
+      }
+      progress[qid].errorTag = tagId;
+      safeSetStorage('psat_progress', progress);
+
+      // Update in-memory item
+      const item = allMistakesList.find(t => t.questionId === qid);
+      if (item) item.errorTag = tagId;
+
+      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+        PSAT_ENGINE.pushToCloud(localStorage);
+      }
+
+      // Re-render tag buttons for this question card
+      const bar = document.getElementById(`mtag-bar-${qid}`);
+      if (bar && PSAT_ENGINE.ERROR_TAGS) {
+        bar.innerHTML = Object.values(PSAT_ENGINE.ERROR_TAGS).map(tg => {
+          const isActive = (tagId === tg.id);
+          return `
+            <button type="button" onclick="setMistakeErrorTag('${qid}', '${tg.id}')"
+              class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+              ${tg.label}
+            </button>
+          `;
+        }).join('');
       }
     }
   </script>
