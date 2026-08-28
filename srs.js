@@ -738,8 +738,8 @@
         if (Array.isArray(mod.questions)) {
           mod.questions.forEach(function(mq) {
             var qId = mq.questionId || mq.id;
-            var isSpr = (mq.type === 'free_response' || mq.question_type === 'free_response');
-            var isCorrect = isSpr ? gradeFreeResponse(mq.userAnswer, mq.correct_answer) : (String(mq.userAnswer || '').trim().toUpperCase() === String(mq.correct_answer || '').trim().toUpperCase());
+            // Use mq.isCorrect directly as the authoritative source of truth from scoreStandardExam
+            var isCorrect = (mq.isCorrect === true);
             if (!isCorrect && qMap[qId] && !seenMissedIds[qId]) {
               seenMissedIds[qId] = true;
               missedQuestions.push(Object.assign({}, qMap[qId], {

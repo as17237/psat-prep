@@ -782,42 +782,49 @@ const mockFetch = async (url, opts) => {
   assert.ok(top2Ids.includes('q_med_info_ideas'), 'Medium Information & Ideas must be prioritized in top items');
   assert.strictEqual(highYieldDraw[2].id, 'q_easy_unimportant', 'Easy standard domain item must be placed after high-yield pool');
 
-  // 13. Post-Exam 10-Question Recovery Plan Generator Test
+  // 13. Post-Exam Recovery Plan Generator (Regression & Real Dataset Tests)
   // ------------------------------------------------------------------
-  const mockAllQs = [
-    { id: 'q_missed_1', test: 'Math', domain: 'Algebra', skill: 'Linear equations in one variable', difficulty: 'Hard', correct_answer: 'A' },
-    { id: 'q_missed_2', test: 'Reading and Writing', domain: 'Information and Ideas', skill: 'Command of Evidence', difficulty: 'Hard', correct_answer: 'B' },
-    { id: 'q_sibling_math', test: 'Math', domain: 'Algebra', skill: 'Linear equations in one variable', difficulty: 'Medium', correct_answer: 'C' },
-    { id: 'q_sibling_rw', test: 'Reading and Writing', domain: 'Information and Ideas', skill: 'Command of Evidence', difficulty: 'Medium', correct_answer: 'D' },
-    { id: 'q_pad_1', test: 'Math', domain: 'Advanced Math', skill: 'Nonlinear functions', difficulty: 'Hard', correct_answer: 'A' },
-    { id: 'q_pad_2', test: 'Math', domain: 'Advanced Math', skill: 'Equivalent expressions', difficulty: 'Hard', correct_answer: 'B' },
-    { id: 'q_pad_3', test: 'Reading and Writing', domain: 'Craft and Structure', skill: 'Words in Context', difficulty: 'Hard', correct_answer: 'C' },
-    { id: 'q_pad_4', test: 'Reading and Writing', domain: 'Craft and Structure', skill: 'Text Structure and Purpose', difficulty: 'Hard', correct_answer: 'D' },
-    { id: 'q_pad_5', test: 'Math', domain: 'Algebra', skill: 'Linear functions', difficulty: 'Medium', correct_answer: 'A' },
-    { id: 'q_pad_6', test: 'Math', domain: 'Geometry and Trigonometry', skill: 'Area and volume', difficulty: 'Medium', correct_answer: 'B' }
-  ];
+  // 13A. Real Mini Exam with 8/8 Perfect Answers -> Must NEVER create direct-miss recovery questions
+  const realMiniForPlan = PSAT_ENGINE.generateMiniPSAT89Exam(realBank);
+  const perfectMiniAnswers = {};
+  realMiniForPlan.modules.forEach(m => {
+    m.questions.forEach(q => {
+      const forms = PSAT_ENGINE.extractAcceptedForms(q.correct_answer);
+      perfectMiniAnswers[q.id] = forms.length > 0 ? forms[0] : q.correct_answer;
+    });
+  });
 
-  const mockExamReport = {
-    totalQuestions: 2,
-    totalCorrect: 0,
-    moduleReports: [
-      {
-        questions: [
-          { questionId: 'q_missed_1', userAnswer: 'C', correct_answer: 'A' },
-          { questionId: 'q_missed_2', userAnswer: 'A', correct_answer: 'B' }
-        ]
-      }
-    ]
-  };
+  const perfectReport = PSAT_ENGINE.scoreStandardExam(realMiniForPlan, perfectMiniAnswers, {});
+  assert.strictEqual(perfectReport.totalCorrect, 8, 'All 8 answers must be scored correct');
 
-  const plan = PSAT_ENGINE.generatePostExamRecoveryPlan(mockExamReport, mockAllQs, {}, { count: 10 });
-  assert.ok(plan, 'Recovery plan must be generated');
-  assert.strictEqual(plan.questions.length, 10, 'Plan must contain requested 10 items');
-  assert.strictEqual(plan.directMissesCount, 2, 'Must include 2 direct missed items');
-  assert.strictEqual(plan.transferCount, 2, 'Must include 2 concept transfer siblings');
-  const planIds = plan.questions.map(q => q.id);
-  assert.ok(planIds.includes('q_missed_1') && planIds.includes('q_missed_2'), 'Direct misses must be present in plan');
-  assert.ok(planIds.includes('q_sibling_math') && planIds.includes('q_sibling_rw'), 'Transfer siblings must be present in plan');
+  const perfectPlan = PSAT_ENGINE.generatePostExamRecoveryPlan(perfectReport, realBank, {});
+  assert.ok(perfectPlan, 'Recovery plan must be generated');
+  assert.strictEqual(perfectPlan.directMissesCount, 0, 'Perfect 8/8 exam must produce directMissesCount === 0');
+  const directReviewInPerfect = perfectPlan.questions.filter(q => q._recoveryRole === 'missed_review');
+  assert.strictEqual(directReviewInPerfect.length, 0, 'No questions in 8/8 plan can have _recoveryRole missed_review');
+
+  // 13B. Real Mini Exam with Known Misses -> Assert ONLY those missed IDs appear as direct-review questions
+  const flawedMiniAnswers = Object.assign({}, perfectMiniAnswers);
+  const knownMiss1 = realMiniForPlan.modules[0].questions[0]; // RW miss
+  const knownMiss2 = realMiniForPlan.modules[1].questions[0]; // Math miss
+  flawedMiniAnswers[knownMiss1.id] = 'INCORRECT_CHOICE_XYZ';
+  flawedMiniAnswers[knownMiss2.id] = '999999999';
+
+  const flawedReport = PSAT_ENGINE.scoreStandardExam(realMiniForPlan, flawedMiniAnswers, {});
+  assert.strictEqual(flawedReport.totalCorrect, 6, 'Must score exactly 6/8 correct');
+
+  const flawedPlan = PSAT_ENGINE.generatePostExamRecoveryPlan(flawedReport, realBank, {});
+  assert.ok(flawedPlan, 'Recovery plan must be generated');
+  assert.strictEqual(flawedPlan.directMissesCount, 2, 'Must report exactly 2 direct misses');
+
+  const missedReviewQuestions = flawedPlan.questions.filter(q => q._recoveryRole === 'missed_review');
+  assert.strictEqual(missedReviewQuestions.length, 2, 'Exactly 2 questions must have _recoveryRole missed_review');
+  const directMissIds = missedReviewQuestions.map(q => q.id).sort();
+  const expectedMissIds = [knownMiss1.id, knownMiss2.id].sort();
+  assert.deepStrictEqual(directMissIds, expectedMissIds, 'Direct review questions must strictly match the 2 known missed IDs');
+
+  const transferQuestions = flawedPlan.questions.filter(q => q._recoveryRole === 'transfer_sibling');
+  assert.strictEqual(transferQuestions.length, 2, 'Must include 2 transfer siblings matching the missed skills');
 
   // 14. Error Root-Cause Tag Aggregation Test
   // ------------------------------------------------------------------
