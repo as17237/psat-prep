@@ -697,6 +697,18 @@
     }
 
     let currentGapCount = 20;
+    // Explainer index: question id -> published step-by-step explainer
+    let explainerIndex = null;
+    fetch('explanations/index.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { explainerIndex = (d && d.questions) || {}; })
+      .catch(() => { explainerIndex = {}; });
+
+    function explainerFor(questionId) {
+      const hit = explainerIndex && explainerIndex[String(questionId).slice(0, 8)];
+      return (hit && hit.url) ? hit : null;
+    }
+
     let allTroubleList = [];
     let parentActiveExamReport = null;
     let parentExamFilterMode = 'all';
@@ -1152,6 +1164,19 @@
 
       document.getElementById('pmd-modal-id').innerText = `QID: ${q.id}`;
       document.getElementById('pmd-modal-title').innerText = `${q.domain || ''} &bull; ${q.skill || ''}`;
+
+      const exBar = document.getElementById('pmd-explainer-link');
+      if (exBar) {
+        const ex = explainerFor(q.id);
+        if (ex) {
+          exBar.href = ex.url;
+          exBar.classList.remove('hidden');
+          exBar.classList.add('flex');
+        } else {
+          exBar.classList.add('hidden');
+          exBar.classList.remove('flex');
+        }
+      }
 
       const content = document.getElementById('pmd-modal-content');
       let optionsHtml = '';
@@ -2426,6 +2451,11 @@
       </div>
 
       <!-- Content (Scrollable) -->
+      <a id="pmd-explainer-link" href="#" target="_blank" rel="noopener"
+         class="hidden items-center gap-2 px-6 sm:px-8 py-3 bg-teal-50 hover:bg-teal-100 border-b border-teal-200 text-teal-900 font-semibold text-sm transition-colors">
+        <i data-lucide="lightbulb" class="w-4 h-4 text-teal-600"></i>
+        Read the step-by-step explainer for this question
+      </a>
       <div id="pmd-modal-content" class="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 custom-scrollbar">
         <!-- Dynamically rendered -->
       </div>

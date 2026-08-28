@@ -1,0 +1,95 @@
+{
+  "generated": "2026-08-27T21:42:16",
+  "pages": {
+    "explainers/five-hard-questions.html": {
+      "questionCount": 5,
+      "title": "Sketch, Don't Solve",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509"
+    },
+    "explanations/command-of-evidence.html": {
+      "questionCount": 8,
+      "title": "Does It Do The Job?",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3"
+    }
+  },
+  "questions": {
+    "1224cb23": {
+      "file": "explainers/five-hard-questions.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-1224cb23"
+    },
+    "1b9fa866": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-1b9fa866"
+    },
+    "6488f498": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-6488f498"
+    },
+    "7c1e22ca": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-7c1e22ca"
+    },
+    "7ced5c84": {
+      "file": "explainers/five-hard-questions.html",
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-7ced5c84"
+    },
+    "858be80e": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-858be80e"
+    },
+    "9f55dec4": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-9f55dec4"
+    },
+    "a795332a": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-a795332a"
+    },
+    "ac8cfb10": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-ac8cfb10"
+    },
+    "cc4d3cac": {
+      "file": "explanations/command-of-evidence.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-cc4d3cac"
+    },
+    "d98c3c8c": {
+      "file": "explainers/five-hard-questions.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-d98c3c8c"
+    },
+    "e465d17e": {
+      "file": "explainers/five-hard-questions.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-e465d17e"
+    },
+    "fde9312b": {
+      "file": "explainers/five-hard-questions.html",
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-fde9312b"
+    }
+  }
+}

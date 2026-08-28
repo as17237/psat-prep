@@ -280,6 +280,16 @@
                 <div id="rationale-body" class="p-5 text-sm text-slate-800 leading-relaxed whitespace-pre-line border-t border-indigo-100 bg-white"></div>
               </div>
 
+              <!-- Deeper explainer, shown only when one exists for this question -->
+              <a id="explainer-link" href="#" target="_blank" rel="noopener"
+                 class="hidden items-center justify-between gap-3 px-5 py-3.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900 font-semibold text-sm transition-colors">
+                <span class="flex items-center">
+                  <i data-lucide="lightbulb" class="w-4 h-4 mr-2 text-teal-600"></i>
+                  Still stuck? Read the step-by-step explainer
+                </span>
+                <span id="explainer-link-skill" class="text-xs font-normal text-teal-700"></span>
+              </a>
+
             </div>
 
             <!-- Bottom Navigation Bar -->
@@ -1116,6 +1126,28 @@
       }
     }
 
+    // Explainer index: question id -> published step-by-step explainer
+    let explainerIndex = null;
+    fetch('explanations/index.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { explainerIndex = (d && d.questions) || {}; })
+      .catch(() => { explainerIndex = {}; });
+
+    function showExplainerLink(questionId) {
+      const el = document.getElementById('explainer-link');
+      if (!el) return;
+      const hit = explainerIndex && explainerIndex[String(questionId).slice(0, 8)];
+      if (hit && hit.url) {
+        el.href = hit.url;
+        document.getElementById('explainer-link-skill').innerText = hit.skill || '';
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+      } else {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+      }
+    }
+
     let cloudPushDebounce = null;
     function triggerCloudSync() {
       if (cloudPushDebounce) clearTimeout(cloudPushDebounce);
@@ -1400,6 +1432,7 @@
       const feedbackBanner = document.getElementById('feedback-banner');
       const rationaleContainer = document.getElementById('rationale-container');
       const rationaleBody = document.getElementById('rationale-body');
+      showExplainerLink(q.id);
 
       if (qProg.answered) {
         feedbackBanner.classList.remove('hidden');

@@ -36,6 +36,35 @@ python3 explanations/build_worklist.py
 | One-variable data: distributions | 0 | 1 | _pending_ | |
 | Linear equations in one variable | 0 | 1 | _pending_ | |
 
+## Using these from the app
+
+`index.json` maps a question id to its published explainer, anchored to that
+question's section:
+
+```json
+"1b9fa866": {
+  "url": "https://claude.ai/code/artifact/…#q-1b9fa866",
+  "skill": "Command of Evidence",
+  "file": "explanations/command-of-evidence.html"
+}
+```
+
+Both `index.html` and `parent.html` fetch it on load and reveal a link only for
+questions that have one — the student app under the rationale card, the parent
+portal at the top of the per-question modal. A missing or unreachable
+`index.json` just leaves the link hidden.
+
+Rebuild it after publishing or updating any explainer:
+
+```bash
+python3 explanations/build_index.py
+```
+
+It scans `explanations/*.html` and `explainers/*.html` for the stamped
+`<!-- artifact: <url> -->` comment and every `<section class="qsec" id="q-XXXX">`
+anchor, so **files are named by skill and questions are addressed by id** —
+never by date.
+
 `worklist.json` holds the exact question IDs per page.
 
 ## Related
