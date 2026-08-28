@@ -327,23 +327,40 @@
 
   /**
    * Partitions and shuffles a pool prioritizing unseen questions first (Bank Coverage Guarantee).
-   * Questions never seen by the student are drawn first; seen questions are only recycled if needed.
+   * If isHighYield is enabled, prioritizes Hard/Medium difficulty and high-weight College Board domains first.
    */
-  function _prioritizeUnseen(pool, progressMap) {
+  function _prioritizeUnseen(pool, progressMap, options) {
     var progress = progressMap || {};
-    var unseen = [];
+    var opts = options || {};
+    var isHighYield = (opts.isHighYield === true || opts.highYield === true);
+
+    var unseenHighYield = [];
+    var unseenStandard = [];
     var seen = [];
+
+    var HIGH_YIELD_DOMAINS = {
+      'Algebra': true,
+      'Advanced Math': true,
+      'Information and Ideas': true,
+      'Craft and Structure': true
+    };
+
     pool.forEach(function(q) {
       var p = progress[q.id];
       var seenCount = p ? (p.timesSeen || (p.answered ? 1 : 0)) : 0;
       if (seenCount === 0) {
-        unseen.push(q);
+        var isHy = (q.difficulty === 'Hard' || q.difficulty === 'Medium') || (HIGH_YIELD_DOMAINS[q.domain] === true);
+        if (isHighYield && isHy) {
+          unseenHighYield.push(q);
+        } else {
+          unseenStandard.push(q);
+        }
       } else {
         seen.push({ question: q, timesSeen: seenCount, lastAttemptTime: p.timestamp || 0 });
       }
     });
 
-    var result = _shuffle(unseen);
+    var result = _shuffle(unseenHighYield).concat(_shuffle(unseenStandard));
 
     if (seen.length > 0) {
       seen.sort(function(a, b) {
@@ -367,13 +384,14 @@
   function generateStandardPSAT89Exam(allQuestions, options) {
     var opts = options || {};
     var isAdaptive = (opts.isAdaptive !== false);
+    var isHighYield = (opts.isHighYield === true || opts.highYield === true);
     var progressMap = opts.progressMap || opts.progress || {};
 
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
-    var orderedRw = _prioritizeUnseen(rwPool, progressMap);
-    var orderedMath = _prioritizeUnseen(mathPool, progressMap);
+    var orderedRw = _prioritizeUnseen(rwPool, progressMap, { isHighYield: isHighYield });
+    var orderedMath = _prioritizeUnseen(mathPool, progressMap, { isHighYield: isHighYield });
 
     // Module 1 (Baseline / Routing Stage): Broad mix of Easy, Medium, Hard
     var rwM1Qs = orderedRw.slice(0, 27);
@@ -383,15 +401,15 @@
     var rwHardPool = remainingRw.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
     var rwEasyPool = remainingRw.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
     
-    var rwM2Hard = _prioritizeUnseen(rwHardPool, progressMap).slice(0, 27);
-    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_prioritizeUnseen(remainingRw, progressMap).slice(0, 27 - rwM2Hard.length));
+    var rwM2Hard = _prioritizeUnseen(rwHardPool, progressMap, { isHighYield: isHighYield }).slice(0, 27);
+    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_prioritizeUnseen(remainingRw, progressMap, { isHighYield: isHighYield }).slice(0, 27 - rwM2Hard.length));
     
-    var rwM2Easy = _prioritizeUnseen(rwEasyPool, progressMap).slice(0, 27);
-    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_prioritizeUnseen(remainingRw, progressMap).slice(0, 27 - rwM2Easy.length));
+    var rwM2Easy = _prioritizeUnseen(rwEasyPool, progressMap, { isHighYield: isHighYield }).slice(0, 27);
+    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_prioritizeUnseen(remainingRw, progressMap, { isHighYield: isHighYield }).slice(0, 27 - rwM2Easy.length));
 
     // Math Section: M1 Baseline (~17 MCQs + ~5 SPRs)
-    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap);
-    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap);
+    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap, { isHighYield: isHighYield });
+    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap, { isHighYield: isHighYield });
 
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
     
@@ -483,18 +501,19 @@
   function generateMiniPSAT89Exam(allQuestions, options) {
     var opts = options || {};
     var isAdaptive = (opts.isAdaptive !== false);
+    var isHighYield = (opts.isHighYield === true || opts.highYield === true);
     var progressMap = opts.progressMap || opts.progress || {};
 
     var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
     var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
 
-    var orderedRw = _prioritizeUnseen(rwPool, progressMap);
-    var orderedMath = _prioritizeUnseen(mathPool, progressMap);
+    var orderedRw = _prioritizeUnseen(rwPool, progressMap, { isHighYield: isHighYield });
+    var orderedMath = _prioritizeUnseen(mathPool, progressMap, { isHighYield: isHighYield });
 
     var rwM1Qs = orderedRw.slice(0, 4);
 
-    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap);
-    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap);
+    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap, { isHighYield: isHighYield });
+    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap, { isHighYield: isHighYield });
 
     var mathHardPool = mathMcqs.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
     var mathEasyPool = mathMcqs.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });

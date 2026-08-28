@@ -4,7 +4,8 @@
   "description": "PSAT Prep Cosmos DB Cloud Sync API",
   "main": "src/functions/*.js",
   "dependencies": {
+    "@azure/cosmos": "^4.2.0",
     "@azure/functions": "^4.6.0",
-    "@azure/cosmos": "^4.2.0"
+    "@azure/storage-blob": "^12.33.0"
   }
 }

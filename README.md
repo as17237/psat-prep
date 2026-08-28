@@ -79,9 +79,62 @@ See [SYSTEM_ARCHITECTURE_AND_PLAN.md](SYSTEM_ARCHITECTURE_AND_PLAN.md) for full 
 
 ---
 
-## 🌐 Live Azure Production Deployment
+## 🌐 Live Azure Deployments & Dual-Version Environment
 
-- **Student Practice & Analytics Portal**: [https://psatprep4915.z13.web.core.windows.net/index.html](https://psatprep4915.z13.web.core.windows.net/index.html)
-- **Parent Oversight & Progress Dashboard**: [https://psatprep4915.z13.web.core.windows.net/parent.html](https://psatprep4915.z13.web.core.windows.net/parent.html)
-- **Azure Resource Group**: `rg-psat-prep`
-- **Storage Account**: `psatprep4915`
+Both environments share the **exact same live Azure Cosmos DB database** (`student_default_student`). Any exam or practice completed in either environment instantly syncs and reflects in both portals:
+
+- **🟢 Production (Stable v1.0)**:
+  - **Student Portal**: [https://psatprep4915.z13.web.core.windows.net/index.html](https://psatprep4915.z13.web.core.windows.net/index.html)
+  - **Parent Analytics**: [https://psatprep4915.z13.web.core.windows.net/parent.html](https://psatprep4915.z13.web.core.windows.net/parent.html)
+  - **Mistake Review Center**: [https://psatprep4915.z13.web.core.windows.net/mistakes.html](https://psatprep4915.z13.web.core.windows.net/mistakes.html)
+- **🟡 Beta / Preview Environment**:
+  - **Student Portal**: [https://psatprep4915.z13.web.core.windows.net/beta/index.html](https://psatprep4915.z13.web.core.windows.net/beta/index.html)
+  - **Parent Analytics**: [https://psatprep4915.z13.web.core.windows.net/beta/parent.html](https://psatprep4915.z13.web.core.windows.net/beta/parent.html)
+  - **Mistake Review Center**: [https://psatprep4915.z13.web.core.windows.net/beta/mistakes.html](https://psatprep4915.z13.web.core.windows.net/beta/mistakes.html)
+
+---
+
+## ⚡ 7-Week High-Yield Sprint Mode (Mid-October Target)
+
+When time is limited and the student cannot complete all 3,059 questions before the mid-October test, the engine supports **High-Yield Sprint Prioritization**:
+- Prioritizes **Upper-Track Gateway questions** (Hard & Medium difficulty).
+- Weights the highest-frequency College Board domains first:
+  - **Math**: *Algebra* (35%) & *Advanced Math* (32%).
+  - **Reading & Writing**: *Information & Ideas* (26%) & *Craft & Structure* (28%).
+- Can be toggled on demand in the test generator or via URL parameter `&highyield=true`.
+
+---
+
+## 💾 Automated Cloud Backups & Disaster Recovery
+
+Progress is continuously protected by redundant automated backups:
+
+1. **Daily Automated Cloud Timer Backup**:
+   - **Trigger**: Runs every night at `02:00 UTC` (`0 0 2 * * *`) via Azure Function App `psat-api-4915` (`backup.js`).
+   - **Target**: Stored off-machine in Azure Blob Storage container `cosmos-backups` in `psatprep4915`.
+   - **Retention**: Preserves timestamped archives `cosmos_backup_YYYY-MM-DDTHH-mm-ss-sssZ.json` and updates `cosmos_backup_latest.json`.
+2. **On-Demand Cloud Backup Trigger**:
+   - Trigger an immediate cloud snapshot via HTTP `POST` or `GET`:
+     ```bash
+     curl -X POST https://psat-api-4915.azurewebsites.net/api/backup
+     ```
+3. **Local CLI Backup & Guarded Restore**:
+   ```bash
+   # Export live Cosmos DB snapshot locally
+   node scripts/backup_cosmos.js
+
+   # Verify backup in dry-run mode (does not modify DB)
+   node scripts/restore_cosmos.js
+
+   # Execute live restore to Cosmos DB
+   node scripts/restore_cosmos.js --apply
+   ```
+
+---
+
+## 🏗️ Cloud Infrastructure (Resource Group: `rg-psat-prep`)
+
+- **Azure Storage Account**: `psatprep4915` (Static website hosting in `$web`, backup archives in `cosmos-backups`)
+- **Azure Cosmos DB**: `psat-cosmos-15958` (Database: `psat-prep-db`, Container: `UATStudentAnswers`)
+- **Azure Functions API**: `psat-api-4915` (Sync endpoint `/api/syncStudentAnswers`, backup endpoint `/api/backup`, feedback endpoint `/api/submitFeedback`)
+

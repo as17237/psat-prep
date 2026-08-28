@@ -552,6 +552,22 @@
               <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
             </label>
           </div>
+
+          <!-- 7-Week High-Yield Sprint Mode Option -->
+          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-2">
+            <div class="space-y-0.5">
+              <label for="std-highyield-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
+                <i data-lucide="flame" class="w-4 h-4 mr-1.5 text-rose-400"></i> ⚡ 7-Week High-Yield Sprint Mode (Mid-October Target)
+              </label>
+              <p class="text-[11px] text-slate-300">
+                Prioritizes High-Weight College Board domains (Algebra, Advanced Math, Command of Evidence) and Medium/Hard gateway questions.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="std-highyield-toggle" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
+            </label>
+          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2">
@@ -614,6 +630,22 @@
             <label class="relative inline-flex items-center cursor-pointer shrink-0">
               <input type="checkbox" id="mini-adaptive-toggle" checked class="sr-only peer">
               <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+            </label>
+          </div>
+
+          <!-- 7-Week High-Yield Sprint Mode Option (Mini) -->
+          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-2">
+            <div class="space-y-0.5">
+              <label for="mini-highyield-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
+                <i data-lucide="flame" class="w-4 h-4 mr-1.5 text-rose-400"></i> ⚡ 7-Week High-Yield Sprint Mode (Mid-October Target)
+              </label>
+              <p class="text-[11px] text-slate-300">
+                Draws from High-Yield domains and gateway Upper-Track questions.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+              <input type="checkbox" id="mini-highyield-toggle" checked class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
             </label>
           </div>
         </div>
@@ -1714,22 +1746,26 @@
 
     function launchStandardExamFromParent() {
       const isAdaptive = document.getElementById('std-adaptive-toggle') ? document.getElementById('std-adaptive-toggle').checked : true;
-      window.location.href = `index.html?mode=psat89&adaptive=${isAdaptive}`;
+      const isHighYield = document.getElementById('std-highyield-toggle') ? document.getElementById('std-highyield-toggle').checked : true;
+      window.location.href = `index.html?mode=psat89&adaptive=${isAdaptive}&highyield=${isHighYield}`;
     }
 
     function launchMiniExamFromParent() {
       const isAdaptive = document.getElementById('mini-adaptive-toggle') ? document.getElementById('mini-adaptive-toggle').checked : true;
-      window.location.href = `index.html?mode=mini_psat89&adaptive=${isAdaptive}`;
+      const isHighYield = document.getElementById('mini-highyield-toggle') ? document.getElementById('mini-highyield-toggle').checked : true;
+      window.location.href = `index.html?mode=mini_psat89&adaptive=${isAdaptive}&highyield=${isHighYield}`;
     }
 
     function copyShareableTestLink(type) {
       let url = window.location.origin + window.location.pathname.replace('parent.html', 'index.html');
       if (type === 'mini_psat89' || type === 'mini') {
         const isAdaptive = document.getElementById('mini-adaptive-toggle') ? document.getElementById('mini-adaptive-toggle').checked : true;
-        url += `?mode=mini_psat89&adaptive=${isAdaptive}`;
+        const isHighYield = document.getElementById('mini-highyield-toggle') ? document.getElementById('mini-highyield-toggle').checked : true;
+        url += `?mode=mini_psat89&adaptive=${isAdaptive}&highyield=${isHighYield}`;
       } else if (type === 'psat89') {
         const isAdaptive = document.getElementById('std-adaptive-toggle') ? document.getElementById('std-adaptive-toggle').checked : true;
-        url += `?mode=psat89&adaptive=${isAdaptive}`;
+        const isHighYield = document.getElementById('std-highyield-toggle') ? document.getElementById('std-highyield-toggle').checked : true;
+        url += `?mode=psat89&adaptive=${isAdaptive}&highyield=${isHighYield}`;
       } else if (type === 'gap') {
         url += `?mode=gap_drill&count=${currentGapCount}&focus=${document.getElementById('gap-focus-type').value}`;
       } else if (type === 'custom') {

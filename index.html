@@ -3203,12 +3203,14 @@
       const urlParams = new URLSearchParams(window.location.search);
       const mode = urlParams.get('mode');
 
-      if (mode === 'psat89') {
+      if (mode === 'psat89' || mode === 'standard_psat89') {
         const isAdaptive = (urlParams.get('adaptive') !== 'false');
-        startStandardExam({ isAdaptive: isAdaptive });
+        const isHighYield = (urlParams.get('highyield') === 'true' || urlParams.get('high_yield') === 'true');
+        startStandardExam({ isAdaptive: isAdaptive, isHighYield: isHighYield });
       } else if (mode === 'mini_psat89' || mode === 'mini') {
         const isAdaptive = (urlParams.get('adaptive') !== 'false');
-        startMiniExam({ isAdaptive: isAdaptive });
+        const isHighYield = (urlParams.get('highyield') === 'true' || urlParams.get('high_yield') === 'true');
+        startMiniExam({ isAdaptive: isAdaptive, isHighYield: isHighYield });
       } else if (mode === 'gap_drill') {
         const countParam = parseInt(urlParams.get('count') || '20', 10);
         const focusParam = urlParams.get('focus') || 'all';

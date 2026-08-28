@@ -764,7 +764,25 @@ const mockFetch = async (url, opts) => {
     progressiveLocal = res;
   }
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, and Cosmos DB Cloud Sync tests passed!');
+  // 12. High-Yield Sprint Mode Prioritization Test
+  // ------------------------------------------------------------------
+  const mockPool = [
+    { id: 'q_easy_unimportant', difficulty: 'Easy', domain: 'Expression of Ideas', test: 'Reading and Writing' },
+    { id: 'q_hard_algebra', difficulty: 'Hard', domain: 'Algebra', test: 'Math' },
+    { id: 'q_med_info_ideas', difficulty: 'Medium', domain: 'Information and Ideas', test: 'Reading and Writing' }
+  ];
+
+  const standardDraw = PSAT_ENGINE._prioritizeUnseen(mockPool, {}, { isHighYield: false });
+  const highYieldDraw = PSAT_ENGINE._prioritizeUnseen(mockPool, {}, { isHighYield: true });
+
+  assert.strictEqual(highYieldDraw.length, 3, 'High yield draw must include all items');
+  // First two items in highYieldDraw must be the hard algebra and medium info ideas questions
+  const top2Ids = [highYieldDraw[0].id, highYieldDraw[1].id];
+  assert.ok(top2Ids.includes('q_hard_algebra'), 'Hard Algebra must be prioritized in top items');
+  assert.ok(top2Ids.includes('q_med_info_ideas'), 'Medium Information & Ideas must be prioritized in top items');
+  assert.strictEqual(highYieldDraw[2].id, 'q_easy_unimportant', 'Easy standard domain item must be placed after high-yield pool');
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

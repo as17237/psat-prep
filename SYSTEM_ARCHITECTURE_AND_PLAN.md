@@ -251,12 +251,76 @@ export BLOB_BASE_URL="https://psatprepstorage.blob.core.windows.net"
 python3 upload_to_azure.py
 ```
 
-### Step 3: Deploy Frontend to Azure Static Web Apps
+### Step 3: Deploy Frontend to Azure Static Web Apps / Blob Storage ($web)
 ```bash
-az staticwebapp create \
-  --name psat-prep-app \
-  --resource-group rg-psat-prep \
-  --source https://github.com/<your-username>/psat-prep \
-  --branch main \
-  --app-location "/"
+# Upload static assets to $web container
+ACCOUNT_KEY=$(az storage account keys list --resource-group rg-psat-prep --account-name psatprep4915 --query '[0].value' -o tsv)
+
+for file in index.html parent.html mistakes.html srs.js; do
+  az storage blob upload --account-name psatprep4915 --account-key "$ACCOUNT_KEY" --container-name '$web' --name "$file" --file "$file" --overwrite true
+done
 ```
+
+---
+
+## 7. Automated Cloud Backup Architecture & Disaster Recovery
+
+Progress records in Azure Cosmos DB (`UATStudentAnswers`, `UATFeedback`) are safeguarded against accidental corruption or data loss via a three-tier backup system:
+
+```mermaid
+graph TD
+    subgraph "Cosmos DB (Primary Store)"
+        CDB[("psat-cosmos-15958<br>psat-prep-db")]
+    end
+
+    subgraph "Azure Functions App (psat-api-4915)"
+        T["Timer Trigger: dailyCosmosBackup<br>Cron: 0 0 2 * * * (02:00 UTC)"]
+        H["HTTP Endpoint: /api/backup<br>On-Demand Cloud Snapshot Trigger"]
+    end
+
+    subgraph "Azure Blob Storage (psatprep4915)"
+        B1["cosmos-backups/cosmos_backup_YYYY-MM-DDTHH-mm-ss-sssZ.json<br>(Immutable Timestamped Archive)"]
+        B2["cosmos-backups/cosmos_backup_latest.json<br>(Pointer to Latest Good Backup)"]
+    end
+
+    subgraph "Local Workstation Tools"
+        CLI_B["node scripts/backup_cosmos.js"]
+        CLI_R["node scripts/restore_cosmos.js [--apply]"]
+    end
+
+    T -->|Executes Nightly| CDB
+    H -->|Executes On Demand| CDB
+    T -->|Uploads JSON| B1
+    T -->|Updates Latest| B2
+    H -->|Uploads JSON| B1
+    H -->|Updates Latest| B2
+    CLI_B -->|Exports Local Snapshot| CDB
+    CLI_R -->|Dry-run or Applies Snapshot| CDB
+```
+
+### 7.1 Safety Invariants
+1. **Zero-Document Guard**: The backup runner refuses to overwrite existing archives if Cosmos DB returns 0 documents.
+2. **Dry-Run Protected Restore**: `node scripts/restore_cosmos.js` defaults to a safe dry-run listing target documents. Writes require explicit `--apply`.
+3. **Off-Machine Separation**: Nightly snapshots are stored in Azure Blob Storage container `cosmos-backups` completely independent of local developer machines.
+
+---
+
+## 8. Dual-Version Deployment Architecture (Unified Data)
+
+To allow experimental features, Claude deep-dive explainers, and UI enhancements without disrupting daily student testing, the platform operates in a **Dual-Frontend, Single-Data Model**:
+
+- **Production (Stable v1.0)**: `https://psatprep4915.z13.web.core.windows.net/`
+  - Purpose: Daily timed exams, routine practice, official score reports.
+- **Beta / Staging**: `https://psatprep4915.z13.web.core.windows.net/beta/`
+  - Purpose: Rapid testing of new explainer formats, UI improvements, and experimental drills.
+- **Shared Data Invariant**: Both environments connect to the same Azure API (`/api/syncStudentAnswers`) and read/write the same Cosmos DB document (`student_default_student`). Practice completed in either version seamlessly merges.
+
+---
+
+## 9. 7-Week High-Yield Sprint Mode (Mid-October Target)
+
+When time is limited before the official test, the engine dynamically reweights question pools:
+- **Difficulty Weighting**: High-Yield mode draws Hard and Medium questions first to qualify for and excel in the Module 2 Upper Difficulty Track (the 600–720 score band).
+- **Domain Weighting**: Prioritizes high-weight College Board domains (*Algebra*, *Advanced Math*, *Information and Ideas*, *Craft and Structure*).
+- **Activation**: Enabled via toggle in Parent Portal / Student Lobby or via URL parameter `&highyield=true`.
+
