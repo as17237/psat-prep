@@ -1,0 +1,536 @@
+<!-- depth: default -->
+<!-- artifact: https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd -->
+<title>Test It, Don't Solve It</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;scroll-margin-top:24px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+</style>
+
+
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Nonlinear functions · 3 questions you missed</p>
+    <h1>Test it,<br><em>don't solve it</em></h1>
+    <p class="standfirst">All three of these gave you four answers to choose from. That is a gift, and you did not use it. Every one of them can be settled by <strong>putting the choices back into the question</strong> — no algebra, no rearranging, just arithmetic you can check.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Read the big idea first, then the three questions. Each shows what you picked and what it would have meant if it were true — that is usually the fastest way to see why it was wrong.
+    </div>
+  </header>
+
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The big idea</span></div>
+      <h2>Working forwards is easier than working backwards.</h2>
+    </div>
+
+    <p class="lede">Solving means working <em>backwards</em> from an answer you don't know yet. Testing means working <em>forwards</em> from a number you were handed. Forwards is always easier — and on a multiple-choice test, one of the four is guaranteed to work.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>When the choices are numbers, put them back in the question</h3>
+          <p>If a question asks "what is the height?" and offers 15, 18, 30 and 36, you do not need to build an equation. Take each number, follow the words of the question, and see which one produces the value you were told.</p>
+          <div class="keybox">This is not a lazy shortcut. It is often <b>faster and safer</b> than solving, because every step is arithmetic you can check, and you cannot make a rearranging mistake if you never rearrange.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>When the choices are equations, test them at easy values</h3>
+          <p>Pick the easiest input there is and see which equations survive. For a "how many after <var>d</var> days" question, the two best tests are:</p>
+          <ul>
+            <li><strong>Put in <span class="eq-in"><var>d</var> = 0</span>.</strong> Zero days have passed, so the equation must give back exactly what you started with.</li>
+            <li><strong>Then put in <span class="eq-in"><var>d</var> = 1</span>.</strong> One day of change. Now you can see whether it grows, shrinks, or grows at the wrong rate.</li>
+          </ul>
+          <div class="keybox">Two quick tests usually eliminate three of the four choices. <b>Start with <span class="eq-in"><var>d</var> = 0</span> every time</b> — it is the easiest arithmetic on the page and it catches the most wrong answers.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>When a question asks for the peak, the zeros are the trap</h3>
+          <p>For a curve that rises and falls, test writers put the places where it hits <strong>zero</strong> among the choices. Those numbers feel right because they genuinely come out of the equation — they are just answers to a different question.</p>
+          <div class="keybox">The peak is <b>halfway between the two zeros</b>, so it is never equal to either one. If a choice turns out to be a zero, that is a signal it is wrong, not that it is right.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>What actually happened on these three</h3>
+          <p>You chose <strong>D</strong> on all three. That is not a habit worth worrying about on its own — three questions is too few to mean anything. What matters is what those three D's had in common:</p>
+          <ul>
+            <li>None of them survives a ten-second test.</li>
+            <li>Each is what you get by doing <em>one specific thing wrong</em> — answering for the base instead of the height, giving the point where revenue hits zero instead of its maximum, or squaring the starting number instead of doubling it.</li>
+          </ul>
+          <div class="keybox">So the fix is mechanical, not a matter of knowing more maths: <b>before committing to a choice, spend ten seconds putting it back into the question.</b> All three of these would have failed that check immediately.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The habit to build</h3>
+      <p>Numbers as choices? <strong>Put each one back into the question.</strong><br>
+      Equations as choices? <strong>Test at 0, then at 1.</strong><br>
+      Asked for a peak? <strong>Find the two zeros and go halfway between.</strong></p>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-0664c858">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 1</span><span class="qid">0664c858</span><span class="qtopic">Hard · you chose D (36) · answer is B (18)</span></div>
+      <h2>Four numbers, one of which makes the area come out right</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The area of a triangle is <strong>270</strong> square centimeters. The length of the base is <strong>12</strong> centimeters greater than the height. What is the height, in centimeters?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>15</span></li>
+        <li class="right"><span class="key">B</span><span>18</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span>30</span></li>
+        <li class="trap"><span class="key">D</span><span>36</span><span class="verdict">You chose this</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: which height makes a triangle with area 270?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Write down the two facts you were given</h3>
+          <div class="word"><b>Area of a triangle.</b> <span class="eq-in">½ × base × height</span>. The half matters — forgetting it doubles every answer you get.</div>
+          <p>The base is 12 more than the height. So if the height is 15, the base is 27. If the height is 18, the base is 30. That is the only thing you need to turn a height into a full triangle.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Try all four. It takes about a minute</h3>
+          <div class="vt">
+            <table class="vals">
+              <caption>Only one height produces an area of 270.</caption>
+              <tr><th>Height</th><th>Base = height + 12</th><th>Area = ½ × base × height</th></tr>
+              <tr><td>15</td><td>27</td><td>202.5</td></tr>
+              <tr class="lo"><td class="lo">18</td><td class="lo">30</td><td class="lo">270 ✓</td></tr>
+              <tr><td>30</td><td>42</td><td>630</td></tr>
+              <tr><td>36</td><td>48</td><td>864</td></tr>
+            </table>
+          </div>
+          <p>The answer is <strong>18</strong>, and you never wrote an equation.</p>
+          <div class="keybox">Notice how far off your choice was. Height 36 gives an area of <b>864</b> — more than three times the 270 you were told. Any single test would have caught that.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Why C is the cleverer trap</h3>
+          <p>C is 30. When the height is 18, the base <em>is</em> 30 — so 30 is a real, correct number from this triangle. It just answers a different question.</p>
+          <div class="keybox">Whenever a question describes two related quantities — base and height, cost and profit, length and width — <b>the other one is almost always among the choices.</b> Before you commit, re-read the last line of the question and check which one it asked for.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>The algebra, for when you want it</h3>
+          <div class="faster"><span class="tag">The quicker route</span>Let the height be <var>h</var>, so the base is <span class="eq-in"><var>h</var> + 12</span> and the area is <span class="eq-in">½<var>h</var>(<var>h</var> + 12) = 270</span>. Double both sides: <span class="eq-in"><var>h</var>(<var>h</var> + 12) = 540</span>, so <span class="eq-in"><var>h</var><sup>2</sup> + 12<var>h</var> − 540 = 0</span>. Factor: <span class="eq-in">(<var>h</var> + 30)(<var>h</var> − 18) = 0</span>, giving <span class="eq-in"><var>h</var> = 18</span> (a length can't be −30).<br><br><b>Notice the 30 appearing in the factoring.</b> That is the same 30 sitting in choice C — a number that genuinely comes out of the working, attached to the wrong thing.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — 18 centimetres.</strong> Base 30, area ½ × 30 × 18 = 270.</p>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-25161d0e">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 2</span><span class="qid">25161d0e</span><span class="qtopic">Hard · you chose D (18) · answer is B (7)</span></div>
+      <h2>You picked the price where they earn nothing</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">An auditorium seats 1,800. Tickets cost $4.00. For each $1.00 increase, 100 fewer tickets sell. This is modelled by the equation below, where <var>x</var> is the price increase in dollars and <var>y</var> is the revenue. At what value of <var>x</var> is the maximum of the graph?</p>
+      <div class="eq"><var>y</var> = −100<var>x</var><sup>2</sup> + 1,400<var>x</var> + 7,200</div>
+      <ul class="choices">
+        <li><span class="key">A</span><span>4</span></li>
+        <li class="right"><span class="key">B</span><span>7</span><span class="verdict">Correct</span></li>
+        <li><span class="key">C</span><span>14</span></li>
+        <li class="trap"><span class="key">D</span><span>18</span><span class="verdict">You chose this</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: what price increase brings in the most money?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Test your own answer first — it takes fifteen seconds</h3>
+          <p>You chose <span class="eq-in"><var>x</var> = 18</span>. Put it in:</p>
+          <div class="eq"><var>y</var> = −100(18)<sup>2</sup> + 1,400(18) + 7,200 = −32,400 + 25,200 + 7,200 = <strong>0</strong></div>
+          <div class="keybox">Revenue of <b>zero dollars</b>. You picked the price increase at which the auditorium sells nothing at all — and the question asked for the <i>maximum</i>. One substitution would have shown you that.</div>
+          <p>This is why the habit matters more than the maths. You did not need to know how to find a vertex to rule out 18. You needed fifteen seconds of arithmetic.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Test all four and the shape appears</h3>
+          <div class="vt">
+            <table class="vals">
+              <caption>Revenue rises to a peak at 7, then falls away to nothing at 18.</caption>
+              <tr><th><var>x</var></th><td>4</td><td class="lo">7</td><td>14</td><td>18</td></tr>
+              <tr><th>Revenue</th><td>11,200</td><td class="lo">12,100</td><td>7,200</td><td>0</td></tr>
+            </table>
+          </div>
+          <p>The biggest number is 12,100, at <span class="eq-in"><var>x</var> = 7</span>. That is choice B, and testing alone was enough to find it.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Where 18 came from — and why it was put there</h3>
+          <p>18 is not a random wrong number. It is one of the two places where this curve <strong>crosses zero</strong>. Set the revenue to nothing and factor:</p>
+          <div class="eq">−100<var>x</var><sup>2</sup> + 1,400<var>x</var> + 7,200 = 0</div>
+          <p>Divide everything by −100 to make it friendly: <span class="eq-in"><var>x</var><sup>2</sup> − 14<var>x</var> − 72 = 0</span>, which factors to <span class="eq-in">(<var>x</var> − 18)(<var>x</var> + 4) = 0</span>. So the zeros are at <span class="eq-in"><var>x</var> = 18</span> and <span class="eq-in"><var>x</var> = −4</span>.</p>
+          <div class="keybox">Now the shortcut. A parabola is a mirror, so the peak sits <b>halfway between the two zeros</b>: halfway between −4 and 18 is <b>7</b>. The zeros are the trap; the midpoint is the answer.</div>
+          <p>And notice choice A: 4. That is the other zero with its minus sign removed — a second trap built from the same working.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>You have met this exact trap before</h3>
+          <p>On question <span class="qid">d98c3c8c</span>, the choices offered 55/2 and 55/4. 55/2 was where that curve came back down to zero; 55/4 was where it peaked. Same trap, different numbers.</p>
+          <div class="keybox">Whenever a question asks for a <b>maximum</b> or a <b>minimum</b>, expect the zeros to appear among the choices. Finding them is useful — but only as the step before going halfway between them.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — a $7 increase</strong>, bringing in $12,100.</p>
+    </div>
+
+    <div class="traps">
+      <h3>The other two</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p>4 is the other zero (−4) with the sign dropped. Revenue there is 11,200 — high, but not the highest.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p>14 is double 7. Revenue there is 7,200 — the same as at <span class="eq-in"><var>x</var> = 0</span>, because 14 is exactly as far past the peak as 0 is before it. The mirror again.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-ce6b914c">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Question 3</span><span class="qid">ce6b914c</span><span class="qtopic">Medium · you chose D · answer is B</span></div>
+      <h2>Put in zero days, then one day</h2>
+    </div>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">At the time of posting a video, a channel had <strong>53</strong> subscribers. Each day for five days, the number of subscribers <strong>doubled</strong> from the day before. Which equation gives the total subscribers, <var>n</var>, after <var>d</var> days?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span class="eq-in"><var>n</var> = (53)<sup><var>d</var></sup></span></li>
+        <li class="right"><span class="key">B</span><span class="eq-in"><var>n</var> = 53(2)<sup><var>d</var></sup></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span class="eq-in"><var>n</var> = 53(½)<sup><var>d</var></sup></span></li>
+        <li class="trap"><span class="key">D</span><span class="eq-in"><var>n</var> = (53)<sup>2</sup> + <var>d</var></span><span class="verdict">You chose this</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: which of these four actually describes doubling?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Know what the answer must do before you look at it</h3>
+          <p>Write out the first few days by hand. You are told it starts at 53 and doubles:</p>
+          <div class="vt">
+            <table class="vals">
+              <caption>The real numbers. Any correct equation has to produce this row.</caption>
+              <tr><th>Days (<var>d</var>)</th><td class="lo">0</td><td class="lo">1</td><td>2</td><td>3</td></tr>
+              <tr><th>Subscribers</th><td class="lo">53</td><td class="lo">106</td><td>212</td><td>424</td></tr>
+            </table>
+          </div>
+          <div class="keybox">You now have a test with two easy checks: the equation must give <b>53 when <span class="eq-in"><var>d</var> = 0</span></b>, and <b>106 when <span class="eq-in"><var>d</var> = 1</span></b>.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>First test: put in zero days</h3>
+          <p>Zero days have gone by, so nothing has happened yet — the answer must be the 53 you started with. Remember that <strong>anything raised to the power of 0 equals 1.</strong></p>
+          <div class="vt">
+            <table class="vals">
+              <caption>Two choices are gone already.</caption>
+              <tr><th>Choice</th><th>At <var>d</var> = 0</th><th></th></tr>
+              <tr><td>A &nbsp; 53<sup><var>d</var></sup></td><td>53<sup>0</sup> = 1</td><td>✗</td></tr>
+              <tr class="lo"><td class="lo">B &nbsp; 53(2)<sup><var>d</var></sup></td><td class="lo">53 × 1 = 53</td><td class="lo">✓</td></tr>
+              <tr><td>C &nbsp; 53(½)<sup><var>d</var></sup></td><td>53 × 1 = 53</td><td>✓</td></tr>
+              <tr><td>D &nbsp; (53)<sup>2</sup> + <var>d</var></td><td>2,809 + 0 = 2,809</td><td>✗</td></tr>
+            </table>
+          </div>
+          <div class="keybox">Your choice, D, claims the channel had <b>2,809 subscribers on day zero</b> — before anything happened. The question said 53. That is the whole check.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>Second test: put in one day</h3>
+          <p>Two choices survived. After one day the count must have doubled, to 106.</p>
+          <ul>
+            <li><strong>B:</strong> 53 × 2<sup>1</sup> = 53 × 2 = <strong>106</strong> ✓</li>
+            <li><strong>C:</strong> 53 × ½ = <strong>26.5</strong> ✗ — that is halving, not doubling, and you cannot have half a subscriber.</li>
+          </ul>
+          <p>B is the only one left. Two tests, four choices eliminated, no algebra.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>What went wrong in D — the operations got swapped</h3>
+          <p>D squares the starting number and adds the days. Doubling does neither of those things:</p>
+          <ul>
+            <li><strong>Doubling</strong> means multiplying by 2, once per day. That belongs in the <em>base</em>: 2<sup><var>d</var></sup>.</li>
+            <li><strong>Squaring</strong> means multiplying a number by itself, once. 53<sup>2</sup> is 53 × 53 — a completely different operation, and it does not repeat.</li>
+            <li><strong>Adding <var>d</var></strong> means going up by one per day. That is growing by 1, not doubling.</li>
+          </ul>
+          <div class="keybox">The number that repeats goes in the <b>base</b>; the number of repeats goes in the <b>exponent</b>. Here you double, <var>d</var> times: <span class="eq-in">2<sup><var>d</var></sup></span>. The 53 is a starting amount, so it multiplies the front — it is not the thing being repeated, which is why choice A is wrong too.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — <span class="eq-in"><var>n</var> = 53(2)<sup><var>d</var></sup></span></strong>. Starting amount out front, the thing you repeat in the base, the number of repeats in the exponent.</p>
+    </div>
+  </section>
+
+  <section class="qsec">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">Also in this skill</span><span class="qid">02e9349f</span><span class="qid">7ba3505c</span><span class="qid">d32a142a</span></div>
+      <h2>Three you got right</h2>
+    </div>
+    <p class="lede">These three Hard questions on the same skill you answered correctly, so they are not walked through here. If any of them felt like a guess rather than a decision, say so and I will add them — getting one right by luck is worth exactly as much as getting it wrong.</p>
+  </section>
+
+  <section class="close">
+    <h2>Your checklist for the next one of these</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Before committing to a choice, put it back into the question.</strong> All three of the answers you picked here fail in under fifteen seconds. This one habit would have turned three wrong into three right.</span></li>
+      <li><span class="n">2</span><span><strong>Numbers as choices? Test all four.</strong> Working forwards from a number you were given beats working backwards to one you don't know.</span></li>
+      <li><span class="n">3</span><span><strong>Equations as choices? Test at 0, then at 1.</strong> Zero must give back the starting amount; one shows you the direction and rate of change.</span></li>
+      <li><span class="n">4</span><span><strong>Asked for a peak? The zeros will be among the choices.</strong> Find both, then go halfway between. Never pick a zero itself.</span></li>
+      <li><span class="n">5</span><span><strong>Re-read the final line before answering.</strong> When a question links two quantities, the one it didn't ask for is usually sitting there as a choice — like the base of 30 when it wanted the height of 18.</span></li>
+    </ul>
+  </section>
+
+</div>

@@ -1,5 +1,5 @@
 {
-  "generated": "2026-08-27T21:42:16",
+  "generated": "2026-08-28T18:41:35",
   "pages": {
     "explainers/five-hard-questions.html": {
       "questionCount": 5,
@@ -10,9 +10,20 @@
       "questionCount": 8,
       "title": "Does It Do The Job?",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3"
+    },
+    "explanations/nonlinear-functions.html": {
+      "questionCount": 3,
+      "title": "Test It, Don't Solve It",
+      "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd"
     }
   },
   "questions": {
+    "0664c858": {
+      "file": "explanations/nonlinear-functions.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-0664c858"
+    },
     "1224cb23": {
       "file": "explainers/five-hard-questions.html",
       "skill": "Nonlinear functions",
@@ -24,6 +35,12 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-1b9fa866"
+    },
+    "25161d0e": {
+      "file": "explanations/nonlinear-functions.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-25161d0e"
     },
     "6488f498": {
       "file": "explanations/command-of-evidence.html",
@@ -72,6 +89,12 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-cc4d3cac"
+    },
+    "ce6b914c": {
+      "file": "explanations/nonlinear-functions.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-ce6b914c"
     },
     "d98c3c8c": {
       "file": "explainers/five-hard-questions.html",

@@ -20,7 +20,7 @@ python3 explanations/build_worklist.py
 | Skill | Wrong | Hard-correct | Page | Published |
 | :--- | ---: | ---: | :--- | :--- |
 | Command of Evidence | 8 | 9 | `command-of-evidence.html` | https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3 |
-| Nonlinear functions | 3 | 3 | _pending_ | |
+| Nonlinear functions | 3 | 3 | `nonlinear-functions.html` | https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd |
 | Equivalent expressions | 2 | 4 | _pending_ | |
 | Central Ideas and Details | 2 | 4 | _pending_ | |
 | Area and volume | 2 | 1 | _pending_ | |
