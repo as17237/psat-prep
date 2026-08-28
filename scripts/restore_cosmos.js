@@ -40,7 +40,20 @@ async function runRestore(specifiedFile) {
   const parsed = JSON.parse(raw);
   const docs = parsed.documents || (Array.isArray(parsed) ? parsed : [parsed]);
 
-  console.log(`Restoring ${docs.length} documents into Cosmos DB container (${containerName})...`);
+  const isApply = process.argv.includes('--apply');
+  if (!isApply) {
+    console.log(`\n[DRY RUN MODE] Verified backup snapshot containing ${docs.length} documents.`);
+    docs.forEach(doc => {
+      if (doc && doc.id) {
+        console.log(`  - Target Document: ${doc.id} (type: ${doc.doc_type || 'unknown'})`);
+      }
+    });
+    console.log('\n⚠️  No database writes were executed. To perform the live restore, run:');
+    console.log(`   node scripts/restore_cosmos.js ${specifiedFile ? specifiedFile + ' ' : ''}--apply\n`);
+    return;
+  }
+
+  console.log(`\nExecuting live restore of ${docs.length} documents into Cosmos DB container (${containerName})...`);
   for (const doc of docs) {
     if (doc && doc.id) {
       await container.items.upsert(doc);
@@ -48,11 +61,11 @@ async function runRestore(specifiedFile) {
     }
   }
 
-  console.log(`✓ Restore complete! ${docs.length} documents safely upserted.`);
+  console.log(`✓ Live restore complete! ${docs.length} documents safely upserted.`);
 }
 
 if (require.main === module) {
-  const target = process.argv[2];
+  const target = process.argv.slice(2).find(arg => arg !== '--apply');
   runRestore(target).catch(err => {
     console.error('Restore failed:', err);
     process.exit(1);

@@ -1304,6 +1304,13 @@
         var lTime = l.timestamp || l.lastAttemptTime || 0;
         var chosen = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
 
+        var cSeen = c.timesSeen || (c.answered ? 1 : 0);
+        var lSeen = l.timesSeen || (l.answered ? 1 : 0);
+        var cCorrect = c.timesCorrect || (c.answered && c.isCorrect ? 1 : 0);
+        var lCorrect = l.timesCorrect || (l.answered && l.isCorrect ? 1 : 0);
+        var cIncorrect = c.timesIncorrect || (c.answered && !c.isCorrect ? 1 : 0);
+        var lIncorrect = l.timesIncorrect || (l.answered && !l.isCorrect ? 1 : 0);
+
         var cAttempts = Array.isArray(c.attempts) ? c.attempts : [];
         var lAttempts = Array.isArray(l.attempts) ? l.attempts : [];
 
@@ -1312,32 +1319,22 @@
         lAttempts.forEach(function(att) { if (att && att.at) attemptMap[att.at] = att; });
 
         var combinedAttempts = Object.values(attemptMap).sort(function(a, b) { return a.at - b.at; });
+        var derivedSeen = combinedAttempts.length;
+        var derivedCorrect = combinedAttempts.filter(function(a) { return a.isCorrect; }).length;
+        var derivedIncorrect = derivedSeen - derivedCorrect;
 
-        if (combinedAttempts.length > 0) {
-          var totalSeen = combinedAttempts.length;
-          var totalCorrect = combinedAttempts.filter(function(a) { return a.isCorrect; }).length;
-          var totalIncorrect = totalSeen - totalCorrect;
+        // Authoritative accumulation: Stored counters must never decay when attempt logs are capped
+        var finalSeen = Math.max(cSeen, lSeen, derivedSeen);
+        var finalCorrect = Math.max(cCorrect, lCorrect, derivedCorrect);
+        var finalIncorrect = Math.max(cIncorrect, lIncorrect, derivedIncorrect);
 
-          chosen.timesSeen = totalSeen;
-          chosen.timesCorrect = totalCorrect;
-          chosen.timesIncorrect = totalIncorrect;
-          chosen.accuracyPercent = Math.round((totalCorrect / totalSeen) * 100);
-          chosen.attempts = combinedAttempts.slice(-10);
-        } else {
-          var cSeen = c.timesSeen || (c.answered ? 1 : 0);
-          var lSeen = l.timesSeen || (l.answered ? 1 : 0);
-          var cCorrect = c.timesCorrect || (c.answered && c.isCorrect ? 1 : 0);
-          var lCorrect = l.timesCorrect || (l.answered && l.isCorrect ? 1 : 0);
-          var cIncorrect = c.timesIncorrect || (c.answered && !c.isCorrect ? 1 : 0);
-          var lIncorrect = l.timesIncorrect || (l.answered && !l.isCorrect ? 1 : 0);
-
-          chosen.timesSeen = Math.max(cSeen, lSeen);
-          chosen.timesCorrect = Math.max(cCorrect, lCorrect);
-          chosen.timesIncorrect = Math.max(cIncorrect, lIncorrect);
-          if (chosen.timesSeen > 0) {
-            chosen.accuracyPercent = Math.round((chosen.timesCorrect / chosen.timesSeen) * 100);
-          }
+        chosen.timesSeen = finalSeen;
+        chosen.timesCorrect = finalCorrect;
+        chosen.timesIncorrect = finalIncorrect;
+        if (finalSeen > 0) {
+          chosen.accuracyPercent = Math.round((finalCorrect / finalSeen) * 100);
         }
+        chosen.attempts = (combinedAttempts.length > 0 ? combinedAttempts : (cAttempts.length > 0 ? cAttempts : lAttempts)).slice(-3);
         merged[qid] = chosen;
       } else if (c) {
         merged[qid] = Object.assign({}, c);

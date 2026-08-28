@@ -720,7 +720,51 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(qRes.accuracyPercent, 50);
   assert.strictEqual(qRes.attempts.length, 2);
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, and Cosmos DB Cloud Sync tests passed!');
+  // 11. Multi-Sync Non-Decay Test for Authoritative Lifetime Counters
+  // ------------------------------------------------------------------
+  let progressiveCloud = {
+    'q_fifteen': {
+      answered: true,
+      isCorrect: true,
+      timesSeen: 15,
+      timesCorrect: 10,
+      timesIncorrect: 5,
+      accuracyPercent: 67,
+      timestamp: 3000,
+      attempts: [
+        { at: 2800, isCorrect: true, selectedAnswer: 'A', timeSpentMs: 20000 },
+        { at: 2900, isCorrect: false, selectedAnswer: 'B', timeSpentMs: 25000 },
+        { at: 3000, isCorrect: true, selectedAnswer: 'A', timeSpentMs: 22000 }
+      ]
+    }
+  };
+  let progressiveLocal = {
+    'q_fifteen': {
+      answered: true,
+      isCorrect: true,
+      timesSeen: 15,
+      timesCorrect: 10,
+      timesIncorrect: 5,
+      accuracyPercent: 67,
+      timestamp: 3000,
+      attempts: [
+        { at: 3000, isCorrect: true, selectedAnswer: 'A', timeSpentMs: 22000 }
+      ]
+    }
+  };
+
+  // Sync 1, 2, and 3 must keep timesSeen=15 and timesIncorrect=5
+  for (let syncCount = 1; syncCount <= 3; syncCount++) {
+    const res = PSAT_ENGINE.mergeProgress(progressiveCloud, progressiveLocal);
+    assert.strictEqual(res['q_fifteen'].timesSeen, 15, `Sync #${syncCount} must retain timesSeen = 15`);
+    assert.strictEqual(res['q_fifteen'].timesIncorrect, 5, `Sync #${syncCount} must retain timesIncorrect = 5`);
+    assert.strictEqual(res['q_fifteen'].timesCorrect, 10, `Sync #${syncCount} must retain timesCorrect = 10`);
+    assert.strictEqual(res['q_fifteen'].attempts.length, 3, 'Attempts array must be capped at 3');
+    progressiveCloud = res;
+    progressiveLocal = res;
+  }
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

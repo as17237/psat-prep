@@ -32,6 +32,11 @@ async function runBackup() {
 
   console.log(`Connecting to ${endpoint} (${dbName} / ${containerName})...`);
   const { resources: allDocs } = await container.items.query('SELECT * FROM c').fetchAll();
+  
+  if (!Array.isArray(allDocs) || allDocs.length === 0) {
+    console.error(`❌ Backup aborted: Query returned 0 documents from ${containerName}. Refusing to overwrite latest backup.`);
+    process.exit(1);
+  }
   console.log(`Successfully fetched ${allDocs.length} total documents.`);
 
   const now = new Date();

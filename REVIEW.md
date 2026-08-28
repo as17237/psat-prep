@@ -997,3 +997,679 @@ The git-purge item has been open since round 1 (3,059 tracked images); this make
 - `validate.md` is committed in `9741e00` but deleted from the working tree, with an untracked copy in `agent-review/`. Its BUG-1 finding is the most valuable output of round 8 and should live in one canonical, tracked location.
 - Git purge of 3,059 images + `api/node_modules`. Needs explicit sign-off; rewrites history.
 - `COSMOS_CONNECTION_STRING` is a connection string. Round 1 flagged the same pattern for the storage account and recommended `DefaultAzureCredential`; the rule was not applied to its twin here (mode 2).
+
+---
+
+# Re-review — round 11
+
+Reviewed commit `ba3a022`. Scope remains **one student**.
+
+## Fixed and verified
+
+**Round 9 — the six answer keys. Done, and the regression is now guarded.**
+
+```
+OK  7a026c5b -> '1.3'    OK  a602f738 -> '2.6'    OK  d9281ab5 -> '1.5'
+OK  e83a38d3 -> '1.2'    OK  ebe77ad7 -> '4.44'   OK  2c14fa19 -> '35728000'
+```
+
+All six read back correctly from `data/questions_data.js` (3,059 records), `python3 rebuild_bundle.py` produces **no drift**, and full-dataset validation still reports `3059 0 2158`. The regex at `extractor.py:183` now reads `(.+?)\.(?:\s|$)`, and extraction was correctly *not* re-run.
+
+The new validator rule was tested by reintroducing the defect. It fires on exactly the failure it exists to catch and does not false-positive on the fixed record:
+
+```
+good key 1.3 -> ([], [])
+bad  key 1   -> (["[7a026c5b] Free-response key '1' does not match sentence rationale component '1.3'"], [])
+```
+
+**Round 10 finding 3 — storage. Done.** Same 120-exam scenario as last round:
+
+```
+120 cloud exams -> merged entries: 15
+psat_exam_history size: 65.8 KB   (was 533.7 KB)
+quota failure  -> {"success":false,"error":"Storage quota exceeded while writing merged data","quotaExceeded":true}
+```
+
+All four writes go through the injected setter, all four flags are checked, and `safeSetStorage` is passed in the correct 4th positional slot at both call sites (`index.html:3064`, `parent.html:610`) — the argument-position rule from mode 6 was followed.
+
+**Round 10 finding 2 — false success. Done at every site.** `pullFromCloud`/`pushToCloud` now return `{success:false}` on non-2xx or on a body carrying `error`. `parent.html` distinguishes failure and says so; the student badge starts at "Connecting…" rather than asserting "Active"; `feedback.html` waits for the response before claiming a sync.
+
+**Round 10 findings 4 and 5 — done.** `items.create` with a 409 ignore makes "immutable" an accurate label. `api/node_modules` is untracked (`git ls-files` → 0) and `.gitignore` now covers `node_modules/`, `api/node_modules/`, `*.zip`.
+
+## Finding 1 — The merge helpers were written against a schema that does not exist (mode 3), and the test was written against the same imagined schema (mode 4)
+
+`mergeProgress` is correct — `progress` records really do carry `timestamp` (`index.html:1430`), so newest-wins works.
+
+The other two read and write fields that appear on **zero** records.
+
+The real session record, from `recordDailySession` (`srs.js:227`), executed:
+
+```
+{"date":"2026-08-25","questionsAnswered":2,"correct":1,"totalTimeMs":50000}
+```
+
+`mergeSessionsState` reads `totalAnswered || count` and writes `totalAnswered`, `totalCorrect`, `totalTimeSpentMs`. Only `correct` overlaps. Executed on the exact two-device case this fix was written for:
+
+```
+tablet : {"date":"2026-08-25","questionsAnswered":12,"correct":10,"totalTimeMs":400000}
+laptop : {"date":"2026-08-25","questionsAnswered":5,"correct":4,"totalTimeMs":150000}
+merged : {"date":"2026-08-25","totalAnswered":0,"totalCorrect":14,"totalTimeSpentMs":0,"streakCount":0,"lastAttemptTime":0}
+expected: questionsAnswered:17 correct:14 totalTimeMs:550000
+streak sees: 0
+```
+
+**This is worse than the bug it replaces.** Before, one device's counts survived; now both are destroyed — `questionsAnswered` and `totalTimeMs` are gone from the record entirely, and `calculateStreak` returns **0** for a day the student actually studied. The one field that survives is written under a name nothing reads.
+
+The real SRS card, from `scheduleNext` (`srs.js:156`), carries `lastReviewedAt` and `dueAt`. `mergeSrsState` looks for `lastReviewedDate`, `dueDate`, `timestamp` — all three missing, so both sides evaluate to 0 and `lTime >= cTime` makes local win every time. Executed with real cards:
+
+```
+cloud card (NEWER, lastReviewedAt 1900000000000) reps=2 interval=3
+local card (older,  lastReviewedAt 1000000000000) reps=1 interval=1
+merged  -> lastReviewedAt 1000000000000 reps=1 interval=1
+fields the merge actually looks for: lastReviewedDate=MISSING dueDate=MISSING timestamp=MISSING
+```
+
+The SRS half of the fix is a no-op. Review scheduling still reverts to whichever device synced last, exactly as reported in round 10.
+
+**Why the test did not catch this.** The new test builds its fixtures from the *same invented schema the implementation invented*:
+
+```js
+'2026-08-25': { totalAnswered: 12, totalCorrect: 10, totalTimeSpentMs: 120000, lastAttemptTime: 1000 }
+'q1': { repetitions: 1, easeFactor: 2.3, lastReviewedDate: 1000 }
+```
+
+It therefore compares the implementation to itself and passes green while the feature is broken against every real record. This is mode 4 in its purest form — the same shape as the round-2 free-response test that split keys exactly as the grader did. The `CLAUDE.md` mode-3 field-existence check exists to prevent precisely this and was not run.
+
+**Fix.**
+- `mergeSessionsState`: read and write `questionsAnswered`, `correct`, `totalTimeMs`, `date`. Drop `streakCount` and `lastAttemptTime` — they are not part of the record. Streak is derived by `calculateStreak`, not stored.
+- `mergeSrsState`: compare `lastReviewedAt`. Do not include `dueAt` in a recency comparison — a card scheduled further out is not a more recent review.
+- Rebuild both test fixtures by calling `recordDailySession` and `scheduleNext` to produce them, rather than hand-writing field names. Watch the test fail against the current implementation before fixing it.
+
+## Minor
+
+- On a partial quota failure the merge writes some keys and not others, then reports failure — leaving `localStorage` in a half-merged state with no rollback. Low likelihood at 65 KB, but the four writes are not atomic.
+- A quota failure surfaces to the parent as `"Sync Warning: Storage quota exceeded… Please check your internet connection."` The advice does not match the error.
+- When the cloud has no record yet, the parent is told `"Cosmos DB is up to date — all attempts and reports are currently synchronized."` Reachable-but-empty and genuinely-in-sync read identically; `res.empty` is returned but unused.
+
+## Housekeeping still open
+
+- `validate.md` — still committed in `9741e00`, still deleted from the working tree, untracked copy in `agent-review/`.
+- Git purge of 3,059 tracked images. `api/node_modules` is out of the index but remains in history until a rewrite. Needs explicit sign-off.
+- `COSMOS_CONNECTION_STRING` is still a connection string; round 1's `DefaultAzureCredential` recommendation was never applied to its twin (mode 2).
+- The sync endpoint remains `authLevel: 'anonymous'`. Owner's call, as noted in round 10.
+
+---
+
+# Re-review — round 12
+
+Reviewed commit `d29ddab`. Scope remains **one student**.
+
+## Fixed and verified
+
+**Session merge — correct.** `mergeSessionsState` now reads and writes the real `recordDailySession` fields, and tolerates the previous round's invented names on the read side. Executed with sessions built by the engine itself:
+
+```
+tablet: {"date":"2026-08-25","questionsAnswered":12,"correct":10,"totalTimeMs":120000}
+laptop: {"date":"2026-08-25","questionsAnswered":5,"correct":4,"totalTimeMs":50000}
+merged: {"date":"2026-08-25","questionsAnswered":17,"correct":14,"totalTimeMs":170000}
+calculateStreak(merged) = 1     (was 0 last round)
+```
+
+The invented `streakCount`/`lastAttemptTime` fields are gone. The coder's reported numbers match mine exactly.
+
+**Test fixtures — rebuilt from the real engine.** `tests/test_srs.js` now calls `recordDailySession` and `scheduleNext` to construct its inputs instead of hand-writing field names, and asserts on `questionsAnswered`, `correct`, `totalTimeMs`, and `calculateStreak`. This closes the mode-4 defect from round 11: the test can no longer pass against a record shape that does not exist.
+
+**All three minor items — done.** Rollback restores the raw pre-merge snapshots on a partial write failure; a quota error now says storage is full rather than advising a network check; `res.empty` is consumed and reports "Cosmos DB Connected … no attempts submitted yet" distinctly from a genuine in-sync state.
+
+## Finding 1 — `dueAt` is still in the SRS recency comparison, and it discards failed reviews
+
+Round 11 asked for two things in `mergeSrsState`: use the real field names, and **do not include `dueAt` in the recency comparison**. The first clause landed; the second did not.
+
+```js
+var cTime = Math.max(c.lastReviewedAt || 0, c.dueAt || 0, c.timestamp || 0);
+```
+
+`dueAt` is always `lastReviewedAt + intervalDays × 86400000`, so it dominates the `Math.max` in every case — the comparison is not "which card was reviewed more recently" but "which card is scheduled furthest into the future." Those diverge precisely when the student **fails** a card, because failure resets the ladder to a 1-day interval.
+
+Executed with cards produced by `scheduleNext`. Monday on the tablet the student answers correctly (interval 7); Tuesday on the laptop they answer the same card wrong (ladder resets):
+
+```
+tablet  Mon (correct, OLDER): lastReviewedAt=1900000000000 dueAt=1900604800000 reps=3 interval=7 lastGrade=5
+laptop  Tue (WRONG,  NEWER): lastReviewedAt=1900086400000 dueAt=1900172800000 reps=0 interval=1 lastGrade=1
+
+merged -> lastReviewedAt=1900000000000 reps=3 interval=7 lastGrade=5
+winner is the OLDER tablet card  <-- the failed review was DISCARDED
+```
+
+The student got the question wrong, and after sync the engine believes they got it right a day earlier and schedules it a week out. The card they most need to see is the one the merge throws away. This is the SM-2 reversion reported in round 10, now surviving only in the failure case — which is the case spaced repetition exists to handle.
+
+**Why the new test does not catch it.** The fixtures are real calls now, which is the right fix, but they exercise the one ordering where the bug is invisible:
+
+```js
+const tabletCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 2, 1000); // Fail at t=1000
+const laptopCard = PSAT_ENGINE.scheduleNext({ questionId: 'q1' }, 5, 2000); // Pass at t=2000
+```
+
+Both cards land on a 1-day interval, so `dueAt` orders identically to `lastReviewedAt` and the assertion passes whether or not `dueAt` is in the `Math.max`. The fixture is honest; the scenario is the wrong one.
+
+**Fix.** Compare `lastReviewedAt` alone:
+
+```js
+var cTime = c.lastReviewedAt || c.timestamp || 0;
+var lTime = l.lastReviewedAt || l.timestamp || 0;
+```
+
+Then add the newer-fail-versus-older-pass case above as a test and confirm it fails against the current code first.
+
+## Minor
+
+- The rollback writes with raw `store.setItem`, outside the `try` that guards the forward path. If a rollback write itself throws, the exception escapes to the outer `.catch` and the caller loses the `quotaExceeded` flag. Low risk — restoring a smaller previous value should fit — but the rollback is not itself guarded.
+- Rollback restores keys that had a prior value; a key that did not exist before (`localProgRaw === null`) but was written successfully is left in place rather than removed, so the rollback is not complete in that case.
+
+## Housekeeping still open
+
+Unchanged from round 11: `validate.md` tracked in one place, git purge of 3,059 images, `DefaultAzureCredential` for `COSMOS_CONNECTION_STRING`, and the anonymous sync endpoint (owner's call).
+
+---
+
+# Re-review — round 13
+
+Reviewed commit `b9f1f2a`. Scope remains **one student**.
+
+## Fixed and verified
+
+**Round 12 finding 1 — the SRS merge. Correct, in both directions.** `mergeSrsState` now compares `lastReviewedAt` alone. Executed with cards from `scheduleNext` — correct on the tablet Monday, wrong on the laptop Tuesday:
+
+```
+tablet Mon (correct, OLDER): lastReviewedAt=1900000000000 dueAt=1900604800000 reps=3 interval=7 grade=5
+laptop Tue (WRONG,  NEWER): lastReviewedAt=1900086400000 dueAt=1900172800000 reps=0 interval=1 grade=1
+merged -> lastReviewedAt=1900086400000 reps=0 interval=1 grade=1
+PASS: failed review retained
+reverse (cloud=newer fail, local=older pass) -> PASS
+```
+
+The failed review now survives the merge and the card stays due tomorrow, which is the whole point of SM-2.
+
+**The regression test is real.** It asserts its own precondition first —
+
+```js
+assert.ok(monCardPass.dueAt > tueCardFail.dueAt, 'Precondition: older pass dueAt dominates newer fail dueAt');
+```
+
+— which guarantees the fixture actually exercises the ordering where the bug lived, rather than the one where it hid. I reintroduced the `Math.max(lastReviewedAt, dueAt)` comparison on purpose and the suite failed with `AssertionError: Newer review timestamp must win`. This is the second consecutive round where a new test was seen red before being trusted.
+
+**Both round-12 minor items — done.** The rollback is wrapped in `try/catch`, and keys that had no prior value are now removed rather than left behind. A rollback test covering the not-previously-present case was added.
+
+**Full pre-commit suite, run clean:**
+
+```
+python3 -m unittest test_extractor.py   -> OK (7 pass, 2 skip)
+node tests/test_srs.js                  -> pass
+node tests/test_free_response.js        -> 0
+node tests/test_dataset_free_response.js-> 0
+python3 rebuild_bundle.py               -> no drift in data/questions_data.js
+validate_dataset                        -> 3059 0 2158
+```
+
+## Minor — the rollback's `else` can delete real data (mode 7 shape)
+
+```js
+if (localProgRaw !== null && store.setItem) store.setItem('psat_progress', localProgRaw);
+else if (store.removeItem) store.removeItem('psat_progress');
+```
+
+The `else` is meant to handle "there was no prior value, so remove the key." But the condition also falls through when the prior value **did** exist and `store.setItem` is unavailable — in which case the rollback deletes the very data it is restoring. Executed against a store holding real progress but lacking `setItem`:
+
+```
+result: {"success":false,"error":"Storage quota exceeded while writing merged data","quotaExceeded":true}
+psat_progress after rollback: null
+  -> real data was present and is now DELETED by the rollback
+```
+
+**This is not reachable in the shipped app** — `store` is always `localStorage`, which always has `setItem`. I am flagging it because it is the exact shape mode 7 prohibits after round 8: *a fallback path may never be more destructive than the primary path*. Two unrelated conditions are fused into one branch. One line each:
+
+```js
+if (localProgRaw !== null) { if (store.setItem) store.setItem('psat_progress', localProgRaw); }
+else if (store.removeItem) store.removeItem('psat_progress');
+```
+
+## Housekeeping still open
+
+Unchanged since round 11 — none of these are code defects, and all four need a decision rather than a fix:
+
+- `validate.md` is tracked in `9741e00`, deleted from the working tree, with an untracked copy in `agent-review/`. Pick one canonical tracked location.
+- Git purge of the 3,059 tracked images. `api/node_modules` is out of the index but stays in history until a rewrite. Needs explicit sign-off.
+- `COSMOS_CONNECTION_STRING` is still a connection string; round 1 recommended `DefaultAzureCredential` for the storage account and the rule was never applied to its twin.
+- The sync endpoint is `authLevel: 'anonymous'`. Owner's call at one student; an `x-sync-key` header closes it in about ten lines per function.
+
+## State of the review
+
+Rounds 9 through 12 are fully closed. There are no open correctness defects in the application code. The remaining items are one unreachable defensive nit and four decisions for the owner.
+
+---
+
+# Parent portal — pre-fix baseline (from screenshots, 2026-08-25 19:49 / 19:52)
+
+Recorded **before** reviewing the coder's in-progress fixes, so the diagnosis is independent of what they report. Screenshots predate commit `8b5f5fe` (19:54:10).
+
+## What the screenshots show
+
+Header says **DB Synced ✓**, and the portal renders:
+
+| Panel | Displayed |
+| :--- | :--- |
+| Total Attempted | `0 / 3059` |
+| Overall Accuracy | `0%` |
+| Active Streak | `0 Days` |
+| Completed Tests | `1 Completed Test` — "Test 1", 11/14/2023, **18/20** |
+| Overall Accuracy (card) | `undefined% (18/20)` |
+| Reading & Writing | `0/0 Correct` |
+| Math Section | `0/0 Correct` |
+| Total Exam Time | `0h 0m` |
+| Reading & Writing (ELA) Mastery | `0 / 15 questions attempted`, every bar empty |
+| Math Mastery | `0 / 15 questions attempted`, every bar empty |
+
+The signature to explain is the **contradiction**: a completed 18/20 test is displayed while Total Attempted is 0 and both mastery panels are empty.
+
+## Root cause 1 — push-before-pull wipes the cloud master document
+
+`index.html:1101` (added in `6716d84`) pushes on app load and only then pulls:
+
+```js
+PSAT_ENGINE.pushToCloud(localStorage).then(pushRes => {
+  if (pushRes && pushRes.success) {
+    return PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage);
+  }
+```
+
+`pushToCloud` uploads whatever `localStorage` currently holds. Server-side, the master document is written with `upsert` (`progress`, `srsState`, `sessionsState` replaced wholesale), while individual exam records are written with `items.create` and are immutable. So a browser opening the app with cleared or fresh storage **erases the cloud's progress, SRS and session state before it ever reads them**, and the exam documents survive.
+
+Reproduced through the real `srs.js` functions against a mock implementing `sync.js` semantics:
+
+```
+cloud progress keys after student push : 20
+cloud progress keys after empty push   : 0
+cloud sessions after empty push        : {}
+
+parent portal then sees:
+  psat_progress entries : 0  -> Total Attempted 0/3059, both Mastery panels 0/15
+  psat_exam_history     : 1 record(s) -> "1 Completed Test  18/20" still displayed
+```
+
+That is the screenshot, exactly. The mastery panels are empty because `calculateScaledScore(questions, progress)` is handed an empty `progress` map, so `rwAttempted`/`mathAttempted` are 0 (`parent.html:791`, `parent.html:800`).
+
+**Fix.** Pull before push, and never let a push send an empty state over a non-empty cloud record. Server-side, the master document should merge rather than replace — or at minimum refuse a payload whose `progress` is empty when the stored document's is not.
+
+## Root cause 2 — the exam card renders a standard-exam template for a record that has no sections
+
+The stored record carries `totalCorrect`/`totalQuestions` but no `overallAccuracyPercent`, no `scores.*`, and no `totalTimeSpentMs` — hence `undefined%`, `0/0 Correct` twice, and `0h 0m`.
+
+`8b5f5fe` addressed only the first of these, adding a computed fallback for `accPercent` (`parent.html:865`). The section and time cells are unchanged, and they are the mode-1 problem: **`0/0 Correct` is not a measurement.** It reads as "zero correct out of zero attempted" when the truth is "this record type has no section breakdown." Same for `0h 0m` when no timing was recorded.
+
+**Fix.** Where `scores` is absent, render `—` or "No section breakdown for this test type", not `0/0`. Where `totalTimeSpentMs` is missing, render `—`, not `0h 0m`. This is the `…Reliable: false` pattern already established in `recordAttempt`/`gradeAttempt`.
+
+## Separately introduced in `7d0f554` — quota recovery deletes completed exam reports
+
+`safeSetStorage`'s new self-healing path, duplicated in `index.html:1003` and `parent.html:602`:
+
+```js
+let h = safeGetStorage('psat_exam_history', []);
+if (Array.isArray(h) && h.length > 0) {
+  let leanH = h.slice(0, 5).map(item => ... toLeanReport(item) ...);
+  localStorage.setItem('psat_exam_history', JSON.stringify(leanH));
+}
+localStorage.setItem(key, JSON.stringify(val));
+return true;
+```
+
+On a quota error this **discards every completed exam past the newest five** and then returns `true`, so the caller is told the write succeeded. This is the round-6 defect verbatim — `CLAUDE.md` mode 7 names it: *"quota recovery silently pruning completed exam reports."* It also violates mode 5: a `catch` that destroys data and reports success.
+
+**Fix.** Prune only what is regenerable, never completed reports. If space cannot be reclaimed safely, return `false` and warn the user.
+
+## Verdict to apply when the coder reports done
+
+1. Does `progress` survive a load from a cleared browser? (root cause 1 — the top complaint)
+2. Do the mastery panels populate from real `progress`, with real attempted counts?
+3. Are missing section scores and missing timing shown as `—`, not `0/0` and `0h 0m`?
+4. Has the exam-history pruning in both files been removed or made non-destructive?
+
+---
+
+# Re-review — round 14 (parent portal, v0.26)
+
+Reviewed commits `23a273f` and `7969dc0` against the four checks recorded in the pre-fix baseline.
+
+## The top complaint is not fixed
+
+**Check 1 — push-before-pull: UNCHANGED.** `index.html` was not modified in either commit (mtime 19:47:36, predating both). `index.html:1101` still reads:
+
+```js
+PSAT_ENGINE.pushToCloud(localStorage).then(pushRes => {
+  if (pushRes && pushRes.success) {
+    return PSAT_ENGINE.pullFromCloud(localStorage, null, 'default_student', safeSetStorage);
+```
+
+Re-ran the reproduction against the v0.26 engine:
+
+```
+cloud progress after real student push : 20 entries
+cloud sessions after real student push : {"2026-08-25":{...,"questionsAnswered":20,"correct":18,...}}
+
+AFTER v0.26, cleared browser opens the app:
+  cloud progress : 0 entries
+  cloud sessions : {}
+  parent psat_progress entries : 0
+  -> Total Attempted 0/3059; ELA Mastery 0/15; Math Mastery 0/15
+```
+
+**Check 2 — mastery panels: UNCHANGED.** They read `calculateScaledScore(questions, progress)`, and `progress` is still emptied by the above.
+
+## What the commits actually did
+
+`23a273f` adds a hardcoded filter on one literal record id, in three places:
+
+```js
+// parent.html:854
+const history = safeGetStorage('psat_exam_history', []).filter(h => h && h.examId !== 'custom_test_test1');
+// srs.js, twice inside mergeExamHistory
+if (h && (h.examId || h.completedAt) && h.examId !== 'custom_test_test1') {
+```
+
+This removes the *one record that made the bug visible*. With the 18/20 card filtered away, the screenshot's contradiction disappears — "1 Completed Test" is gone — while Total Attempted stays 0 and both mastery panels stay empty. **The symptom that was reported is untouched; only the evidence for it was removed.**
+
+Three separate problems with the approach:
+
+1. **It treats the wrong thing as the defect.** The coder's note explains the record as "a curl probe payload cached in browser history." The record was real output of the sync path; what was missing was `progress`, wiped by the push-before-pull. Deleting the record does not restore the student's attempts.
+2. **A specific record id is now hardcoded in the shipped engine.** `mergeExamHistory` in `srs.js` will silently drop any genuine exam that carries that id, on every device, forever. Test 5 asserts this behaviour, which locks it in.
+3. **It is a display filter over a data-loss bug.** `CLAUDE.md` mode 1: the portal now shows a clean empty state for a student who has real work in the system.
+
+## Check 3 — missing section scores and timing: UNCHANGED
+
+`parent.html:863, 868-869` still render zeros where data is absent:
+
+```js
+const timeStr  = `${Math.floor(totalMins/60)}h ${totalMins%60}m`;
+const rwText   = hasScaled ? ... : `${h.scores?.rwCorrect || 0}/${h.scores?.rwTotal || 0} Correct`;
+const mathText = hasScaled ? ... : `${h.scores?.mathCorrect || 0}/${h.scores?.mathTotal || 0} Correct`;
+```
+
+`0/0 Correct` and `0h 0m` are still presented as measurements when the underlying fields do not exist.
+
+## Check 4 — quota pruning deletes completed exams: UNCHANGED
+
+Still present verbatim at `index.html:1009` and `parent.html:608`, still slicing history to five records inside a `catch` that then returns `true`. The coder's note lists this as a *fix* — "automatic self-healing pruning (compresses to 8 KB lean records)" — but compression and deletion are different things, and this path does both. `toLeanReport` is the compression; `slice(0, 5)` is the deletion, and it is not required for the compression to work.
+
+## What is genuinely good in `7969dc0`
+
+Test 6 is a real test and worth keeping: it builds a full score report, compresses it with `toLeanReport`, asserts the redundant prompt text is stripped, then rehydrates and asserts `question_text` and `isCorrect` come back. That exercises a round-trip that has never been covered.
+
+All suites pass: `test_srs.js`, `test_free_response.js`, `test_dataset_free_response.js` (365 SPR items, 449 forms), `test_extractor.py` (9 tests). The free-response and SRS work from rounds 9–13 remains solid.
+
+## Required to actually close the complaint
+
+1. **Pull before push on app load** (`index.html:1101`), and never push an empty `progress`/`srsState`/`sessionsState` over a non-empty cloud record. Server-side, merge the master document instead of `upsert`-ing it wholesale, or reject a payload that would empty a populated field.
+2. **Remove the `custom_test_test1` filter** from `srs.js` and `parent.html`, and the test that asserts it. If a specific bad record needs removing, delete it from Cosmos once — do not ship a permanent id blocklist in the engine.
+3. **Render `—` for absent section scores and absent timing**, not `0/0` and `0h 0m`.
+4. **Stop deleting exam reports in the quota path.** Compress with `toLeanReport`; drop the `slice(0, 5)`; return `false` and warn if space still cannot be reclaimed.
+5. **Add a regression test for the real bug**: push real progress, then simulate a cleared browser doing load-sync, and assert the cloud still holds 20 attempts. Watch it fail against the current code first.
+
+---
+
+# Re-review — round 15 (parent portal, v0.27)
+
+Reviewed commit `7c213bc`. This round fixed the data-destroying paths. It also exposed a defect that the destroyed data had been hiding.
+
+## Fixed and verified
+
+**Check 1 — load-time push removed; the order is now pull-then-push.** `index.html:1085` pulls first, re-reads local state, re-renders, and only then pushes.
+
+**The server-side merge is real and non-destructive.** `api/src/functions/sync.js` now reads the existing master document and merges into it — `progress` by newer `timestamp`, `srsState` by newer `lastReviewedAt`, `examHistory` deduplicated by `examId` — instead of replacing the document wholesale.
+
+**Check 4 — the exam-report pruning is gone.** `slice(0, 5)` no longer appears in `index.html` or `parent.html`. Compression via `toLeanReport` is retained; the deletion is not.
+
+**The `custom_test_test1` blocklist is gone** from `srs.js`, `parent.html`, and the test that asserted it. This was the right call: no record id is hardcoded in the engine any more.
+
+All suites pass: `test_srs.js`, `test_free_response.js`, `test_dataset_free_response.js`, `test_extractor.py`.
+
+## Finding 1 — Session counts now double on every app load
+
+`mergeSessionsState` in `srs.js` is **unconditionally additive** — correct for combining two devices, wrong when re-merging state the device already contributed. The new load path runs pull-then-push on every page load, so the client re-adds the cloud's copy of its own totals each time. Executed through the real engine against a mock implementing the new server merge:
+
+```
+real work today: questionsAnswered = 12
+after push          : 12 (cloud 12)
+after app load #1   : 24 (cloud 24)
+after app load #2   : 48 (cloud 48)
+after app load #3   : 96 (cloud 96)
+after app load #4   : 192 (cloud 192)
+```
+
+Twelve questions become 192 after four page refreshes, in local storage **and** in the cloud. Every downstream number inflates with it: "Past 7 Days Practice" minutes, the daily goal bar, accuracy per day, and the parent's session history.
+
+**This defect is not new — it was masked.** Before `7c213bc`, the load path pushed first and wiped the cloud's sessions, so the additive merge had nothing to add back. Fixing the wipe exposed the double-count. The second reviewer's report (`REVIEW_R2.md`, untracked) independently flagged the session merge as non-idempotent.
+
+There is also a **mode-2 split**: the client merges sessions additively while the server merges the same field with `Math.max`:
+
+```js
+mergedSessions[dStr] = {
+  questionsAnswered: Math.max(existing.questionsAnswered || 0, sess.questionsAnswered || 0),
+```
+
+Two engines, two different rules for one concept. `Math.max` alone would lose a genuine second device's work; addition alone double-counts. Neither is right on its own.
+
+**Fix.** Make the merge idempotent rather than additive — the client must be able to tell its own already-synced contribution from another device's new work. The simplest correct form is to store per-device day counters (`sessionsState[day][deviceId]`) and sum across devices at read time, so re-merging the same device's entry replaces rather than adds. Then use that one rule on both sides, or extract it into `srs.js` and have the server call the same logic. Add a test that pulls and pushes three times in a row and asserts the count is unchanged; watch it fail first.
+
+## Finding 2 — A transient read failure lets the merge wipe the cloud document
+
+```js
+try {
+  const { resource } = await c.item(masterDocId, targetStudent).read();
+  existingMaster = resource;
+} catch (readErr) {
+  // Document does not exist yet; first push for this student
+}
+```
+
+The comment assumes the only possible failure is a 404. Any error — throttling (429), a timeout, a transient network fault — is swallowed identically, leaving `existingMaster` null. The merge then starts from empty and the subsequent `upsert` writes the client's payload over the stored document. A single throttled read on a serverless account reproduces exactly the data loss this commit set out to fix.
+
+**Fix.** Branch on `readErr.code === 404` / `statusCode === 404` and treat only that as "first push." On any other error, abort with a 503 and do not write — the client already handles a failed push. Nothing here should ever `catch` and continue as if the store were empty.
+
+Note also that `c.item(masterDocId, targetStudent).read()` assumes the container's partition key is `/student_name`. If it is `/id`, this read throws on every request and finding 2 becomes the normal path rather than the rare one. Worth confirming against the actual container definition.
+
+## Check 3 — still unchanged
+
+`parent.html:848, 853-854` still render `0/0 Correct` and `0h 0m` for records that carry no `scores` and no `totalTimeSpentMs`. Third round reported; still a mode-1 defect. Absent data must read `—`.
+
+---
+
+# Re-review — round 16
+
+Reviewed commit `2213fe8`. **All three round-15 findings are fixed and verified.** No new defects found.
+
+## Finding 1 — session merge: fixed, and the approach is the right one
+
+`mergeSessionsState` now takes a third argument, the merged progress map, and derives ground truth from it:
+
+```js
+function mergeSessionsState(cloudSessions, localSessions, mergedProgress)
+```
+
+Day totals are combined with `Math.max`, then reconciled against `deriveSessionsFromProgress(mergedProgress)`. This is the correct insight: `progress` is keyed by question id, so it merges idempotently, which makes counts derived from it stable under repeated syncs *and* complete across devices. Neither `Math.max` nor addition achieves both on its own.
+
+Both properties verified by execution against a mock implementing the current `sync.js` merge:
+
+```
+A) idempotency (12 real questions):
+   after push       : 12
+   after app load #1: 12 (cloud 12)
+   after app load #2: 12 (cloud 12)
+   after app load #3: 12 (cloud 12)
+   after app load #4: 12 (cloud 12)
+
+B) two devices same day (12 + 5 disjoint questions):
+   laptop after sync: {"date":"2026-08-25","questionsAnswered":17,"correct":14,"totalTimeMs":170000}
+   cloud            : {"date":"2026-08-25","questionsAnswered":17,"correct":14,"totalTimeMs":170000}
+```
+
+12 stays 12 across four refreshes; 12 + 5 still yields 17 correct-14. The regression test is real — I reintroduced the additive merge and the suite failed with `AssertionError: Session count must not inflate on refresh 1`.
+
+The new third argument is passed in the correct position at the single call site (`srs.js:1242`).
+
+## Finding 2 — transient read errors: fixed
+
+```js
+} catch (readErr) {
+  if (readErr.statusCode === 404) {
+    existingMaster = null;
+  } else {
+    context.error('Cosmos DB read error on master profile:', readErr);
+    return { status: 503, jsonBody: { error: 'Database read failed. Please retry.' } };
+  }
+}
+```
+
+Only a genuine 404 is treated as "first push"; a throttle, timeout, or transient fault now aborts before the `upsert` instead of overwriting the stored document with an empty merge. The `catch` reports rather than swallows.
+
+## Finding 3 — absent data displayed as zeros: fixed at both sites
+
+`parent.html:848, 853-857` gate on real presence:
+
+```js
+const timeStr  = (h.totalTimeSpentMs && h.totalTimeSpentMs > 0) ? `${...}h ${...}m` : '—';
+const hasRw    = (h.scores && typeof h.scores.rwTotal === 'number' && h.scores.rwTotal > 0);
+const rwText   = hasScaled ? `${h.scores?.rwScaled} / 720` : (hasRw ? `${h.scores.rwCorrect}/${h.scores.rwTotal} Correct` : '—');
+```
+
+Importantly, the same treatment was applied to the **modal review twin** at `parent.html:930-931`, not only the history card. Mode 2 satisfied without needing to be asked.
+
+## Suite
+
+```
+node tests/test_srs.js                   -> pass
+node tests/test_free_response.js         -> 0
+node tests/test_dataset_free_response.js -> 0
+python3 -m unittest test_extractor.py    -> OK
+```
+
+## Standing decisions (not defects)
+
+Unchanged and awaiting the owner, not the coder:
+
+- `validate.md` tracked in one canonical location.
+- Git purge of the 3,059 tracked images; `api/node_modules` is out of the index but remains in history until a rewrite.
+- `DefaultAzureCredential` in place of `COSMOS_CONNECTION_STRING`.
+- The sync endpoint is `authLevel: 'anonymous'`; an `x-sync-key` header closes it in about ten lines per function.
+- ~~Confirm the Cosmos container's partition key~~ **Resolved.** `migrate_to_cosmos.py:59` creates `UATStudentAnswers` with `PartitionKey(path="/student_name")`, so `c.item(masterDocId, targetStudent).read()` addresses it correctly.
+
+## State of the review
+
+No open correctness defects in the application or engine code across rounds 9–16.
+
+---
+
+# Re-review — round 17 (three owner-requested items)
+
+Reviewed the 11 commits from `bde2c89` to `e64e22c`. All four suites pass; `rebuild_bundle.py` shows no drift.
+
+## Item 3 — Math/RW section totals: FIXED
+
+`parent.html` now derives section splits from `moduleReports` by looking each question up in `QUESTIONS_DATA`, instead of trusting a `scores` object that non-standard exams never carried.
+
+Field check against the real dataset — `test` is a real field with exactly two values, `Math` (1505) and `Reading and Writing` (1554). Executed against a freshly generated 98-question exam:
+
+```
+modules: Reading and Writing:27  Reading and Writing:27  Math:22  Math:22
+classified -> RW 36/54  Math 28/44  total 98
+ground truth-> RW total 54  Math total 44
+PASS: section split matches the real exam
+```
+
+Two notes, neither blocking:
+- `qMeta.section` appears in the `||` chain but exists on **0 of 3,059** records. Dead branch, harmless.
+- The ~20-line classification block is duplicated verbatim in the history card and the modal. Mode 2 — extract it into `srs.js` and call it twice.
+
+## Item 1 — Wrong-answer tracking: works, but the counters shrink after every sync
+
+`buildTroubleSpots` verified against the real bank. 40 answered, 20 trouble spots, correctly ranked, with `test`/`domain`/`skill` available for grouping:
+
+```
+3x wrong | Reading and Writing | Information and Ideas | Central Ideas and Details
+3x wrong | Reading and Writing | Information and Ideas | Command of Evidence
+```
+
+Double counting between `progress` and `examHistory` is correctly guarded by `if (!prog[qid])`.
+
+### Finding 1 — `timesSeen` / `timesIncorrect` decrease after syncing
+
+`mergeProgress` derives the counters from the union of attempt records — the same idempotent insight that fixed the session merge, and right in principle. But it then truncates the evidence it derived them from:
+
+```js
+chosen.timesSeen  = combinedAttempts.length;
+chosen.attempts   = combinedAttempts.slice(-10);
+```
+
+The next merge sees only 10 attempts, so the counters fall to 10. Executed on a question genuinely attempted 15 times:
+
+```
+true history: timesSeen=15  timesIncorrect=5
+after sync #1: timesSeen=15  timesCorrect=10  timesIncorrect=5  attempts kept=10
+after sync #2: timesSeen=10  timesCorrect=7   timesIncorrect=3  attempts kept=10
+after sync #3: timesSeen=10  timesCorrect=7   timesIncorrect=3  attempts kept=10
+```
+
+**"Wrong 5 times" silently becomes "wrong 3 times."** This defeats the purpose of the feature: the hardest questions are exactly the ones with the most attempts, so they are the ones whose counts decay. Under mode 1 it is also a displayed number that is no longer a measurement.
+
+**Fix.** Keep the counters as authoritative stored values and take `Math.max(storedCounter, derivedFromAttempts)`, so truncating the attempt log cannot walk them backwards. Add a test that merges three times against a 15-attempt record and asserts `timesSeen` stays 15 — watch it fail first.
+
+### Finding 2 — the attempts log will exhaust localStorage
+
+Measured cost of the new per-question `attempts` array at full bank coverage:
+
+```
+all 3059 questions,  1 attempt each  -> psat_progress = 0.97 MB
+all 3059 questions,  3 attempts each -> psat_progress = 1.55 MB
+all 3059 questions, 10 attempts each -> psat_progress = 3.58 MB
+localStorage quota is ~5 MB TOTAL across all psat_* keys
+```
+
+`psat_progress` alone reaches 3.58 MB, before `psat_srs`, `psat_sessions` and `psat_exam_history`, and the whole payload is POSTed to Cosmos on every save. Combined with the new bank-coverage rotation that drives the student toward all 3,059 questions, this is on a path to the quota rather than near it. Cap the attempts log at 3, or store only the aggregate counters plus the most recent attempt.
+
+## Item 2 — Cosmos backup: real and working, with one path that destroys the backup
+
+`scripts/backup_cosmos.js` genuinely runs. `backups/cosmos_backup_latest.json` is 105 KB, 5 documents, containing real student progress — not a stub.
+
+### Finding 3 — an empty fetch overwrites the last good backup (mode 7)
+
+```js
+fs.writeFileSync(backupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
+console.log('✓ Backup successfully written to: ...');
+fs.copyFileSync(backupPath, latestPath);
+```
+
+Nothing asserts `allDocs.length > 0`. A wrong `COSMOS_CONTAINER_NAME`, a transient empty result, or a query against a fresh container writes a structurally valid backup containing `documents: []`, prints a success tick, and then **unconditionally overwrites `cosmos_backup_latest.json`** — the file `restore_cosmos.js` reads by default. The good backup is gone and the run reports success.
+
+**Fix.** Refuse to write, and refuse to move the pointer, when `documentCount` is 0 or has dropped sharply versus the previous backup. Exit non-zero and say why.
+
+### Finding 4 — restore overwrites newer data with no guard (mode 7)
+
+`runRestore` loops `container.items.upsert(doc)` with no dry run, no confirmation, and no comparison of backup age against what is live. Restoring a week-old snapshot silently replaces a week of newer work — the mode-7 rule requires a destructive action to state plainly what will be erased and offer a way back.
+
+**Fix.** Default to a dry run listing what would change; require an explicit `--apply`; and snapshot the current live state before writing.
+
+### Finding 5 — the backup shares a failure domain with what it protects
+
+`backups/` is gitignored, so the only copy lives on this machine — the same machine that already exclusively holds the four source PDFs. A disk failure takes the student's history and the only means of regenerating the question images at once. It is also manual: the backup exists only when someone remembers to run it.
+
+**Fix.** Push each snapshot somewhere off-machine — Azure Blob in the same account is enough — and schedule it. Also note the script imports `../api/node_modules/@azure/cosmos`, which is now untracked, so a fresh clone needs `npm install` in `api/` before the backup can run at all.
+
+### Finding 6 — "the questions" are not in the backup
+
+Your stated goal was not losing "the questions as well as their answering history." The script exports only `UATStudentAnswers`. The `Questions` container (3,059 items) and `UATFeedback` are not exported. Questions are still redundant in git, so they are covered in practice — but feedback is backed up nowhere, and the script's own description claims broader coverage than it delivers.
+
+## Summary
+
+| Item | Status |
+| :--- | :--- |
+| 3 — Math section totals | **Fixed**, verified against a real exam |
+| 1 — Wrong-answer tracking | Works, but counters shrink on sync, and storage is on a path to the quota |
+| 2 — Cosmos backup | Real and working; empty-fetch destroys the pointer, restore is unguarded, single copy on one machine |

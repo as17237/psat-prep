@@ -982,9 +982,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=0.40"></script>
+  <script src="srs.js?v=1.0"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=0.40"></script>
+  <script src="data/questions_data.js?v=1.0"></script>
 
   <!-- App Core Script -->
   <script>
@@ -1511,7 +1511,7 @@
         timesCorrect: newTimesCorrect,
         timesIncorrect: newTimesIncorrect,
         accuracyPercent: Math.round((newTimesCorrect / newTimesSeen) * 100),
-        attempts: prevAttempts.slice(-10)
+        attempts: prevAttempts.slice(-3)
       };
 
       // Spaced Repetition SM-2 Update
@@ -2539,7 +2539,7 @@
               timesCorrect: newCorrect,
               timesIncorrect: newIncorrect,
               accuracyPercent: Math.round((newCorrect / newSeen) * 100),
-              attempts: prevAttempts.slice(-10)
+              attempts: prevAttempts.slice(-3)
             };
 
             const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
