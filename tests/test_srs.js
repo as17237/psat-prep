@@ -1386,9 +1386,15 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(PSAT_ENGINE.getClientVersion(), 'v1', 'getClientVersion() must default to "v1"');
 
   // 30b. window.PSAT_CLIENT_VERSION overrides the default
+  //
+  // WI-11 note: pushToCloud now skips the request entirely when the delta is empty
+  // AND the outbox is empty (this fixture's store holds `{}` / `[]`, so after the
+  // first push there is genuinely nothing to send). These payload-shape assertions
+  // are about what a push CONTAINS, not about when one happens, so they force the
+  // full-state path with `{ full: true }` -- the same path the first push took.
   global.window = { PSAT_CLIENT_VERSION: 'v2-deadbee' };
   const cvOverrideSink = {};
-  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvOverrideSink), 'e2e_test_student', cvProdLoc);
+  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvOverrideSink), 'e2e_test_student', cvProdLoc, { full: true });
   assert.strictEqual(
     cvOverrideSink.body.client_version,
     'v2-deadbee',
@@ -1405,7 +1411,7 @@ const mockFetch = async (url, opts) => {
   // 30d. The other payload fields must be unchanged by this addition
   global.window = undefined;
   const cvShapeSink = {};
-  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvShapeSink), 'e2e_test_student', cvProdLoc);
+  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvShapeSink), 'e2e_test_student', cvProdLoc, { full: true });
   ['student_name', 'progress', 'srsState', 'sessionsState', 'examHistory', 'outboxOps', 'clientTimestamp'].forEach(k => {
     assert.ok(Object.prototype.hasOwnProperty.call(cvShapeSink.body, k), `payload must still carry ${k}`);
   });

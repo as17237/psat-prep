@@ -60,6 +60,8 @@
     ],
     scheduler: [
       'localDateKey',
+      'SRS_HISTORY_CAP',
+      'summarizeSrsCard',
       'scheduleNext',
       'compactSrsState',
       'recordDailySession',
@@ -106,7 +108,12 @@
       'enqueueOutboxOp',
       'getOutboxOps',
       'ackOutboxOps',
-      'clearOutbox'
+      'clearOutbox',
+      'SCHEMA_VERSION',
+      'readSchemaMeta',
+      'migrateLocalStateToV2',
+      'rollbackLocalStateToV1',
+      'buildStateEnvelope'
     ],
     sync: [
       'getClientVersion',
@@ -115,7 +122,10 @@
       'mergeProgress',
       'mergeSrsState',
       'mergeSessionsState',
-      'mergeExamHistory'
+      'mergeExamHistory',
+      'buildSyncDelta',
+      'getSyncCursor',
+      'resetSyncCursor'
     ]
   };
 

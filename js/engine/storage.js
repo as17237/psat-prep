@@ -12,12 +12,14 @@
  * `window.__PSAT_ENGINE_PARTS.storage` in the browser. There is no build step,
  * so the pages load the parts as ordinary <script> tags in dependency order
  * (grading -> scheduler -> scoring -> storage -> examgen -> sync) before srs.js.
- * Dependencies: none.
+ * Dependencies: scheduler (WI-11 — the migration needs summarizeSrsCard and the
+ * 20-event history cap; the load order grading -> scheduler -> scoring -> storage
+ * already satisfies this).
  * A missing dependency throws immediately rather than yielding a half-built
  * part whose functions ReferenceError at call time (CLAUDE.md failure mode 5).
  */
 (function (root, factory) {
-  var DEPS = [];
+  var DEPS = ['scheduler'];
   if (typeof exports === 'object' && typeof module !== 'undefined') {
     module.exports = factory.apply(null, DEPS.map(function (d) { return require('./' + d + '.js'); }));
   } else {
@@ -32,7 +34,9 @@
       return parts[d];
     }));
   }
-})(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function (scheduler) {
+  var summarizeSrsCard = scheduler.summarizeSrsCard;
+  var SRS_HISTORY_CAP = scheduler.SRS_HISTORY_CAP;
 
   /**
    * Resolves runtime environment configuration for beta vs production isolation.
@@ -407,22 +411,436 @@
   }
 
 
+  // =========================================================================
+  // WI-11 — the versioned student-data envelope and its v1 -> v2 migration
+  // =========================================================================
+  //
+  // ROADMAP §1.1: "Define a versioned student-data envelope with schema version,
+  // creation time, last update time, progress, SRS state, sessions, and exams."
+  //
+  // Design decision, and the reason it is a SIDECAR key rather than a re-shaping
+  // of the four state keys:
+  //
+  //   The live student uses the v1 app (prod lane) while v2 soaks on /v2/, and
+  //   BOTH lanes read and write the same localStorage keys in the same browser
+  //   profile and the same Cosmos document. If v2 rewrapped `psat_progress` as
+  //   `{schemaVersion, data:{...}}`, every v1 read would see a map with one key
+  //   called "data" and report zero attempts. So the four data keys keep their
+  //   EXACT v1 shape forever, and the version metadata lives beside them in
+  //   `psat_schema_meta` — a key a v1 client simply never reads.
+  //
+  //   That is what "v1 (no version) remains readable forever" means concretely:
+  //   absence of `psat_schema_meta` IS schemaVersion 1, and readSchemaMeta()
+  //   reports that as a measurement rather than treating it as an error.
+  //
+  // ROLLBACK PROCEDURE (documented here because rollbackLocalStateToV1 is the
+  // documented rollback the work item requires):
+  //
+  //   1. In the browser console of the affected profile:
+  //        PSAT_ENGINE.rollbackLocalStateToV1(localStorage, window.location)
+  //   2. It restores psat_progress / psat_srs / psat_sessions / psat_exam_history
+  //      from the byte-identical `<key>_v1_backup` copies the migration wrote
+  //      BEFORE it changed anything, and deletes `psat_schema_meta`.
+  //   3. The `_v1_backup` keys are deliberately NOT deleted — a rollback must
+  //      never destroy the only backup (CLAUDE.md mode 7, the Round-8 rule).
+  //   4. Reload. The page now reads as schemaVersion 1 and is byte-identical to
+  //      the pre-migration state; re-running the migration afterwards is safe
+  //      and produces the same v2 state again.
+  //   5. If no `_v1_backup` key exists, rollback does NOTHING and reports it.
+  //      It never falls back to clearing the live keys.
+  //
+  // Server documents need no migration: the v2 fields are additive and the
+  // server merge (api/src/lib/merge.js) is per-key, so a v1 document read by a
+  // v2 client and a v2 document read by a v1 client are both fine.
+
+  /** The version this build of the app writes. Absence of the meta key means 1. */
+  var SCHEMA_VERSION = 2;
+
+  /** The four keys that hold student records. Order is fixed; it is used in reports. */
+  var STATE_KEYS = ['psat_progress', 'psat_srs', 'psat_sessions', 'psat_exam_history'];
+
+  /** Suffix of the pre-migration copy of each state key. */
+  var V1_BACKUP_SUFFIX = '_v1_backup';
+
+  /** The sidecar key holding the envelope metadata. Unknown to, and ignored by, v1. */
+  var SCHEMA_META_KEY = 'psat_schema_meta';
+
+  function prefixOf(loc) {
+    return getEnvironmentConfig(loc).storagePrefix;
+  }
+
+  /**
+   * Reads the local envelope metadata.
+   *
+   * A store with no metadata key is schemaVersion 1 — that is a measurement of a
+   * pre-v2 install, not a missing value to invent around (CLAUDE.md mode 1). A
+   * corrupt metadata value is likewise reported as v1 with `corrupt: true` rather
+   * than throwing a page down.
+   *
+   * @returns {{schemaVersion:number, createdAt:(number|null), updatedAt:(number|null),
+   *            migratedAt:(number|null), migratedFrom:(number|null), corrupt:boolean}}
+   */
+  function readSchemaMeta(store, loc) {
+    var blank = {
+      schemaVersion: 1,
+      createdAt: null,
+      updatedAt: null,
+      migratedAt: null,
+      migratedFrom: null,
+      backedUpKeys: [],
+      corrupt: false
+    };
+    if (!store || !store.getItem) return blank;
+    var raw;
+    try {
+      raw = store.getItem(prefixOf(loc) + SCHEMA_META_KEY);
+    } catch (e) {
+      return blank;
+    }
+    if (!raw) return blank;
+    try {
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || typeof parsed.schemaVersion !== 'number') {
+        return Object.assign({}, blank, { corrupt: true });
+      }
+      return {
+        schemaVersion: parsed.schemaVersion,
+        createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : null,
+        updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : null,
+        migratedAt: typeof parsed.migratedAt === 'number' ? parsed.migratedAt : null,
+        migratedFrom: typeof parsed.migratedFrom === 'number' ? parsed.migratedFrom : null,
+        backedUpKeys: Array.isArray(parsed.backedUpKeys) ? parsed.backedUpKeys : [],
+        corrupt: false
+      };
+    } catch (e) {
+      // Report rather than swallow: a corrupt envelope is worth a console line,
+      // but it must not stop the page from reading the (intact) data keys.
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('psat_schema_meta is unreadable; treating this profile as schemaVersion 1:', e && e.message);
+      }
+      return Object.assign({}, blank, { corrupt: true });
+    }
+  }
+
+
+  function writeSchemaMeta(store, loc, meta) {
+    store.setItem(prefixOf(loc) + SCHEMA_META_KEY, JSON.stringify(meta));
+  }
+
+
+  /**
+   * Upgrades one v1 SRS card in place-safe fashion: caps `history` to the newest
+   * SRS_HISTORY_CAP events and backfills the four durable summary fields with the
+   * EXACT counts derived from the full pre-trim card. Every other field on the card
+   * is preserved verbatim (unlike compactSrsState, which whitelists fields — a
+   * migration must not silently drop a field a future reader needs).
+   */
+  function upgradeSrsCardToV2(card) {
+    if (!card || typeof card !== 'object') return { card: card, trimmed: 0 };
+    var summary = summarizeSrsCard(card);
+    var history = Array.isArray(card.history) ? card.history : [];
+    var trimmed = Math.max(0, history.length - SRS_HISTORY_CAP);
+    var upgraded = Object.assign({}, card, {
+      history: trimmed > 0 ? history.slice(-SRS_HISTORY_CAP) : history.slice(),
+      totalReviews: summary.totalReviews,
+      totalLapses: summary.totalLapses,
+      firstReviewedAt: summary.firstReviewedAt,
+      lastReviewedAt: summary.lastReviewedAt
+    });
+    return { card: upgraded, trimmed: trimmed };
+  }
+
+
+  /**
+   * Migrates this profile's local state from v1 to v2. Non-destructive, idempotent
+   * and reversible; aborts without changing anything if a backup write fails.
+   *
+   * Order of operations (the order is the safety property):
+   *   1. If the profile already reads as v2, return immediately — no writes at all.
+   *   2. Write `<key>_v1_backup` for every state key that exists, byte-identical.
+   *      If ANY of those writes fails, undo the backup keys this call created and
+   *      return `{success:false}` having changed nothing. The migration never runs
+   *      without a complete backup behind it (CLAUDE.md mode 7).
+   *   3. Rewrite psat_srs with capped history + exact summaries. On failure, restore
+   *      the raw v1 string and abort.
+   *   4. Write psat_schema_meta last, so a crash anywhere earlier leaves the profile
+   *      as a v1 profile that will simply be migrated again on the next load.
+   *
+   * @returns {{success:boolean, migrated:boolean, alreadyV2:boolean, schemaVersion:number,
+   *            backedUpKeys:string[], cardsUpgraded:number, eventsTrimmed:number,
+   *            error:(string|null)}}
+   */
+  function migrateLocalStateToV2(store, loc) {
+    var report = {
+      success: false,
+      migrated: false,
+      alreadyV2: false,
+      schemaVersion: 1,
+      backedUpKeys: [],
+      cardsUpgraded: 0,
+      eventsTrimmed: 0,
+      error: null
+    };
+    if (!store || !store.getItem || !store.setItem) {
+      report.error = 'No storage available';
+      return report;
+    }
+
+    var prefix = prefixOf(loc);
+    var existing = readSchemaMeta(store, loc);
+    if (existing.schemaVersion >= SCHEMA_VERSION) {
+      report.success = true;
+      report.alreadyV2 = true;
+      report.schemaVersion = existing.schemaVersion;
+      report.backedUpKeys = existing.backedUpKeys;
+      return report;
+    }
+
+    // --- Step 2: byte-identical v1 backups, before touching anything ---------
+    var createdBackupKeys = [];
+    var rawByKey = {};
+    try {
+      STATE_KEYS.forEach(function (key) {
+        var raw = store.getItem(prefix + key);
+        if (raw === null || raw === undefined) return;
+        rawByKey[key] = raw;
+        var backupKey = prefix + key + V1_BACKUP_SUFFIX;
+        // Never overwrite an existing v1 backup: the first one taken is the real
+        // pre-migration state, and a re-run must not replace it with newer bytes.
+        if (store.getItem(backupKey) === null || store.getItem(backupKey) === undefined) {
+          store.setItem(backupKey, raw);
+          createdBackupKeys.push(backupKey);
+        }
+        report.backedUpKeys.push(key + V1_BACKUP_SUFFIX);
+      });
+    } catch (err) {
+      // Undo only the backup keys THIS call created; a pre-existing backup is
+      // someone else's and is never deleted.
+      createdBackupKeys.forEach(function (k) {
+        try { store.removeItem(k); } catch (e) {}
+      });
+      report.error = 'v1 backup write failed, migration aborted: ' + (err && err.message ? err.message : String(err));
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('PSAT v1->v2 migration aborted (backup write failed):', err);
+      }
+      return report;
+    }
+
+    // --- Step 3: the only data rewrite the migration performs ----------------
+    var srsRaw = rawByKey.psat_srs;
+    if (srsRaw !== undefined) {
+      var upgradedState = null;
+      try {
+        var parsed = JSON.parse(srsRaw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          upgradedState = {};
+          Object.keys(parsed).forEach(function (qid) {
+            var res = upgradeSrsCardToV2(parsed[qid]);
+            upgradedState[qid] = res.card;
+            report.cardsUpgraded++;
+            report.eventsTrimmed += res.trimmed;
+          });
+        }
+      } catch (err) {
+        // A corrupt psat_srs is not something a migration should "fix" by
+        // discarding it. Leave it exactly as found and say so.
+        upgradedState = null;
+        report.cardsUpgraded = 0;
+        report.eventsTrimmed = 0;
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('psat_srs is not parseable JSON; migrating the envelope only and leaving the value untouched:', err && err.message);
+        }
+      }
+
+      if (upgradedState) {
+        try {
+          store.setItem(prefix + 'psat_srs', JSON.stringify(upgradedState));
+        } catch (err) {
+          try { store.setItem(prefix + 'psat_srs', srsRaw); } catch (e) {}
+          report.cardsUpgraded = 0;
+          report.eventsTrimmed = 0;
+          report.error = 'SRS upgrade write failed, migration aborted: ' + (err && err.message ? err.message : String(err));
+          if (typeof console !== 'undefined' && console.error) {
+            console.error('PSAT v1->v2 migration aborted (srs write failed):', err);
+          }
+          return report;
+        }
+      }
+    }
+
+    // --- Step 4: mark the profile v2, last -----------------------------------
+    var now = Date.now();
+    try {
+      writeSchemaMeta(store, loc, {
+        schemaVersion: SCHEMA_VERSION,
+        createdAt: now,
+        updatedAt: now,
+        migratedAt: now,
+        migratedFrom: 1,
+        backedUpKeys: report.backedUpKeys
+      });
+    } catch (err) {
+      if (srsRaw !== undefined) {
+        try { store.setItem(prefix + 'psat_srs', srsRaw); } catch (e) {}
+      }
+      report.cardsUpgraded = 0;
+      report.eventsTrimmed = 0;
+      report.error = 'Envelope write failed, migration rolled back: ' + (err && err.message ? err.message : String(err));
+      return report;
+    }
+
+    report.success = true;
+    report.migrated = true;
+    report.schemaVersion = SCHEMA_VERSION;
+    return report;
+  }
+
+
+  /**
+   * The documented rollback (see the block comment above). Restores every state key
+   * that has a `<key>_v1_backup` copy, byte-for-byte, and clears the v2 envelope
+   * marker. Keys with no backup are LEFT ALONE — never deleted.
+   *
+   * @returns {{success:boolean, restoredKeys:string[], schemaVersion:number, error:(string|null)}}
+   */
+  function rollbackLocalStateToV1(store, loc) {
+    var report = { success: false, restoredKeys: [], schemaVersion: 2, error: null };
+    if (!store || !store.getItem || !store.setItem) {
+      report.error = 'No storage available';
+      return report;
+    }
+    var prefix = prefixOf(loc);
+
+    var available = STATE_KEYS.filter(function (key) {
+      var v = store.getItem(prefix + key + V1_BACKUP_SUFFIX);
+      return v !== null && v !== undefined;
+    });
+    if (available.length === 0) {
+      // Do nothing and report it. A rollback with no backup must not "clean up".
+      report.error = 'No psat_*_v1_backup keys found for this profile; nothing was changed.';
+      report.schemaVersion = readSchemaMeta(store, loc).schemaVersion;
+      return report;
+    }
+
+    // Snapshot the current values so a partial failure can be undone.
+    var currentByKey = {};
+    STATE_KEYS.forEach(function (key) { currentByKey[key] = store.getItem(prefix + key); });
+    var currentMeta = store.getItem(prefix + SCHEMA_META_KEY);
+
+    try {
+      available.forEach(function (key) {
+        store.setItem(prefix + key, store.getItem(prefix + key + V1_BACKUP_SUFFIX));
+        report.restoredKeys.push(key);
+      });
+      store.removeItem(prefix + SCHEMA_META_KEY);
+    } catch (err) {
+      try {
+        report.restoredKeys.forEach(function (key) {
+          if (currentByKey[key] === null || currentByKey[key] === undefined) store.removeItem(prefix + key);
+          else store.setItem(prefix + key, currentByKey[key]);
+        });
+        if (currentMeta !== null && currentMeta !== undefined) store.setItem(prefix + SCHEMA_META_KEY, currentMeta);
+      } catch (e) {}
+      report.restoredKeys = [];
+      report.error = 'Rollback write failed and was undone: ' + (err && err.message ? err.message : String(err));
+      return report;
+    }
+
+    report.success = true;
+    report.schemaVersion = 1;
+    return report;
+  }
+
+
+  /**
+   * Builds the versioned student-data envelope for this profile: the schema version,
+   * creation/update times and the four record collections, in one object.
+   *
+   * Used by the export path and by anything that needs to hand the whole profile
+   * to another component. It READS only — nothing here writes to storage.
+   */
+  function buildStateEnvelope(store, loc) {
+    var prefix = prefixOf(loc);
+    function readJson(key, fallback) {
+      try {
+        var raw = store && store.getItem ? store.getItem(prefix + key) : null;
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    var meta = readSchemaMeta(store, loc);
+    var now = Date.now();
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      storedSchemaVersion: meta.schemaVersion,
+      createdAt: typeof meta.createdAt === 'number' ? meta.createdAt : now,
+      updatedAt: now,
+      progress: readJson('psat_progress', {}),
+      srsState: readJson('psat_srs', {}),
+      sessionsState: readJson('psat_sessions', {}),
+      examHistory: readJson('psat_exam_history', [])
+    };
+  }
+
+
+  /**
+   * WI-11 — the stable, content-derived identity of an append-only op.
+   *
+   * Before WI-11 an op id was `op_<Date.now()>_<random>`, which meant the SAME
+   * attempt enqueued twice (a double-submit, a retried code path, a page that
+   * re-ran its handler) produced two ops the server would count as two
+   * deliveries. Deriving the identity from the op's CONTENT makes the queue
+   * idempotent at the point of entry: replaying an attempt is a no-op instead of
+   * a duplicate.
+   *
+   * Returns null when the payload has no natural identity, in which case the
+   * caller keeps the old timestamp+random id (never worse than before).
+   */
+  function outboxOpIdentity(opType, payload) {
+    var p = payload || {};
+    if (opType === 'question_attempt') {
+      if (p.questionId === undefined || p.questionId === null) return null;
+      if (typeof p.timestamp !== 'number') return null;
+      return 'att_' + p.questionId + '_' + p.timestamp;
+    }
+    if (opType === 'exam_completed') {
+      if (!p.examId) return null;
+      return 'exam_' + p.examId;
+    }
+    return null;
+  }
+
+
   /**
    * Enqueues an immutable operation to the local durable sync outbox.
+   *
+   * Append-only and content-addressed (WI-11): if an op with the same derived
+   * identity is already queued, the queued op is returned unchanged and nothing is
+   * added. See outboxOpIdentity above for why.
    */
   function enqueueOutboxOp(store, opType, payload, loc) {
     if (!store) return null;
     var env = getEnvironmentConfig(loc);
     var outboxKey = env.storagePrefix + 'psat_sync_outbox';
+    var type = opType || 'question_attempt';
+    var stableId = outboxOpIdentity(type, payload);
     var op = {
-      id: 'op_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-      type: opType || 'question_attempt',
+      id: stableId || ('op_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6)),
+      type: type,
       timestamp: Date.now(),
       payload: payload || {}
     };
     try {
       var raw = store.getItem(outboxKey);
       var queue = raw ? JSON.parse(raw) : [];
+      if (stableId) {
+        for (var i = 0; i < queue.length; i++) {
+          if (queue[i] && queue[i].id === stableId) {
+            return queue[i];
+          }
+        }
+      }
       queue.push(op);
       // Cap outbox to 500 ops maximum to prevent quota issues during long offline periods
       if (queue.length > 500) {
@@ -502,6 +920,11 @@
     enqueueOutboxOp: enqueueOutboxOp,
     getOutboxOps: getOutboxOps,
     ackOutboxOps: ackOutboxOps,
-    clearOutbox: clearOutbox
+    clearOutbox: clearOutbox,
+    SCHEMA_VERSION: SCHEMA_VERSION,
+    readSchemaMeta: readSchemaMeta,
+    migrateLocalStateToV2: migrateLocalStateToV2,
+    rollbackLocalStateToV1: rollbackLocalStateToV1,
+    buildStateEnvelope: buildStateEnvelope
   };
 });

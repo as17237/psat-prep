@@ -293,32 +293,262 @@
   }
 
 
+  // =========================================================================
+  // WI-11 — delta push
+  // =========================================================================
+  //
+  // ROADMAP §1.5: "Sync only unsynced changes." Before WI-11 every push serialised
+  // the entire local profile; for the live student that is a 234 KB body on every
+  // debounced save, and it grows with the record count forever.
+  //
+  // WHY A DELTA POST IS SAFE — the argument, checked against api/src/lib/merge.js:
+  //
+  //   Each of the server's four merge functions starts from `copyOf(existing)` and
+  //   then walks ONLY the entries present in `incoming`:
+  //
+  //       function mergeProgress(existing, incoming) {
+  //         const merged = copyOf(existing);
+  //         entriesOf(incoming).forEach(([qid, p]) => { ... merged[qid] = p; });
+  //         return merged;
+  //       }
+  //
+  //   mergeSrsState and mergeSessions have the identical shape (per-key), and
+  //   mergeExamHistory unions existing + incoming into a map keyed by examId.
+  //   There is no branch anywhere in merge.js that deletes, truncates or blanks a
+  //   stored key because the incoming payload failed to mention it.
+  //
+  //   Therefore: for any key K the client omits, the stored value of K is carried
+  //   through unchanged — which is exactly what a full push containing an identical
+  //   copy of K would also have produced. Delta and full converge. The unit test
+  //   `delta post and full post produce byte-identical master documents` in
+  //   tests/test_storage_v2.js asserts this against the real merge module.
+  //
+  //   v1 CLIENTS ARE UNAFFECTED for the same reason, in the other direction: a v1
+  //   client keeps posting its full state, and the server keeps merging it per key
+  //   over whatever a v2 delta wrote. Nothing about the request shape changed for
+  //   v1 (the added `schemaVersion` / `syncMode` fields are ones v1 never sends and
+  //   never reads), and the server has no v2-only code path.
+  //
+  //   THE ONE INVARIANT the delta relies on: a record that changed must also have
+  //   advanced the very timestamp field the SERVER uses to pick a winner
+  //   (progress.timestamp, srsState.lastReviewedAt, examHistory.completedAt).
+  //   Every writer in this app does that — recordAttempt stamps `timestamp:
+  //   Date.now()`, scheduleNext stamps `lastReviewedAt: now`. As a backstop against
+  //   a future writer that forgets, a FULL push is forced whenever the last full
+  //   push is older than FULL_PUSH_INTERVAL_MS, so any drift self-heals within a
+  //   day instead of persisting silently.
+
+  /** Cursor key: when the last push happened, and when the last FULL push happened. */
+  var SYNC_CURSOR_KEY = 'psat_sync_cursor';
+
+  /** A full push is forced at least this often, as a self-healing backstop. */
+  var FULL_PUSH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+
+  /**
+   * Reads the delta-sync cursor for this lane.
+   * `lastPushAt === null` means "nothing has ever been pushed from this profile",
+   * which is the documented trigger for the full-state fallback path.
+   */
+  function getSyncCursor(store, loc) {
+    var blank = { lastPushAt: null, lastFullPushAt: null, lastAckAt: null, lastMode: null };
+    if (!store || !store.getItem) return blank;
+    try {
+      var raw = store.getItem(getEnvironmentConfig(loc).storagePrefix + SYNC_CURSOR_KEY);
+      if (!raw) return blank;
+      var parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return blank;
+      return {
+        lastPushAt: typeof parsed.lastPushAt === 'number' ? parsed.lastPushAt : null,
+        lastFullPushAt: typeof parsed.lastFullPushAt === 'number' ? parsed.lastFullPushAt : null,
+        lastAckAt: typeof parsed.lastAckAt === 'number' ? parsed.lastAckAt : null,
+        lastMode: typeof parsed.lastMode === 'string' ? parsed.lastMode : null
+      };
+    } catch (e) {
+      // A corrupt cursor must degrade to "push everything", never to "push nothing".
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('psat_sync_cursor is unreadable; the next push will be a full push:', e && e.message);
+      }
+      return blank;
+    }
+  }
+
+
+  /**
+   * Clears the cursor so the NEXT push sends the complete profile.
+   * Call this after any action that rewrites local state wholesale — reset, import,
+   * snapshot restore, demo restore — because after those the per-record timestamps
+   * no longer describe what the server has.
+   */
+  function resetSyncCursor(store, loc) {
+    if (!store || !store.removeItem) return false;
+    try {
+      store.removeItem(getEnvironmentConfig(loc).storagePrefix + SYNC_CURSOR_KEY);
+      return true;
+    } catch (e) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Could not clear the sync cursor; the next push may be a delta when a full push was wanted:', e && e.message);
+      }
+      return false;
+    }
+  }
+
+
+  function writeSyncCursor(store, loc, cursor) {
+    if (!store || !store.setItem) return false;
+    try {
+      store.setItem(getEnvironmentConfig(loc).storagePrefix + SYNC_CURSOR_KEY, JSON.stringify(cursor));
+      return true;
+    } catch (e) {
+      // Failing to advance the cursor is safe (the next push re-sends more than it
+      // needed to) but it must be reported, not swallowed (CLAUDE.md mode 5).
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Could not persist the sync cursor; the next push will re-send this window:', e && e.message);
+      }
+      return false;
+    }
+  }
+
+
+  /**
+   * Builds the payload slice to push.
+   *
+   * @param {Object} store localStorage-shaped store
+   * @param {Object} loc   location-shaped object (lane detection)
+   * @param {number|null} sinceMs cursor; null/absent/0 means build the FULL state
+   * @returns {{isFull:boolean, since:(number|null), progress:Object, srsState:Object,
+   *            sessionsState:Object, examHistory:Array,
+   *            counts:{progress:number,srs:number,sessions:number,exams:number,total:number}}}
+   */
+  function buildSyncDelta(store, loc, sinceMs) {
+    var prefix = getEnvironmentConfig(loc).storagePrefix;
+    function read(key, fallback) {
+      try {
+        var raw = store && store.getItem ? store.getItem(prefix + key) : null;
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+    var progress = read('psat_progress', {}) || {};
+    var srs = read('psat_srs', {}) || {};
+    var sessions = read('psat_sessions', {}) || {};
+    var history = read('psat_exam_history', []) || [];
+
+    var isFull = !(typeof sinceMs === 'number' && sinceMs > 0);
+    var outProgress = {};
+    var outSrs = {};
+    var outSessions = {};
+    var outHistory = [];
+
+    if (isFull) {
+      outProgress = progress;
+      outSrs = srs;
+      outSessions = sessions;
+      outHistory = Array.isArray(history) ? history : [];
+    } else {
+      Object.keys(progress).forEach(function (qid) {
+        var p = progress[qid];
+        if (!p) return;
+        var t = p.timestamp || p.lastAttemptTime || 0;
+        if (t >= sinceMs) outProgress[qid] = p;
+      });
+      Object.keys(srs).forEach(function (qid) {
+        var c = srs[qid];
+        if (!c) return;
+        var t = (typeof c.lastReviewedAt === 'number') ? c.lastReviewedAt : (c.timestamp || 0);
+        if (t >= sinceMs) outSrs[qid] = c;
+      });
+      // Session days are only ever appended to on the day they name, so the cursor
+      // day and everything after it is the complete set that can still change.
+      var cursorDay = localDateKey(new Date(sinceMs));
+      Object.keys(sessions).forEach(function (day) {
+        if (!sessions[day]) return;
+        if (day >= cursorDay) outSessions[day] = sessions[day];
+      });
+      // Any day that a delta-selected attempt belongs to must go too, even if the
+      // clock crossed midnight between the attempt and the push.
+      Object.keys(outProgress).forEach(function (qid) {
+        var t = outProgress[qid].timestamp || outProgress[qid].lastAttemptTime || 0;
+        if (!t) return;
+        var day = localDateKey(new Date(t));
+        if (sessions[day] && !outSessions[day]) outSessions[day] = sessions[day];
+      });
+      (Array.isArray(history) ? history : []).forEach(function (h) {
+        if (h && (h.completedAt || 0) >= sinceMs) outHistory.push(h);
+      });
+    }
+
+    var counts = {
+      progress: Object.keys(outProgress).length,
+      srs: Object.keys(outSrs).length,
+      sessions: Object.keys(outSessions).length,
+      exams: outHistory.length
+    };
+    counts.total = counts.progress + counts.srs + counts.sessions + counts.exams;
+
+    return {
+      isFull: isFull,
+      since: isFull ? null : sinceMs,
+      progress: outProgress,
+      srsState: outSrs,
+      sessionsState: outSessions,
+      examHistory: outHistory,
+      counts: counts
+    };
+  }
+
+
   /**
    * Pushes progress, exam history, and pending outbox operations to Cosmos DB cloud API.
+   *
+   * WI-11: sends only the records changed since the last acknowledged push. The
+   * full-state push remains the fallback and is used when
+   *   - nothing has ever been pushed from this profile (first sync), or
+   *   - the cursor was reset (local reset / import / restore), or
+   *   - the last full push is older than FULL_PUSH_INTERVAL_MS, or
+   *   - the caller passes `{ full: true }`.
+   *
+   * @param {Object} [options] `{ full: boolean }`
    */
-  function pushToCloud(store, customFetch, studentName, loc) {
+  function pushToCloud(store, customFetch, studentName, loc, options) {
     var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
-    var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
 
-    var progress = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_progress') : null) || '{}');
-    var srs = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_srs') : null) || '{}');
-    var sessions = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_sessions') : null) || '{}');
-    var history = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_exam_history') : null) || '[]');
+    var opts = options || {};
+    var pushStartedAt = Date.now();
+    var cursor = getSyncCursor(store, loc);
+    var forceFull = opts.full === true ||
+      cursor.lastPushAt === null ||
+      cursor.lastFullPushAt === null ||
+      (pushStartedAt - cursor.lastFullPushAt) >= FULL_PUSH_INTERVAL_MS;
+
+    var slice = buildSyncDelta(store, loc, forceFull ? null : cursor.lastPushAt);
     var outbox = getOutboxOps(store, loc);
+    var syncMode = slice.isFull ? 'full' : 'delta';
+
+    if (!slice.isFull && slice.counts.total === 0 && outbox.length === 0) {
+      // Nothing to say. Issuing an empty POST would burn a Cosmos write and a
+      // request round trip to change nothing.
+      return Promise.resolve({ success: true, skipped: true, reason: 'no_changes', syncMode: syncMode, ackCount: 0 });
+    }
 
     var payload = {
       student_name: sName,
-      progress: progress,
-      srsState: srs,
-      sessionsState: sessions,
-      examHistory: history,
+      progress: slice.progress,
+      srsState: slice.srsState,
+      sessionsState: slice.sessionsState,
+      examHistory: slice.examHistory,
       outboxOps: outbox,
       clientTimestamp: new Date().toISOString(),
-      client_version: getClientVersion()
+      client_version: getClientVersion(),
+      // WI-11 envelope fields. Additive: the server stores schemaVersion and
+      // ignores syncMode; a v1 client sends neither and is unaffected.
+      schemaVersion: 2,
+      syncMode: syncMode
     };
 
     return fetchFn(CLOUD_SYNC_ENDPOINT, {
@@ -327,11 +557,11 @@
       body: JSON.stringify(payload)
     }).then(function(res) {
       if (!res || !res.ok) {
-        return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
+        return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown'), syncMode: syncMode };
       }
       return res.json().then(function(result) {
         if (!result || !result.success || result.error) {
-          return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
+          return { success: false, error: (result && result.error) ? result.error : 'Server returned error', syncMode: syncMode };
         }
         // Acknowledge synced outbox ops
         if (Array.isArray(result.ackOpIds) && result.ackOpIds.length > 0) {
@@ -339,10 +569,26 @@
         } else if (outbox.length > 0) {
           ackOutboxOps(store, outbox.map(function(o) { return o.id; }), loc);
         }
-        return { success: true, updatedAt: result.updatedAt, ackCount: outbox.length };
+        // Advance the cursor ONLY after the server confirmed the write. An
+        // interrupted ack therefore re-sends this window next time (at worst a
+        // duplicate merge, which is idempotent) rather than skipping it.
+        writeSyncCursor(store, loc, {
+          lastPushAt: pushStartedAt,
+          lastFullPushAt: slice.isFull ? pushStartedAt : cursor.lastFullPushAt,
+          lastAckAt: Date.now(),
+          lastMode: syncMode
+        });
+        return {
+          success: true,
+          updatedAt: result.updatedAt,
+          ackCount: outbox.length,
+          syncMode: syncMode,
+          counts: slice.counts,
+          bytes: JSON.stringify(payload).length
+        };
       });
     }).catch(function(err) {
-      return { success: false, error: err.message };
+      return { success: false, error: err.message, syncMode: syncMode };
     });
   }
 
@@ -498,6 +744,9 @@
 
   return {
     getClientVersion: getClientVersion,
+    buildSyncDelta: buildSyncDelta,
+    getSyncCursor: getSyncCursor,
+    resetSyncCursor: resetSyncCursor,
     pushToCloud: pushToCloud,
     pullFromCloud: pullFromCloud,
     mergeProgress: mergeProgress,

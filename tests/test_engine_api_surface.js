@@ -17,6 +17,28 @@
  * Red-demonstrated before being committed: deleting `calculateStreak` from the
  * srs.js return object makes this suite exit non-zero with
  *   MISSING from PSAT_ENGINE (the facade dropped them): calculateStreak
+ *
+ * ---------------------------------------------------------------------------
+ * CONTRACT CHANGE LOG — additions only. Nothing has ever been removed or
+ * renamed; every symbol from the original 56 is still present with its
+ * original kind and value.
+ *
+ *   WI-10 (baseline, srs.js @66c88cc) ........................ 56 symbols
+ *   WI-11 (storage & sync hardening) .......................... +10 = 66
+ *       scheduler: SRS_HISTORY_CAP, summarizeSrsCard
+ *           the 20-event cap constant and the exact durable per-card summary
+ *           (totalReviews / totalLapses / firstReviewedAt / lastReviewedAt)
+ *           that has to stay correct after history is truncated.
+ *       storage:   SCHEMA_VERSION, readSchemaMeta, migrateLocalStateToV2,
+ *                  rollbackLocalStateToV1, buildStateEnvelope
+ *           the versioned local envelope and its idempotent, reversible
+ *           v1 -> v2 migration.
+ *       sync:      buildSyncDelta, getSyncCursor, resetSyncCursor
+ *           delta-push selection and the ack cursor that drives it.
+ *   Note SRS_HISTORY_CAP and SCHEMA_VERSION are NUMBER constants, so the
+ *   kind table below grew a third category (it previously assumed every
+ *   non-object was a function).
+ * ---------------------------------------------------------------------------
  */
 const assert = require('assert');
 const PSAT_ENGINE = require('../srs.js');
@@ -39,6 +61,8 @@ const EXPECTED_SYMBOLS = [
 
   // --- SM-2 scheduling, daily sessions, streaks ----------------------------
   'localDateKey',
+  'SRS_HISTORY_CAP',      // WI-11
+  'summarizeSrsCard',     // WI-11
   'scheduleNext',
   'compactSrsState',
   'recordDailySession',
@@ -86,6 +110,11 @@ const EXPECTED_SYMBOLS = [
   'getOutboxOps',
   'ackOutboxOps',
   'clearOutbox',
+  'SCHEMA_VERSION',         // WI-11
+  'readSchemaMeta',         // WI-11
+  'migrateLocalStateToV2',  // WI-11
+  'rollbackLocalStateToV1', // WI-11
+  'buildStateEnvelope',     // WI-11
 
   // --- cloud sync client + field-level merge -------------------------------
   'getClientVersion',
@@ -95,6 +124,9 @@ const EXPECTED_SYMBOLS = [
   'mergeSrsState',
   'mergeSessionsState',
   'mergeExamHistory',
+  'buildSyncDelta',    // WI-11
+  'getSyncCursor',     // WI-11
+  'resetSyncCursor',   // WI-11
 ];
 
 // A typo that duplicated an entry would quietly shrink the contract.
@@ -102,8 +134,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  56,
-  `The hand-written contract must list exactly 56 symbols (srs.js @66c88cc); found ${EXPECTED_SYMBOLS.length}. ` +
+  66,
+  `The hand-written contract must list exactly 66 symbols (56 @66c88cc + 10 from WI-11); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
@@ -136,15 +168,24 @@ const CONSTANT_SYMBOLS = [
   'OFFICIAL_BLUEPRINTS',
   'ERROR_TAGS',
 ];
+// WI-11 added two plain NUMBER constants; before that every non-object was a function.
+const NUMBER_SYMBOLS = [
+  'SRS_HISTORY_CAP',
+  'SCHEMA_VERSION',
+];
 EXPECTED_SYMBOLS.forEach((name) => {
-  const expectedKind = CONSTANT_SYMBOLS.indexOf(name) === -1 ? 'function' : 'object';
+  let expectedKind = 'function';
+  if (CONSTANT_SYMBOLS.indexOf(name) !== -1) expectedKind = 'object';
+  else if (NUMBER_SYMBOLS.indexOf(name) !== -1) expectedKind = 'number';
   assert.strictEqual(
     typeof PSAT_ENGINE[name],
     expectedKind,
     `PSAT_ENGINE.${name} must be a ${expectedKind}, got ${typeof PSAT_ENGINE[name]}`
   );
 });
-console.log(`✓ kinds frozen: ${EXPECTED_SYMBOLS.length - CONSTANT_SYMBOLS.length} functions, ${CONSTANT_SYMBOLS.length} constant objects`);
+console.log(`✓ kinds frozen: ${EXPECTED_SYMBOLS.length - CONSTANT_SYMBOLS.length - NUMBER_SYMBOLS.length} functions, ${CONSTANT_SYMBOLS.length} constant objects, ${NUMBER_SYMBOLS.length} number constants`);
+assert.strictEqual(PSAT_ENGINE.SRS_HISTORY_CAP, 20, 'the SRS history cap is frozen at 20 events per card (WI-11)');
+assert.strictEqual(PSAT_ENGINE.SCHEMA_VERSION, 2, 'the local/synced state envelope version is frozen at 2 (WI-11)');
 
 // ---------------------------------------------------------------------------
 // 3. Constant VALUES that other code (and other tests) depend on numerically.

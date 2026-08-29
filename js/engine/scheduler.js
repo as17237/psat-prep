@@ -49,6 +49,74 @@
 
 
   /**
+   * WI-11: the number of individual review events an SRS card retains in `history`.
+   * Everything older is dropped from the event log but is still counted, exactly, by
+   * the durable summary fields (totalReviews / totalLapses / firstReviewedAt) that
+   * summarizeSrsCard() below maintains.
+   */
+  var SRS_HISTORY_CAP = 20;
+
+
+  /**
+   * WI-11 — the durable per-card summary that must stay EXACT even after `history`
+   * has been truncated to the newest SRS_HISTORY_CAP events.
+   *
+   * Why this exists: before WI-11, `scheduleNext` seeded its counter from
+   * `card.totalReviews`, falling back to `card.lastReviewedAt ? 1 : 0`. For a card
+   * written by a pre-summary (v1) client — which has a populated `history` but no
+   * counters at all — that fallback UNDERCOUNTS: a card with six stored reviews
+   * advanced to totalReviews = 2 instead of 7, and silently reported zero lapses.
+   * Deriving the floor from the stored events fixes that without inventing anything:
+   * `history.length` is a measurement of events actually on the card, and the counter
+   * is a measurement of events once seen. The truth is at least the larger of the two,
+   * so the summary takes the max and never decreases (CLAUDE.md mode 1 — no invented
+   * fallbacks, and mode 2 — one rule, applied at every site: scheduleNext,
+   * compactSrsState and the client-side sync merge all call this function).
+   *
+   * PURE: never mutates `card`, never reads the clock.
+   *
+   * @param {Object|null|undefined} card an SM-2 card, v1- or v2-shaped
+   * @returns {{totalReviews:number,totalLapses:number,firstReviewedAt:(number|null),lastReviewedAt:(number|null)}}
+   */
+  function summarizeSrsCard(card) {
+    var c = card || {};
+    var history = Array.isArray(c.history) ? c.history : [];
+
+    var storedReviews = typeof c.totalReviews === 'number' && isFinite(c.totalReviews) && c.totalReviews >= 0
+      ? c.totalReviews
+      : (c.lastReviewedAt ? 1 : 0);
+    var storedLapses = typeof c.totalLapses === 'number' && isFinite(c.totalLapses) && c.totalLapses >= 0
+      ? c.totalLapses
+      : 0;
+
+    var historyLapses = 0;
+    var earliest = null;
+    var latest = null;
+    history.forEach(function (ev) {
+      if (!ev) return;
+      if (typeof ev.grade === 'number' && ev.grade < 3) historyLapses++;
+      var at = typeof ev.reviewedAt === 'number' ? ev.reviewedAt : (typeof ev.at === 'number' ? ev.at : null);
+      if (at === null) return;
+      if (earliest === null || at < earliest) earliest = at;
+      if (latest === null || at > latest) latest = at;
+    });
+
+    var lastReviewedAt = (typeof c.lastReviewedAt === 'number') ? c.lastReviewedAt : latest;
+    var firstReviewedAt = (typeof c.firstReviewedAt === 'number') ? c.firstReviewedAt : earliest;
+    if (firstReviewedAt === null || firstReviewedAt === undefined) {
+      firstReviewedAt = (lastReviewedAt === null || lastReviewedAt === undefined) ? null : lastReviewedAt;
+    }
+
+    return {
+      totalReviews: Math.max(storedReviews, history.length),
+      totalLapses: Math.max(storedLapses, historyLapses),
+      firstReviewedAt: (firstReviewedAt === undefined) ? null : firstReviewedAt,
+      lastReviewedAt: (lastReviewedAt === undefined) ? null : lastReviewedAt
+    };
+  }
+
+
+  /**
    * Schedules next review using SuperMemo SM-2 algorithm.
    */
   function scheduleNext(existingCard, grade, nowMs, responseTimeMs) {
@@ -58,9 +126,10 @@
     var reps = typeof card.repetitions === 'number' ? card.repetitions : 0;
     var interval = typeof card.intervalDays === 'number' ? card.intervalDays : 1;
     var history = Array.isArray(card.history) ? card.history.slice() : [];
-    var totalReviews = (typeof card.totalReviews === 'number' ? card.totalReviews : (card.lastReviewedAt ? 1 : 0)) + 1;
-    var totalLapses = (typeof card.totalLapses === 'number' ? card.totalLapses : 0) + (grade < 3 ? 1 : 0);
-    var firstReviewedAt = card.firstReviewedAt || card.lastReviewedAt || now;
+    var prior = summarizeSrsCard(card);
+    var totalReviews = prior.totalReviews + 1;
+    var totalLapses = prior.totalLapses + (grade < 3 ? 1 : 0);
+    var firstReviewedAt = (prior.firstReviewedAt === null) ? now : prior.firstReviewedAt;
 
     // Calculate new Ease Factor: EF' = max(1.3, EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
     var q = Math.max(1, Math.min(5, grade));
@@ -89,15 +158,17 @@
 
     var dueAt = now + (newInterval * 86400000);
 
-    // Track review event in bounded history (capped to newest 20 events)
+    // Track review event in bounded history (capped to the newest SRS_HISTORY_CAP
+    // events). The cap applies on the write of a NEW event; the exact counts of
+    // everything that fell out live on in totalReviews / totalLapses above.
     history.push({
       reviewedAt: now,
       grade: q,
       intervalDays: newInterval,
       responseTimeMs: typeof responseTimeMs === 'number' ? responseTimeMs : null
     });
-    if (history.length > 20) {
-      history = history.slice(-20);
+    if (history.length > SRS_HISTORY_CAP) {
+      history = history.slice(-SRS_HISTORY_CAP);
     }
 
     // Compute rolling average response time
@@ -130,16 +201,19 @@
     Object.keys(srsState).forEach(function(qid) {
       var card = srsState[qid];
       if (!card) return;
-      var hist = Array.isArray(card.history) ? card.history.slice(-20) : [];
+      var hist = Array.isArray(card.history) ? card.history.slice(-SRS_HISTORY_CAP) : [];
+      // WI-11: summaries are computed from the FULL card before truncation, so a card
+      // arriving with 50 events keeps an exact review/lapse count after it is cut to 20.
+      var summary = summarizeSrsCard(card);
       compacted[qid] = {
         questionId: card.questionId || qid,
         repetitions: typeof card.repetitions === 'number' ? card.repetitions : 0,
         intervalDays: typeof card.intervalDays === 'number' ? card.intervalDays : 1,
         easeFactor: typeof card.easeFactor === 'number' ? card.easeFactor : 2.5,
-        lastReviewedAt: card.lastReviewedAt || null,
-        firstReviewedAt: card.firstReviewedAt || card.lastReviewedAt || null,
-        totalReviews: typeof card.totalReviews === 'number' ? card.totalReviews : (card.lastReviewedAt ? 1 : 0),
-        totalLapses: typeof card.totalLapses === 'number' ? card.totalLapses : 0,
+        lastReviewedAt: summary.lastReviewedAt,
+        firstReviewedAt: summary.firstReviewedAt,
+        totalReviews: summary.totalReviews,
+        totalLapses: summary.totalLapses,
         avgResponseTimeMs: typeof card.avgResponseTimeMs === 'number' ? card.avgResponseTimeMs : null,
         dueAt: typeof card.dueAt === 'number' ? card.dueAt : null,
         lastGrade: typeof card.lastGrade === 'number' ? card.lastGrade : null,
@@ -231,6 +305,8 @@
 
   return {
     localDateKey: localDateKey,
+    SRS_HISTORY_CAP: SRS_HISTORY_CAP,
+    summarizeSrsCard: summarizeSrsCard,
     scheduleNext: scheduleNext,
     compactSrsState: compactSrsState,
     recordDailySession: recordDailySession,
