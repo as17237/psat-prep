@@ -1,0 +1,24 @@
+{
+  "_comment": "WI-07 integrity FLOORS. tests/integrity/run_integrity.js fails if the live database drops BELOW any number here. These are floors, never targets: the suite NEVER raises them automatically, because a floor that follows the live value can never detect a loss. A human raises them BY HAND at a REFACTOR_PLAN.md phase checkpoint, after confirming the growth is legitimate (e.g. with tests/integrity/snapshot_diff.js --expect-no-removals across the two backups spanning the change). Record who raised it and why in _history below.",
+  "studentDocsMin": 11,
+  "defaultStudentProgressMin": 406,
+  "_measuredOn": "2026-08-29",
+  "_measuredValues": {
+    "note": "Live values when these floors were set — for context only; the suite reads the floors above, never these.",
+    "uatStudentAnswersDocs": 11,
+    "defaultStudentProgressEntries": 406,
+    "defaultStudentSrsCards": 392,
+    "defaultStudentExamHistory": 9,
+    "defaultStudentDocBytes": 234729,
+    "questionsContainerDocs": 3059
+  },
+  "_history": [
+    {
+      "date": "2026-08-29",
+      "by": "WI-07",
+      "studentDocsMin": 11,
+      "defaultStudentProgressMin": 406,
+      "why": "Initial floors, measured directly against psat-cosmos-15958/psat-prep-db."
+    }
+  ]
+}

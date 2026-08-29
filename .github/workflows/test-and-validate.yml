@@ -37,6 +37,19 @@ jobs:
           node tests/test_srs.js
           node tests/test_dataset_free_response.js
 
+      # WI-07 data-integrity suite — OFFLINE parts only.
+      # These need no Azure credentials: test_merge_pins.js runs the extracted
+      # api/src/lib/merge.js against hand-written fixtures (the contract that keeps
+      # concurrent v1/v2 clients from destroying each other's data), and
+      # test_snapshot_diff.js runs tests/integrity/snapshot_diff.js against the
+      # hand-written backup fixtures in tests/integrity/fixtures/.
+      # The LIVE parts (tests/integrity/run_integrity.js) are deliberately NOT here —
+      # they read production Cosmos and run from scripts/preflight_backup.sh instead.
+      - name: Run WI-07 Offline Integrity Tests (merge pins + snapshot diff)
+        run: |
+          node tests/integrity/test_merge_pins.js
+          node tests/integrity/test_snapshot_diff.js
+
       - name: Validate Extracted Dataset
         run: |
           python -c "import os, json; from validator import validate_dataset; \

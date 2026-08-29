@@ -1,0 +1,510 @@
+#!/usr/bin/env node
+/**
+ * tests/integrity/run_integrity.js — WI-07 live data-integrity & reconciliation suite
+ *
+ * The check that proves "nothing was lost or corrupted" at every refactor checkpoint.
+ * READ-ONLY against production: it issues Cosmos SELECT queries and blob downloads and
+ * NOTHING else. There is no code path in this file that upserts, deletes, or uploads.
+ *
+ * Checks (every one prints the values it measured; any failure exits nonzero):
+ *   1. Questions container holds exactly 3,059 documents (the frozen question mirror).
+ *   2. UATStudentAnswers document count and student_default_student progress-entry count
+ *      are at or above the floors in tests/integrity/expected_floor.json.
+ *   3. Master-document schema: every progress entry and every SM-2 SRS card in every
+ *      `student_master_profile` doc has a plausible shape.
+ *   4. Orphan reconciliation: every immutable `exam_session` doc's examId appears in its
+ *      student's master examHistory, and vice versa (counts reported in both directions).
+ *   5. student_default_student stays under the 400 KB master-document budget (the early
+ *      warning for the 2 MB Cosmos per-document wall).
+ *   6. The newest cloud backup is younger than 26 h and its bytes hash to its .sha256
+ *      sidecar (downloaded to a SYSTEM temp dir, never the repo, and deleted after).
+ *   7. student_e2e_test_student carries a `clientVersion` — proof that the v2 write path's
+ *      added fields actually persist through POST /api/sync.
+ *
+ * Field names were verified against the live documents on 2026-08-29 (CLAUDE.md mode 3),
+ * NOT taken from the plan text. Two findings that this file pins as-measured:
+ *   - SRS cards use camelCase `easeFactor` — there is no `ease_factor` field anywhere.
+ *   - 13 of the 406 live progress entries have NO `timestamp` field, so `timestamp` is
+ *     validated only when present. The count of entries missing it is reported as a
+ *     measurement rather than invented away.
+ *
+ * Credentials: never on argv. COSMOS_KEY / AZURE_STORAGE_KEY from the environment if set,
+ * otherwise fetched through the already-logged-in `az` CLI.
+ *
+ * Usage:  node tests/integrity/run_integrity.js
+ *         INTEGRITY_SKIP_BACKUP=1 node tests/integrity/run_integrity.js   (skip check 6)
+ */
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+const { execSync } = require('child_process');
+
+const {
+  BACKUP_MAX_AGE_HOURS,
+  BACKUP_ARCHIVE_RE,
+  LATEST_POINTER_NAME,
+  computeBackupStatus
+} = require('../../api/src/lib/backupCore.js');
+
+// ---------------------------------------------------------------------------
+// Configuration — every one of these is a read target.
+// ---------------------------------------------------------------------------
+const COSMOS_ACCOUNT = 'psat-cosmos-15958';
+const RESOURCE_GROUP = 'rg-psat-prep';
+const COSMOS_ENDPOINT = process.env.COSMOS_ENDPOINT || `https://${COSMOS_ACCOUNT}.documents.azure.com:443/`;
+const DB_NAME = process.env.COSMOS_DB_NAME || 'psat-prep-db';
+const STUDENT_CONTAINER = 'UATStudentAnswers';
+const QUESTIONS_CONTAINER = 'Questions';
+const STORAGE_ACCOUNT = process.env.AZURE_STORAGE_ACCOUNT || 'psatprep4915';
+const BACKUP_CONTAINER = 'cosmos-backups';
+
+const EXPECTED_QUESTIONS_COUNT = 3059;
+const MASTER_DOC_BUDGET_BYTES = 400 * 1024; // 409,600
+const DEFAULT_STUDENT_DOC_ID = 'student_default_student';
+const E2E_STUDENT_DOC_ID = 'student_e2e_test_student';
+/** SM-2's hard floor: an ease factor below this is a corrupt card, not a hard question. */
+const MIN_EASE_FACTOR = 1.3;
+
+const FLOOR_PATH = path.join(__dirname, 'expected_floor.json');
+
+// ---------------------------------------------------------------------------
+// Result plumbing — collect every check so one failure never hides the rest.
+// ---------------------------------------------------------------------------
+const results = [];
+function record(id, title, passed, detail) {
+  results.push({ id, title, passed, detail });
+  console.log(`  ${passed ? '✓' : '✗'} [${id}] ${detail}`);
+}
+function section(n, title) {
+  console.log(`\n--- ${n}. ${title} ---`);
+}
+
+// ---------------------------------------------------------------------------
+// Credentials (never on argv; env first, then the logged-in az CLI).
+// ---------------------------------------------------------------------------
+function azTsv(command, what) {
+  try {
+    return execSync(command, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  } catch (e) {
+    throw new Error(`Could not obtain ${what} via the Azure CLI (is \`az login\` current?): ${e.message}`);
+  }
+}
+function cosmosKey() {
+  return process.env.COSMOS_KEY ||
+    azTsv(`az cosmosdb keys list --name ${COSMOS_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query primaryMasterKey -o tsv`, 'the Cosmos DB key');
+}
+function storageKey() {
+  return process.env.AZURE_STORAGE_KEY ||
+    azTsv(`az storage account keys list --account-name ${STORAGE_ACCOUNT} --resource-group ${RESOURCE_GROUP} --query '[0].value' -o tsv`, 'the storage account key');
+}
+
+// ---------------------------------------------------------------------------
+// Schema validation helpers — pin what the live data ACTUALLY contains.
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates one progress entry. Returns an array of problem strings (empty = fine).
+ * `timestamp` is optional by measurement, not by choice: 13 live entries lack it.
+ */
+function progressEntryProblems(qid, entry) {
+  const problems = [];
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    problems.push(`${qid}: entry is not an object (${JSON.stringify(entry)})`);
+    return problems;
+  }
+  if (typeof entry.isCorrect !== 'boolean') {
+    problems.push(`${qid}: isCorrect is ${JSON.stringify(entry.isCorrect)}, expected a boolean`);
+  }
+  if (entry.timestamp !== undefined) {
+    if (typeof entry.timestamp !== 'number' || !Number.isFinite(entry.timestamp) || entry.timestamp <= 0) {
+      problems.push(`${qid}: timestamp is ${JSON.stringify(entry.timestamp)}, expected a positive finite number`);
+    }
+  }
+  for (const numeric of ['timesSeen', 'timesCorrect', 'timesIncorrect', 'timeSpentMs']) {
+    if (entry[numeric] !== undefined && (typeof entry[numeric] !== 'number' || !Number.isFinite(entry[numeric]) || entry[numeric] < 0)) {
+      problems.push(`${qid}: ${numeric} is ${JSON.stringify(entry[numeric])}, expected a non-negative finite number`);
+    }
+  }
+  return problems;
+}
+
+/**
+ * Validates one SM-2 SRS card against the field names the live data really uses:
+ * easeFactor / repetitions / intervalDays / lastReviewedAt (all camelCase).
+ */
+function srsCardProblems(qid, card) {
+  const problems = [];
+  if (!card || typeof card !== 'object' || Array.isArray(card)) {
+    problems.push(`${qid}: card is not an object (${JSON.stringify(card)})`);
+    return problems;
+  }
+  if (card.ease_factor !== undefined) {
+    problems.push(`${qid}: found snake_case ease_factor — the live schema is camelCase easeFactor`);
+  }
+  if (typeof card.easeFactor !== 'number' || !Number.isFinite(card.easeFactor)) {
+    problems.push(`${qid}: easeFactor is ${JSON.stringify(card.easeFactor)}, expected a finite number`);
+  } else if (card.easeFactor < MIN_EASE_FACTOR) {
+    problems.push(`${qid}: easeFactor ${card.easeFactor} < SM-2 floor ${MIN_EASE_FACTOR}`);
+  }
+  if (typeof card.repetitions !== 'number' || !Number.isFinite(card.repetitions) || card.repetitions < 0) {
+    problems.push(`${qid}: repetitions is ${JSON.stringify(card.repetitions)}, expected a non-negative finite number`);
+  }
+  if (card.intervalDays !== undefined && (typeof card.intervalDays !== 'number' || !Number.isFinite(card.intervalDays) || card.intervalDays < 0)) {
+    problems.push(`${qid}: intervalDays is ${JSON.stringify(card.intervalDays)}, expected a non-negative finite number`);
+  }
+  if (card.lastReviewedAt !== undefined && (typeof card.lastReviewedAt !== 'number' || !Number.isFinite(card.lastReviewedAt) || card.lastReviewedAt < 0)) {
+    problems.push(`${qid}: lastReviewedAt is ${JSON.stringify(card.lastReviewedAt)}, expected a non-negative finite number`);
+  }
+  return problems;
+}
+
+/** Bytes of a document as Cosmos stores it, minus the system fields Cosmos adds. */
+function documentBytes(doc) {
+  const copy = Object.assign({}, doc);
+  ['_rid', '_self', '_etag', '_attachments', '_ts'].forEach(k => delete copy[k]);
+  return { withSystemFields: Buffer.byteLength(JSON.stringify(doc), 'utf8'), userBytes: Buffer.byteLength(JSON.stringify(copy), 'utf8') };
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+async function main() {
+  const startedAt = new Date();
+  console.log('======================================================================');
+  console.log('WI-07 data-integrity suite — READ-ONLY against production');
+  console.log(`  Cosmos    : ${COSMOS_ENDPOINT} / ${DB_NAME}`);
+  console.log(`  Storage   : ${STORAGE_ACCOUNT} / ${BACKUP_CONTAINER}`);
+  console.log(`  Started   : ${startedAt.toISOString()}`);
+  console.log('======================================================================');
+
+  // Floors — read from disk, never derived from the live values they guard.
+  let floor;
+  try {
+    floor = JSON.parse(fs.readFileSync(FLOOR_PATH, 'utf8'));
+  } catch (e) {
+    console.error(`FATAL: could not read ${FLOOR_PATH}: ${e.message}`);
+    process.exit(1);
+  }
+  if (typeof floor.studentDocsMin !== 'number' || typeof floor.defaultStudentProgressMin !== 'number') {
+    console.error(`FATAL: ${FLOOR_PATH} must define numeric studentDocsMin and defaultStudentProgressMin.`);
+    process.exit(1);
+  }
+  console.log(`\nFloors in use (hand-maintained, never auto-raised — see ${path.relative(process.cwd(), FLOOR_PATH)}):`);
+  console.log(`  studentDocsMin              = ${floor.studentDocsMin}`);
+  console.log(`  defaultStudentProgressMin   = ${floor.defaultStudentProgressMin}`);
+
+  const { CosmosClient } = require('../../api/node_modules/@azure/cosmos');
+  const client = new CosmosClient({ endpoint: COSMOS_ENDPOINT, key: cosmosKey() });
+  const database = client.database(DB_NAME);
+
+  // =====================================================================
+  // 1. Questions container == 3,059 exactly.
+  // =====================================================================
+  section(1, `${QUESTIONS_CONTAINER} container count`);
+  {
+    const { resources } = await database.container(QUESTIONS_CONTAINER)
+      .items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
+    const count = Array.isArray(resources) && resources.length ? resources[0] : null;
+    console.log(`  measured Questions documents : ${count}`);
+    record('Q-COUNT', 'Questions == 3059',
+      count === EXPECTED_QUESTIONS_COUNT,
+      `Questions=${count} (expected exactly ${EXPECTED_QUESTIONS_COUNT})`);
+  }
+
+  // =====================================================================
+  // Fetch every student document once; checks 2-5 and 7 all read it.
+  // =====================================================================
+  const { resources: studentDocs } = await database.container(STUDENT_CONTAINER)
+    .items.query('SELECT * FROM c').fetchAll();
+  const allDocs = Array.isArray(studentDocs) ? studentDocs : [];
+  const masters = allDocs.filter(d => d && d.doc_type === 'student_master_profile');
+  const examSessions = allDocs.filter(d => d && d.doc_type === 'exam_session');
+  const untyped = allDocs.filter(d => d && d.doc_type !== 'student_master_profile' && d.doc_type !== 'exam_session');
+
+  // =====================================================================
+  // 2. Document / progress floors.
+  // =====================================================================
+  section(2, `${STUDENT_CONTAINER} floors`);
+  {
+    console.log(`  measured documents            : ${allDocs.length}  (masters=${masters.length}, exam_session=${examSessions.length}, other=${untyped.length})`);
+    record('DOC-FLOOR', 'UATStudentAnswers >= floor',
+      allDocs.length >= floor.studentDocsMin,
+      `documents=${allDocs.length} >= floor ${floor.studentDocsMin}`);
+
+    const defaultMaster = allDocs.find(d => d && d.id === DEFAULT_STUDENT_DOC_ID);
+    if (!defaultMaster) {
+      record('PROGRESS-FLOOR', 'default_student progress >= floor', false,
+        `${DEFAULT_STUDENT_DOC_ID} not found in ${STUDENT_CONTAINER} — cannot check the progress floor`);
+    } else {
+      const n = Object.keys(defaultMaster.progress || {}).length;
+      console.log(`  measured default_student progress entries : ${n}`);
+      console.log(`  measured default_student SRS cards        : ${Object.keys(defaultMaster.srsState || {}).length}`);
+      console.log(`  measured default_student session days     : ${Object.keys(defaultMaster.sessionsState || {}).length}`);
+      console.log(`  measured default_student examHistory      : ${(defaultMaster.examHistory || []).length}`);
+      console.log(`  measured default_student updatedAt        : ${defaultMaster.updatedAt ? new Date(defaultMaster.updatedAt).toISOString() : 'null'}`);
+      record('PROGRESS-FLOOR', 'default_student progress >= floor',
+        n >= floor.defaultStudentProgressMin,
+        `progress entries=${n} >= floor ${floor.defaultStudentProgressMin}`);
+    }
+  }
+
+  // =====================================================================
+  // 3. Master-document schema.
+  // =====================================================================
+  section(3, 'Master-document schema (progress entries + SM-2 SRS cards)');
+  {
+    let totalProgress = 0, totalCards = 0, missingTimestamp = 0, emptyQuestionId = 0;
+    let minEase = null, maxEase = null, minReps = null, maxReps = null;
+    const problems = [];
+
+    for (const m of masters) {
+      const progress = m.progress || {};
+      for (const [qid, entry] of Object.entries(progress)) {
+        totalProgress++;
+        if (entry && typeof entry === 'object' && entry.timestamp === undefined) missingTimestamp++;
+        progressEntryProblems(`${m.id}/${qid}`, entry).forEach(p => problems.push(p));
+      }
+      const cards = m.srsState || {};
+      for (const [qid, card] of Object.entries(cards)) {
+        totalCards++;
+        if (card && card.questionId === '') emptyQuestionId++;
+        if (card && typeof card.easeFactor === 'number') {
+          minEase = (minEase === null || card.easeFactor < minEase) ? card.easeFactor : minEase;
+          maxEase = (maxEase === null || card.easeFactor > maxEase) ? card.easeFactor : maxEase;
+        }
+        if (card && typeof card.repetitions === 'number') {
+          minReps = (minReps === null || card.repetitions < minReps) ? card.repetitions : minReps;
+          maxReps = (maxReps === null || card.repetitions > maxReps) ? card.repetitions : maxReps;
+        }
+        srsCardProblems(`${m.id}/${qid}`, card).forEach(p => problems.push(p));
+      }
+    }
+
+    console.log(`  master_profile documents inspected : ${masters.length} (${masters.map(m => m.id).join(', ')})`);
+    console.log(`  progress entries inspected         : ${totalProgress}`);
+    console.log(`  ...of which have NO timestamp      : ${missingTimestamp}  (measured, not a failure: timestamp is validated only when present)`);
+    console.log(`  SRS cards inspected                : ${totalCards}`);
+    console.log(`  easeFactor range                   : ${minEase === null ? 'n/a (no cards)' : `${minEase} .. ${maxEase}`}  (SM-2 floor ${MIN_EASE_FACTOR})`);
+    console.log(`  repetitions range                  : ${minReps === null ? 'n/a (no cards)' : `${minReps} .. ${maxReps}`}`);
+    console.log(`  cards with questionId === ""       : ${emptyQuestionId} of ${totalCards}  (measured; the card key is the question id, the field is unpopulated)`);
+    if (problems.length) {
+      problems.slice(0, 20).forEach(p => console.log(`      ! ${p}`));
+      if (problems.length > 20) console.log(`      ! ...and ${problems.length - 20} more`);
+    }
+    record('SCHEMA', 'master-doc schema', problems.length === 0,
+      `${problems.length} schema problem(s) across ${totalProgress} progress entries and ${totalCards} SRS cards`);
+  }
+
+  // =====================================================================
+  // 4. Orphan reconciliation between exam_session docs and master examHistory.
+  // =====================================================================
+  section(4, 'Exam reconciliation (exam_session docs <-> master examHistory)');
+  {
+    const historyByStudent = new Map();
+    for (const m of masters) {
+      const ids = new Set();
+      (m.examHistory || []).forEach(e => { if (e && e.examId) ids.add(e.examId); });
+      historyByStudent.set(m.student_name, ids);
+    }
+    const sessionsByStudent = new Map();
+    for (const d of examSessions) {
+      if (!sessionsByStudent.has(d.student_name)) sessionsByStudent.set(d.student_name, new Set());
+      if (d.examId) sessionsByStudent.get(d.student_name).add(d.examId);
+    }
+
+    const orphanSessions = [];   // session doc whose examId is absent from the master history
+    const historyOnly = [];      // master history entry with no immutable session doc
+    const sessionsNoExamId = [];
+
+    for (const d of examSessions) {
+      if (!d.examId) { sessionsNoExamId.push(d.id); continue; }
+      const hist = historyByStudent.get(d.student_name);
+      if (!hist || !hist.has(d.examId)) orphanSessions.push(`${d.student_name}/${d.examId} (doc ${d.id})`);
+    }
+    for (const [student, ids] of historyByStudent.entries()) {
+      const sess = sessionsByStudent.get(student) || new Set();
+      for (const id of ids) if (!sess.has(id)) historyOnly.push(`${student}/${id}`);
+    }
+
+    const totalHistoryIds = Array.from(historyByStudent.values()).reduce((a, s) => a + s.size, 0);
+    console.log(`  exam_session documents             : ${examSessions.length}`);
+    console.log(`  distinct examIds in master history : ${totalHistoryIds}`);
+    console.log(`  session docs with no examId field  : ${sessionsNoExamId.length}${sessionsNoExamId.length ? ' -> ' + sessionsNoExamId.join(', ') : ''}`);
+    console.log(`  orphan session docs (session -> history missing) : ${orphanSessions.length}${orphanSessions.length ? ' -> ' + orphanSessions.join(', ') : ''}`);
+    console.log(`  history entries with no session doc (history -> session missing) : ${historyOnly.length}${historyOnly.length ? ' -> ' + historyOnly.join(', ') : ''}`);
+    record('ORPHANS', 'exam reconciliation',
+      orphanSessions.length === 0 && historyOnly.length === 0 && sessionsNoExamId.length === 0,
+      `orphanSessions=${orphanSessions.length}, historyWithoutSessionDoc=${historyOnly.length}, sessionDocsMissingExamId=${sessionsNoExamId.length}`);
+  }
+
+  // =====================================================================
+  // 5. Master-document size budget.
+  // =====================================================================
+  section(5, `${DEFAULT_STUDENT_DOC_ID} size budget`);
+  {
+    const doc = allDocs.find(d => d && d.id === DEFAULT_STUDENT_DOC_ID);
+    if (!doc) {
+      record('DOC-SIZE', 'master doc < 400 KB', false, `${DEFAULT_STUDENT_DOC_ID} not found`);
+    } else {
+      const { withSystemFields, userBytes } = documentBytes(doc);
+      const pct = ((withSystemFields / MASTER_DOC_BUDGET_BYTES) * 100).toFixed(1);
+      console.log(`  measured bytes (as stored, incl. Cosmos _rid/_etag/...) : ${withSystemFields}`);
+      console.log(`  measured bytes (application fields only)                : ${userBytes}`);
+      console.log(`  budget                                                  : ${MASTER_DOC_BUDGET_BYTES} bytes (400 KB) — currently ${pct}% used`);
+      // Also print the largest master doc so a different student cannot creep past unseen.
+      const largest = masters.map(m => ({ id: m.id, bytes: documentBytes(m).withSystemFields }))
+        .sort((a, b) => b.bytes - a.bytes)[0];
+      console.log(`  largest master document overall                         : ${largest.id} @ ${largest.bytes} bytes`);
+      record('DOC-SIZE', 'master doc < 400 KB',
+        withSystemFields < MASTER_DOC_BUDGET_BYTES,
+        `${DEFAULT_STUDENT_DOC_ID} = ${withSystemFields} bytes < ${MASTER_DOC_BUDGET_BYTES} budget (${pct}%)`);
+    }
+  }
+
+  // =====================================================================
+  // 6. Newest cloud backup: age < 26 h, and its sha256 sidecar verifies.
+  // =====================================================================
+  section(6, `Newest ${BACKUP_CONTAINER} archive: freshness + checksum`);
+  if (process.env.INTEGRITY_SKIP_BACKUP === '1') {
+    console.log('  INTEGRITY_SKIP_BACKUP=1 — backup freshness/checksum check SKIPPED (not passed, skipped).');
+    record('BACKUP', 'backup freshness + checksum', true, 'SKIPPED by INTEGRITY_SKIP_BACKUP=1 (no assertion made)');
+  } else {
+    const { BlobServiceClient, StorageSharedKeyCredential } = require('../../api/node_modules/@azure/storage-blob');
+    const service = new BlobServiceClient(
+      `https://${STORAGE_ACCOUNT}.blob.core.windows.net`,
+      new StorageSharedKeyCredential(STORAGE_ACCOUNT, storageKey())
+    );
+    const containerClient = service.getContainerClient(BACKUP_CONTAINER);
+
+    const blobs = [];
+    for await (const b of containerClient.listBlobsFlat()) {
+      blobs.push({ name: b.name, lastModified: b.properties.lastModified, contentLength: b.properties.contentLength });
+    }
+
+    // Reuse the shipped status logic rather than re-deriving freshness (CLAUDE.md mode 2).
+    const status = computeBackupStatus(blobs, Date.now());
+    console.log(`  blobs in container                 : ${blobs.length}`);
+    console.log(`  successful archives                : ${status.successBackupCount}`);
+    console.log(`  failure markers                    : ${status.failureMarkerCount}`);
+    console.log(`  last successful backup             : ${status.lastSuccessAt}`);
+    console.log(`  age                                : ${status.ageHours === null ? 'n/a' : status.ageHours + ' h'} (limit ${BACKUP_MAX_AGE_HOURS} h)`);
+    console.log(`  status reason                      : ${status.reason}`);
+    record('BACKUP-AGE', 'newest backup < 26 h and no newer failure marker',
+      status.healthy === true,
+      `ageHours=${status.ageHours}, healthy=${status.healthy} — ${status.reason}`);
+
+    const archives = blobs
+      .filter(b => b.name !== LATEST_POINTER_NAME && BACKUP_ARCHIVE_RE.test(b.name))
+      .sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+
+    if (archives.length === 0) {
+      record('BACKUP-SHA', 'sidecar checksum verifies', false, 'no cosmos_backup_*.json archive to verify');
+    } else {
+      const newest = archives[0];
+      const sidecarName = `${newest.name}.sha256`;
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'integrity-backup-'));
+      try {
+        const localPath = path.join(tmpDir, path.basename(newest.name));
+        await containerClient.getBlockBlobClient(newest.name).downloadToFile(localPath);
+        const bytes = fs.readFileSync(localPath);
+        const localSha = crypto.createHash('sha256').update(bytes).digest('hex');
+
+        let sidecarSha = null;
+        let sidecarError = null;
+        try {
+          const buf = await containerClient.getBlockBlobClient(sidecarName).downloadToBuffer();
+          sidecarSha = String(buf).trim().split(/\s+/)[0].toLowerCase();
+        } catch (e) {
+          sidecarError = e.message;
+        }
+
+        console.log(`  newest archive                     : ${newest.name}`);
+        console.log(`  downloaded bytes                   : ${bytes.length} (container reports ${newest.contentLength})`);
+        console.log(`  locally computed sha256            : ${localSha}`);
+        console.log(`  sidecar (${sidecarName}) sha256    : ${sidecarSha === null ? `UNREADABLE: ${sidecarError}` : sidecarSha}`);
+
+        // Parse the payload too: a checksum-valid but structurally empty backup is
+        // still a lost backup (CLAUDE.md mode 5 — report both "valid" and "complete").
+        let payloadNote = 'unparseable';
+        let payloadOk = false;
+        try {
+          const payload = JSON.parse(bytes.toString('utf8'));
+          const meta = payload.backupMetadata || {};
+          const students = Array.isArray(payload.studentAnswers) ? payload.studentAnswers.length : 0;
+          const questions = Array.isArray(payload.questions) ? payload.questions.length : 0;
+          payloadNote = `version=${meta.version || 'unknown'}, studentAnswers=${students}, feedback=${Array.isArray(payload.feedback) ? payload.feedback.length : 0}, questions=${questions}`;
+          // A backup is a snapshot of the PAST, so it is not compared against the live
+          // floor — a backup taken before legitimate growth holds fewer documents and
+          // that is correct, not a loss. What must never happen is an empty/structureless
+          // archive that still checksums perfectly (CLAUDE.md mode 5: "valid" != "complete").
+          payloadOk = Array.isArray(payload.studentAnswers) && students > 0;
+          console.log(`  payload                            : ${payloadNote}`);
+          if (!payloadOk) console.log(`      ! backup contains no studentAnswers array / zero student documents — checksum-valid but empty`);
+          if (students < floor.studentDocsMin) {
+            console.log(`      i note: this archive predates current growth (${students} student docs vs live floor ${floor.studentDocsMin}) — informational, not a failure`);
+          }
+        } catch (e) {
+          console.log(`  payload                            : UNPARSEABLE (${e.message})`);
+        }
+
+        const shaOk = sidecarSha !== null && sidecarSha === localSha && bytes.length === newest.contentLength;
+        record('BACKUP-SHA', 'sidecar checksum verifies on download and the archive is non-empty', shaOk && payloadOk,
+          `${newest.name}: sha match=${sidecarSha === localSha}, bytes=${bytes.length}/${newest.contentLength}, ${payloadNote}`);
+      } finally {
+        // Temp files never live in the repo and never outlive the run.
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+  }
+
+  // =====================================================================
+  // 7. e2e_test_student carries clientVersion (v2 write path persists its fields).
+  // =====================================================================
+  section(7, `${E2E_STUDENT_DOC_ID}: clientVersion present`);
+  {
+    const doc = allDocs.find(d => d && d.id === E2E_STUDENT_DOC_ID);
+    if (!doc) {
+      record('E2E-CLIENTVERSION', 'e2e doc has clientVersion', false,
+        `${E2E_STUDENT_DOC_ID} not found — the v2 write path has never been exercised against this database`);
+    } else {
+      const cv = doc.clientVersion;
+      console.log(`  clientVersion    : ${JSON.stringify(cv)}`);
+      console.log(`  clientTimestamp  : ${JSON.stringify(doc.clientTimestamp)}`);
+      console.log(`  updatedAt        : ${doc.updatedAt ? new Date(doc.updatedAt).toISOString() : 'null'}`);
+      console.log(`  progress entries : ${Object.keys(doc.progress || {}).length}`);
+      record('E2E-CLIENTVERSION', 'e2e doc has clientVersion',
+        typeof cv === 'string' && cv.length > 0,
+        `clientVersion=${JSON.stringify(cv)}`);
+    }
+  }
+
+  // =====================================================================
+  // Summary
+  // =====================================================================
+  const failed = results.filter(r => !r.passed);
+  console.log('\n======================================================================');
+  console.log(`Checks run: ${results.length}   passed: ${results.length - failed.length}   failed: ${failed.length}`);
+  results.forEach(r => console.log(`  ${r.passed ? 'PASS' : 'FAIL'}  ${r.id.padEnd(18)} ${r.detail}`));
+  console.log(`Finished: ${new Date().toISOString()} (${((Date.now() - startedAt.getTime()) / 1000).toFixed(1)}s)`);
+  if (failed.length) {
+    console.log('INTEGRITY_SUITE_FAILED');
+    console.log('======================================================================');
+    process.exitCode = 1;
+    return;
+  }
+  console.log('INTEGRITY_SUITE_OK');
+  console.log('======================================================================');
+}
+
+if (require.main === module) {
+  main().catch(err => {
+    console.error('\n❌ run_integrity.js aborted:', err && err.message ? err.message : err);
+    if (err && err.stack) console.error(err.stack);
+    console.log('INTEGRITY_SUITE_FAILED');
+    process.exit(1);
+  });
+}
+
+module.exports = { progressEntryProblems, srsCardProblems, documentBytes, MIN_EASE_FACTOR, MASTER_DOC_BUDGET_BYTES };

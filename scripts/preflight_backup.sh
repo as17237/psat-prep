@@ -23,7 +23,14 @@
 #         questionsCount           == EXPECTED_QUESTIONS_COUNT (3059)
 #       A missing or zero questionsCount is a hard fail, not a warning — see
 #       CLAUDE.md mode 1 ("zero is a schema error, not a fallback opportunity").
-#   (e) On success, print exactly one final line:
+#   (e) Run the WI-07 live data-integrity suite (tests/integrity/run_integrity.js) —
+#       read-only checks that the live database still holds everything it should:
+#       Questions == 3,059, student/progress floors, master-doc schema, exam-session
+#       orphans, the 400 KB master-doc budget, backup freshness + checksum, and the
+#       v2 clientVersion field. ON BY DEFAULT so the gate gets stronger over time;
+#       set PREFLIGHT_SKIP_INTEGRITY=1 to opt out (which is announced loudly in the
+#       output, never silent). A failing integrity suite fails the whole gate.
+#   (f) On success, print exactly one final line:
 #         PREFLIGHT_BACKUP_OK <filename>
 #       so a calling work item's completion report can grep it.
 #
@@ -44,6 +51,8 @@
 # item's own test run — do not use these to weaken the gate in real use):
 #   PREFLIGHT_BACKUP_URL         override the backup endpoint
 #   PREFLIGHT_EXPECT_SHA256      override the expected sha256 (testing only)
+#   PREFLIGHT_SKIP_INTEGRITY=1   skip step (e), the live data-integrity suite
+#   PREFLIGHT_RUN_INTEGRITY=1    force step (e) on even if PREFLIGHT_SKIP_INTEGRITY is set
 # ==============================================================================
 
 set -euo pipefail
@@ -234,8 +243,45 @@ fi
 echo "  ✓ checksum verified against BOTH the sidecar and the API response"
 
 # ------------------------------------------------------------------
+# (e) WI-07 live data-integrity suite — READ-ONLY against Cosmos + the backup
+# container. On by default; PREFLIGHT_SKIP_INTEGRITY=1 opts out (announced, never
+# silent), PREFLIGHT_RUN_INTEGRITY=1 forces it back on.
+#
+# AZURE_STORAGE_ACCOUNT / AZURE_STORAGE_KEY are already exported above, so the suite
+# reuses them instead of re-fetching credentials.
+# ------------------------------------------------------------------
+INTEGRITY_FAILURES=0
+INTEGRITY_SCRIPT="${REPO_ROOT}/tests/integrity/run_integrity.js"
+
+echo ""
+echo "--- (e) Live data-integrity suite (tests/integrity/run_integrity.js) ---"
+if [ "${PREFLIGHT_RUN_INTEGRITY:-0}" != "1" ] && [ "${PREFLIGHT_SKIP_INTEGRITY:-0}" = "1" ]; then
+  echo "  ⚠️  SKIPPED: PREFLIGHT_SKIP_INTEGRITY=1 is set. This gate ran WITHOUT the live"
+  echo "      integrity checks — say so in the completion report; do not imply they passed."
+elif [ ! -f "$INTEGRITY_SCRIPT" ]; then
+  echo "FATAL: ${INTEGRITY_SCRIPT} is missing. The integrity gate cannot be silently skipped;" >&2
+  echo "       restore the file or set PREFLIGHT_SKIP_INTEGRITY=1 deliberately." >&2
+  INTEGRITY_FAILURES=$((INTEGRITY_FAILURES + 1))
+else
+  # The suite exits nonzero on any failed check; `set -e` must not abort here, so the
+  # result is captured and folded into the final gate with everything else.
+  if node "$INTEGRITY_SCRIPT"; then
+    echo "  ✓ live data-integrity suite passed"
+  else
+    echo "  ✗ live data-integrity suite FAILED (see its output above)" >&2
+    INTEGRITY_FAILURES=$((INTEGRITY_FAILURES + 1))
+  fi
+fi
+
+# ------------------------------------------------------------------
 # Final gate
 # ------------------------------------------------------------------
+if [ "$INTEGRITY_FAILURES" -ne 0 ]; then
+  echo ""
+  echo "FATAL: the live data-integrity suite failed — refusing to print PREFLIGHT_BACKUP_OK." >&2
+  exit 1
+fi
+
 if [ "$COUNT_FAILURES" -ne 0 ]; then
   echo ""
   echo "FATAL: $COUNT_FAILURES count sanity-check(s) failed (see ✗ lines above)." >&2

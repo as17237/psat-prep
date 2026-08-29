@@ -1,5 +1,12 @@
 const { app } = require('@azure/functions');
 const { CosmosClient } = require('@azure/cosmos');
+const {
+  EXAM_HISTORY_CAP,
+  mergeProgress,
+  mergeSrsState,
+  mergeSessions,
+  mergeExamHistory
+} = require('../lib/merge.js');
 
 const connectionString = process.env.COSMOS_CONNECTION_STRING;
 const dbName = process.env.COSMOS_DB_NAME || 'psat-prep-db';
@@ -51,11 +58,10 @@ app.http('sync', {
           return { status: 200, jsonBody: { success: true, exists: false, data: null } };
         }
 
-        // Merge all historical exams across master and individual immutable session docs
-        const examMap = {};
-        (masterDoc?.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
-        examDocs.forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
-        const mergedExams = Object.values(examMap).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+        // Merge all historical exams across master and individual immutable session docs.
+        // Uncapped on purpose: the master document keeps only the newest EXAM_HISTORY_CAP
+        // entries, and the immutable exam_session docs restore the rest here.
+        const mergedExams = mergeExamHistory(masterDoc?.examHistory, examDocs);
 
         const compositeData = {
           id: `student_${studentName}`,
@@ -96,48 +102,16 @@ app.http('sync', {
           }
         }
 
-        // 1. Server-side merge progress (retains all historical question attempts, newer timestamp wins)
-        const mergedProgress = Object.assign({}, existingMaster?.progress || {});
-        Object.entries(body.progress || {}).forEach(([qid, p]) => {
-          if (!p) return;
-          const existing = mergedProgress[qid];
-          if (!existing || (p.timestamp || 0) >= (existing.timestamp || 0)) {
-            mergedProgress[qid] = p;
-          }
-        });
-
-        // 2. Server-side merge SRS cards (newer lastReviewedAt wins)
-        const mergedSrs = Object.assign({}, existingMaster?.srsState || {});
-        Object.entries(body.srsState || {}).forEach(([qid, card]) => {
-          if (!card) return;
-          const existing = mergedSrs[qid];
-          if (!existing || (card.lastReviewedAt || 0) >= (existing.lastReviewedAt || 0)) {
-            mergedSrs[qid] = card;
-          }
-        });
-
-        // 3. Server-side merge daily sessions
-        const mergedSessions = Object.assign({}, existingMaster?.sessionsState || {});
-        Object.entries(body.sessionsState || {}).forEach(([dStr, sess]) => {
-          if (!sess) return;
-          const existing = mergedSessions[dStr];
-          if (existing && sess.questionsAnswered) {
-            mergedSessions[dStr] = {
-              date: dStr,
-              questionsAnswered: Math.max(existing.questionsAnswered || 0, sess.questionsAnswered || 0),
-              correct: Math.max(existing.correct || 0, sess.correct || 0),
-              totalTimeMs: Math.max(existing.totalTimeMs || 0, sess.totalTimeMs || 0)
-            };
-          } else {
-            mergedSessions[dStr] = sess;
-          }
-        });
-
-        // 4. Server-side merge exam history (deduplicated by examId)
-        const examMap = {};
-        (existingMaster?.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
-        (body.examHistory || []).forEach(e => { if (e && e.examId) examMap[e.examId] = e; });
-        const mergedExams = Object.values(examMap).sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+        // The four non-destructive merge rules live in ../lib/merge.js so they can be
+        // unit-pinned offline (tests/integrity/test_merge_pins.js). Behaviour is unchanged:
+        //   1. progress  — newer `timestamp` wins, null entries skipped
+        //   2. srsState  — newer `lastReviewedAt` wins, null cards skipped
+        //   3. sessions  — per-field max for a day both sides know about
+        //   4. examHistory — dedupe by examId, newest-first, capped for the master doc
+        const mergedProgress = mergeProgress(existingMaster?.progress, body.progress);
+        const mergedSrs = mergeSrsState(existingMaster?.srsState, body.srsState);
+        const mergedSessions = mergeSessions(existingMaster?.sessionsState, body.sessionsState);
+        const mergedExams = mergeExamHistory(existingMaster?.examHistory, body.examHistory, EXAM_HISTORY_CAP);
 
         const masterDoc = {
           id: masterDocId,
@@ -146,7 +120,7 @@ app.http('sync', {
           progress: mergedProgress,
           srsState: mergedSrs,
           sessionsState: mergedSessions,
-          examHistory: mergedExams.slice(0, 50),
+          examHistory: mergedExams,
           updatedAt: now,
           clientTimestamp: body.clientTimestamp || new Date().toISOString(),
           // Which app build produced this write ('v1' = prod/beta lane, 'v2-<sha>' = /v2/ lane).

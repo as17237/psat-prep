@@ -1,0 +1,77 @@
+{
+  "backupMetadata": {
+    "generatedAt": "2026-08-29T02:00:00.000Z",
+    "triggerType": "timer",
+    "database": "psat-prep-db",
+    "totalDocuments": 3,
+    "studentAnswersCount": 2,
+    "feedbackCount": 0,
+    "questionsCount": 2,
+    "version": "1.1"
+  },
+  "studentAnswers": [
+    {
+      "id": "student_fixture_student",
+      "student_name": "fixture_student",
+      "doc_type": "student_master_profile",
+      "progress": {
+        "q_alpha": {
+          "answered": true,
+          "isCorrect": true,
+          "timestamp": 1787000000000,
+          "timesSeen": 1,
+          "timesCorrect": 1,
+          "timesIncorrect": 0
+        }
+      },
+      "srsState": {
+        "q_alpha": {
+          "questionId": "",
+          "repetitions": 1,
+          "intervalDays": 1,
+          "easeFactor": 2.6,
+          "lastReviewedAt": 1787000000000,
+          "dueAt": 1787086400000,
+          "lastGrade": 5,
+          "history": []
+        }
+      },
+      "sessionsState": {
+        "2026-08-27": {
+          "date": "2026-08-27",
+          "questionsAnswered": 2,
+          "correct": 1,
+          "totalTimeMs": 60000
+        }
+      },
+      "examHistory": [
+        {
+          "examId": "exam_fixture_1",
+          "completedAt": 1787000200000
+        }
+      ],
+      "updatedAt": 1787000200000,
+      "clientTimestamp": "2026-08-28T01:59:00.000Z",
+      "clientVersion": "v1"
+    },
+    {
+      "id": "exam_fixture_student_exam_fixture_1",
+      "student_name": "fixture_student",
+      "doc_type": "exam_session",
+      "examId": "exam_fixture_1",
+      "completedAt": 1787000200000,
+      "persistedAt": 1787000200500
+    }
+  ],
+  "feedback": [],
+  "questions": [
+    {
+      "id": "q_alpha",
+      "domain": "Algebra"
+    },
+    {
+      "id": "q_beta",
+      "domain": "Algebra"
+    }
+  ]
+}
