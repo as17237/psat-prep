@@ -66,4 +66,39 @@ assert.throws(() => {
   validateBackupPayload(null, 'null.json');
 }, /Hard Failure: 0 valid documents found/, 'Null payload must cause hard failure');
 
-console.log('✓ All Cloud Backup & Restore Safeguard unit tests passed!\n');
+// 6. SHA-256 Checksum Integrity Tests
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { verifyBackupIntegrity } = require('../scripts/restore_cosmos.js');
+
+const tmpDir = path.join(__dirname, 'tmp_test_backup');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
+const testPayload = JSON.stringify(azureFuncPayload, null, 2);
+const testFile = path.join(tmpDir, 'test_backup.json');
+const testSidecar = path.join(tmpDir, 'test_backup.json.sha256');
+
+fs.writeFileSync(testFile, testPayload, 'utf8');
+const expectedSha = crypto.createHash('sha256').update(Buffer.from(testPayload, 'utf8')).digest('hex');
+fs.writeFileSync(testSidecar, `${expectedSha}  test_backup.json\n`, 'utf8');
+
+// 6A. Valid checksum passes
+const validCheck = verifyBackupIntegrity(testFile, testPayload, azureFuncPayload);
+assert.strictEqual(validCheck.verified, true);
+assert.strictEqual(validCheck.sha256, expectedSha);
+console.log('✓ Valid SHA-256 sidecar checksum verified');
+
+// 6B. Corrupted / Tampered content causes hard failure
+const tamperedPayload = testPayload + '\n/* tampered */';
+assert.throws(() => {
+  verifyBackupIntegrity(testFile, tamperedPayload, azureFuncPayload);
+}, /Checksum verification failed/, 'Tampered backup must throw hard failure error');
+console.log('✓ Tampered backup checksum mismatch hard failure verified');
+
+// Clean up tmp test files
+fs.unlinkSync(testFile);
+fs.unlinkSync(testSidecar);
+fs.rmdirSync(tmpDir);
+
+console.log('✓ All Cloud Backup & Restore Safeguard and Checksum Integrity unit tests passed!\n');

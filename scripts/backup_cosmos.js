@@ -46,28 +46,26 @@ async function runBackup() {
     fs.mkdirSync(backupDir, { recursive: true });
   }
 
+  const crypto = require('crypto');
   const backupFilename = `cosmos_backup_${timestampStr}.json`;
   const backupPath = path.join(backupDir, backupFilename);
+  const sidecarPath = path.join(backupDir, `${backupFilename}.sha256`);
 
-  const backupPayload = {
-    backupMetadata: {
-      generatedAt: now.toISOString(),
-      documentCount: allDocs.length,
-      database: dbName,
-      container: containerName,
-      version: '1.0'
-    },
-    documents: allDocs,
-    studentAnswers: allDocs
-  };
+  const payloadString = JSON.stringify(backupPayload, null, 2);
+  const payloadBuffer = Buffer.from(payloadString, 'utf8');
+  const sha256 = crypto.createHash('sha256').update(payloadBuffer).digest('hex');
 
-  fs.writeFileSync(backupPath, JSON.stringify(backupPayload, null, 2), 'utf8');
-  console.log(`✓ Backup successfully written to: ${backupPath} (${Math.round(fs.statSync(backupPath).size / 1024)} KB)`);
+  fs.writeFileSync(backupPath, payloadString, 'utf8');
+  fs.writeFileSync(sidecarPath, `${sha256}  ${backupFilename}\n`, 'utf8');
+  console.log(`✓ Backup successfully written to: ${backupPath} (${Math.round(payloadBuffer.length / 1024)} KB)`);
+  console.log(`✓ SHA-256 sidecar written to: ${sidecarPath} (${sha256.substring(0, 16)}...)`);
 
-  // Also maintain a 'latest.json' pointer
+  // Also maintain a 'latest.json' pointer and sidecar
   const latestPath = path.join(backupDir, 'cosmos_backup_latest.json');
+  const latestSidecarPath = path.join(backupDir, 'cosmos_backup_latest.json.sha256');
   fs.copyFileSync(backupPath, latestPath);
-  console.log(`✓ Updated pointer: ${latestPath}`);
+  fs.copyFileSync(sidecarPath, latestSidecarPath);
+  console.log(`✓ Updated pointers: ${latestPath} & ${latestSidecarPath}`);
 
   return backupPath;
 }

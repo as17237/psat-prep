@@ -12,6 +12,38 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+const crypto = require('crypto');
+
+/**
+ * Verifies SHA-256 integrity against sidecar file (.sha256) or metadata checksum.
+ */
+function verifyBackupIntegrity(backupPath, rawContent, parsed) {
+  const fileBuffer = Buffer.isBuffer(rawContent) ? rawContent : Buffer.from(String(rawContent), 'utf8');
+  const actualSha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex').toLowerCase();
+
+  let expectedSha256 = null;
+  let source = null;
+
+  const sidecarPath = `${backupPath}.sha256`;
+  if (fs.existsSync(sidecarPath)) {
+    const sidecarContent = fs.readFileSync(sidecarPath, 'utf8').trim();
+    expectedSha256 = sidecarContent.split(/\s+/)[0].toLowerCase();
+    source = `sidecar (${path.basename(sidecarPath)})`;
+  } else if (parsed && parsed.backupMetadata && parsed.backupMetadata.sha256) {
+    expectedSha256 = String(parsed.backupMetadata.sha256).toLowerCase();
+    source = 'backupMetadata.sha256';
+  }
+
+  if (expectedSha256) {
+    if (actualSha256 !== expectedSha256) {
+      throw new Error(`❌ Hard Failure: Checksum verification failed for backup (${backupPath}). Expected ${expectedSha256} from ${source}, but computed ${actualSha256}. Backup is corrupted or tampered. Aborting restore.`);
+    }
+    return { verified: true, sha256: actualSha256, source: source };
+  }
+
+  return { verified: false, sha256: actualSha256, source: 'none' };
+}
+
 /**
  * Extracts and categorizes documents from various backup payload formats.
  */
@@ -121,7 +153,15 @@ async function runRestore(specifiedFile, options = {}) {
     throw new Error(`Malformed JSON in backup file (${backupPath}): ${e.message}`);
   }
 
-  // 1. Strict validation (Hard Failure if 0 valid documents)
+  // 1. SHA-256 Checksum Integrity Verification
+  const integrity = verifyBackupIntegrity(backupPath, raw, parsed);
+  if (integrity.verified) {
+    console.log(`✓ Integrity Verified: SHA-256 checksum matched via ${integrity.source} (${integrity.sha256.substring(0, 16)}...)`);
+  } else {
+    console.log(`ℹ️  Note: No SHA-256 sidecar or manifest found for this backup file. Computed SHA-256: ${integrity.sha256.substring(0, 16)}...`);
+  }
+
+  // 2. Strict validation (Hard Failure if 0 valid documents)
   const validation = validateBackupPayload(parsed, backupPath);
   const { studentDocs, feedbackDocs, totalCount } = validation;
 
@@ -197,6 +237,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  verifyBackupIntegrity,
   extractBackupDocuments,
   validateBackupPayload,
   createPreRestoreSnapshot,

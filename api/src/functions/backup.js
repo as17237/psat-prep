@@ -37,7 +37,9 @@ async function performCosmosBackup(triggerType = 'timer') {
 
   const now = new Date();
   const timestampStr = now.toISOString().replace(/[:.]/g, '-');
+  const crypto = require('crypto');
   const backupFilename = `cosmos_backup_${timestampStr}.json`;
+  const sidecarFilename = `cosmos_backup_${timestampStr}.json.sha256`;
 
   const backupPayload = {
     backupMetadata: {
@@ -55,6 +57,9 @@ async function performCosmosBackup(triggerType = 'timer') {
 
   const payloadString = JSON.stringify(backupPayload, null, 2);
   const payloadBuffer = Buffer.from(payloadString, 'utf8');
+  const sha256Checksum = crypto.createHash('sha256').update(payloadBuffer).digest('hex');
+  const sidecarContent = `${sha256Checksum}  ${backupFilename}\n`;
+  const sidecarBuffer = Buffer.from(sidecarContent, 'utf8');
 
   // 2. Upload to Azure Blob Storage (cosmos-backups container)
   const blobServiceClient = BlobServiceClient.fromConnectionString(storageConnectionString);
@@ -67,16 +72,30 @@ async function performCosmosBackup(triggerType = 'timer') {
     blobHTTPHeaders: { blobContentType: 'application/json' }
   });
 
+  // Timestamped SHA-256 sidecar blob
+  const sidecarBlobClient = containerClient.getBlockBlobClient(sidecarFilename);
+  await sidecarBlobClient.upload(sidecarBuffer, sidecarBuffer.length, {
+    blobHTTPHeaders: { blobContentType: 'text/plain' }
+  });
+
   // Latest snapshot pointer
   const latestBlobClient = containerClient.getBlockBlobClient('cosmos_backup_latest.json');
   await latestBlobClient.upload(payloadBuffer, payloadBuffer.length, {
     blobHTTPHeaders: { blobContentType: 'application/json' }
   });
 
+  // Latest SHA-256 sidecar pointer
+  const latestSidecarClient = containerClient.getBlockBlobClient('cosmos_backup_latest.json.sha256');
+  await latestSidecarClient.upload(sidecarBuffer, sidecarBuffer.length, {
+    blobHTTPHeaders: { blobContentType: 'text/plain' }
+  });
+
   const summary = {
     success: true,
     timestamp: now.toISOString(),
     filename: backupFilename,
+    sidecarFilename: sidecarFilename,
+    sha256: sha256Checksum,
     blobContainer: backupContainerName,
     sizeBytes: payloadBuffer.length,
     sizeKB: Math.round(payloadBuffer.length / 1024),
