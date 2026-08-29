@@ -1950,13 +1950,6 @@
         }
       }
 
-      // 2. Back up existing user data safely (only when demo mode is not active)
-      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.backupRealData) {
-        PSAT_ENGINE.backupRealData(localStorage, safeGetStorage, safeSetStorage);
-      } else {
-        const existingBackup = {
-          progress: safeGetStorage('psat_progress', {}),
-          srsState: safeGetStorage('psat_srs', {}),
       const samplePayload = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.generateSampleDiagnosticPayload) ?
         PSAT_ENGINE.generateSampleDiagnosticPayload(questions, PSAT_ENGINE.localDateKey()) :
         null;
