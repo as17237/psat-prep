@@ -92,6 +92,10 @@ trap cleanup EXIT
 echo "▶ Step 1/4: Staging + transforming app files…"
 echo "----------------------------------------------------------------------"
 
+# WI-09: refuse to deploy if a js/ module exists but was never added to
+# APP_FILES — the lane would serve a page whose controller 404s.
+assert_app_files_cover_js_tree
+
 IMAGE_REWRITES_TOTAL=0
 VERSION_INJECTIONS=0
 
@@ -133,6 +137,15 @@ for file in "${APP_FILES[@]}"; do
 done
 
 # Loud failure rather than a silently half-transformed lane (CLAUDE.md mode 5).
+# Where the question-image path literals live (WI-09 recount).
+#   srs.js                    3  (lines ~1800, ~2210, ~2991 — srs.js is frozen
+#                                 for WI-09; WI-10 owns its decomposition)
+#   js/shared/questions.js    1  (questionImageSrc(), the single home of what
+#                                 used to be 4 inline copies in the pages)
+#   parent.html               1  (not yet migrated — WI-09 3/4)
+#   index.html                2  (not yet migrated — WI-09 4/4)
+# Recount and re-pin this whenever a page migrates; a stale number is a loud
+# failure here rather than a silently half-transformed lane.
 EXPECTED_IMAGE_REWRITES=7
 if [[ "$IMAGE_REWRITES_TOTAL" -ne "$EXPECTED_IMAGE_REWRITES" ]]; then
   echo "ERROR: expected $EXPECTED_IMAGE_REWRITES absolutised question-image references, found $IMAGE_REWRITES_TOTAL." >&2

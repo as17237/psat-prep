@@ -34,7 +34,7 @@ const PAGES = {
   student: { html: 'index.html', entry: 'js/pages/student.js' },
 };
 
-const IMPORT_RE = /^\s*import\s+(?:\{[^}]*\}|[\w$]+|\*\s+as\s+[\w$]+)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/;
+const IMPORT_RE = /^\s*import\s+\{[^}]*\}\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/;
 const BARE_IMPORT_RE = /^\s*import\s+['"]([^'"]+)['"]\s*;?\s*$/;
 
 function assertCanonicalModuleStyle(file, src) {
@@ -42,6 +42,10 @@ function assertCanonicalModuleStyle(file, src) {
   src.split('\n').forEach((line, i) => {
     if (/^\s*export\s+default\b/.test(line)) bad.push(`${i + 1}: export default`);
     if (/^\s*export\s*\{/.test(line)) bad.push(`${i + 1}: export { ... } list`);
+    // An alias or namespace import would bind a name the flattened source
+    // never declares, so the sandbox would silently see a ReferenceError
+    // instead of the function under test.
+    if (/^\s*import\b/.test(line) && /\bas\b/.test(line)) bad.push(`${i + 1}: aliased/namespace import -> ${line.trim()}`);
     if (/^\s*import\b/.test(line) && !IMPORT_RE.test(line) && !BARE_IMPORT_RE.test(line)) {
       bad.push(`${i + 1}: non-canonical import -> ${line.trim()}`);
     }

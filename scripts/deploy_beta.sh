@@ -58,6 +58,10 @@ echo ""
 
 SRC_PATHS=()
 DEST_NAMES=()
+# WI-09: refuse to deploy if a js/ module exists but was never added to
+# APP_FILES — the lane would serve a page whose controller 404s.
+assert_app_files_cover_js_tree
+
 for file in "${APP_FILES[@]}"; do
   if [[ ! -f "$file" ]]; then
     echo "ERROR: expected app file '$file' is missing from the working tree." >&2

@@ -25,6 +25,12 @@ SITE_BASE_URL="https://psatprep4915.z13.web.core.windows.net"
 
 # The application files every lane deploys. Deliberately explicit: a glob here
 # would let a stray local file reach the site.
+#
+# WI-09 moved the pages' inline JavaScript into native ES modules under js/,
+# so the pages 404 without them. They are listed one by one for the same
+# reason everything else here is, and assert_app_files_cover_js_tree() below
+# hard-fails if a module exists on disk but is missing from this list — a
+# forgotten entry would otherwise ship a page whose controller is a 404.
 APP_FILES=(
   "index.html"
   "parent.html"
@@ -32,7 +38,42 @@ APP_FILES=(
   "feedback.html"
   "srs.js"
   "styles/buttons.css"
+  "js/shared/html.js"
+  "js/shared/env.js"
+  "js/shared/storage.js"
+  "js/shared/beta_sandbox.js"
+  "js/shared/questions.js"
+  "js/shared/drill.js"
+  "js/pages/feedback.js"
+  "js/pages/mistakes.js"
 )
+
+# ------------------------------------------------------------------------------
+# assert_app_files_cover_js_tree
+#
+# Every .js under js/ must be in APP_FILES, and every js/ entry in APP_FILES
+# must exist. Loud failure beats a lane that serves a page whose module 404s
+# (CLAUDE.md failure mode 5).
+# ------------------------------------------------------------------------------
+assert_app_files_cover_js_tree() {
+  local missing=()
+  local f
+  while IFS= read -r f; do
+    local found=false
+    local a
+    for a in "${APP_FILES[@]}"; do
+      if [[ "$a" == "$f" ]]; then found=true; break; fi
+    done
+    if [[ "$found" == "false" ]]; then missing+=("$f"); fi
+  done < <(find js -type f -name '*.js' 2>/dev/null | sort)
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: these js/ modules exist on disk but are not in APP_FILES:" >&2
+    printf '       %s\n' "${missing[@]}" >&2
+    echo "       Add them to scripts/lib/deploy_common.sh before deploying." >&2
+    exit 5
+  fi
+}
 
 # ------------------------------------------------------------------------------
 # assert_blob_prefix <blob-name> <required-prefix>
@@ -127,11 +168,23 @@ upload_blob() {
     exit 5
   fi
 
+  # WI-09: the pages load js/pages/*.js with <script type="module">. A browser
+  # refuses to execute a module served with a non-JavaScript MIME type, and the
+  # whole page then does nothing with no network error. az infers the type from
+  # the extension, but the app must not depend on that inference — state it.
+  local content_type_args=()
+  case "$blob_name" in
+    *.js)   content_type_args=(--content-type "application/javascript") ;;
+    *.css)  content_type_args=(--content-type "text/css") ;;
+    *.html) content_type_args=(--content-type "text/html") ;;
+  esac
+
   az storage blob upload \
     --container-name "$WEB_CONTAINER" \
     --name "$blob_name" \
     --file "$local_file" \
     --content-cache-control "no-cache, no-store, must-revalidate" \
+    "${content_type_args[@]}" \
     --overwrite true \
     --output none
 }

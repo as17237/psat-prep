@@ -136,15 +136,45 @@ const v2Dry = run('scripts/deploy_v2.sh', ['--dry-run'], {});
 assert.strictEqual(v2Dry.status, 0, `deploy_v2.sh --dry-run must succeed: ${v2Dry.stderr}`);
 assert.ok(/DEPLOY_V2_DRY_RUN_OK v2-/.test(v2Dry.stdout), 'v2 dry-run must print its version token');
 const v2Planned = [...v2Dry.stdout.matchAll(/would upload .* -> \$web\/(\S+)/g)].map(m => m[1]);
-assert.strictEqual(v2Planned.length, 7, `v2 must plan 7 blobs, planned ${v2Planned.length}`);
+// Hand-written expected destination list (NOT derived from APP_FILES — the
+// point is to notice when APP_FILES changes). WI-09 added the js/ module tree:
+// the pages load their controllers with <script type="module">, so a lane
+// missing any of these serves a page whose controller 404s.
+const V2_EXPECTED_BLOBS = [
+  'v2/index.html',
+  'v2/parent.html',
+  'v2/mistakes.html',
+  'v2/feedback.html',
+  'v2/srs.js',
+  'v2/styles/buttons.css',
+  'v2/js/shared/html.js',
+  'v2/js/shared/env.js',
+  'v2/js/shared/storage.js',
+  'v2/js/shared/beta_sandbox.js',
+  'v2/js/shared/questions.js',
+  'v2/js/shared/drill.js',
+  'v2/js/pages/feedback.js',
+  'v2/js/pages/mistakes.js',
+  'v2/data/questions_data.js',
+];
+assert.deepStrictEqual([...v2Planned].sort(), [...V2_EXPECTED_BLOBS].sort(),
+  `v2 planned blob set does not match the expected list.\n  planned: ${v2Planned.join(', ')}`);
 v2Planned.forEach(n => assert.ok(n.startsWith('v2/'), `planned blob '${n}' must be in the v2 lane`));
 assert.ok(v2Planned.includes('v2/data/questions_data.js'),
   'v2 must carry its own question bundle (the pages load it by relative src)');
+// Every page's ES-module entry point must be in the lane.
+['feedback', 'mistakes'].forEach(pg => assert.ok(v2Planned.includes(`v2/js/pages/${pg}.js`),
+  `v2 must deploy js/pages/${pg}.js — the page loads it with <script type="module">`));
 
 const betaDry = run('scripts/deploy_beta.sh', ['--dry-run'], {});
 assert.strictEqual(betaDry.status, 0, `deploy_beta.sh --dry-run must succeed: ${betaDry.stderr}`);
 const betaPlanned = [...betaDry.stdout.matchAll(/would upload .* -> \$web\/(\S+)/g)].map(m => m[1]);
-assert.strictEqual(betaPlanned.length, 6, `beta must plan 6 blobs, planned ${betaPlanned.length}`);
+// beta deploys the same APP_FILES set, without the v2 lane's own bundle copy.
+const BETA_EXPECTED_BLOBS = V2_EXPECTED_BLOBS
+  .filter(n => n !== 'v2/data/questions_data.js')
+  .map(n => n.replace(/^v2\//, 'beta/'));
+assert.deepStrictEqual([...betaPlanned].sort(), [...BETA_EXPECTED_BLOBS].sort(),
+  `beta planned blob set does not match the expected list.\n  planned: ${betaPlanned.join(', ')}`);
 betaPlanned.forEach(n => assert.ok(n.startsWith('beta/'), `planned blob '${n}' must be in the beta lane`));
 
 // No lane script may ever plan a bare root blob.
@@ -155,8 +185,37 @@ betaPlanned.forEach(n => assert.ok(n.startsWith('beta/'), `planned blob '${n}' m
 // ---------------------------------------------------------------------------
 // 6. deploy_v2.sh staging transformations (the reason /v2/ can share root images).
 // ---------------------------------------------------------------------------
-assert.ok(/7 image references absolutised, 4 pages versioned/.test(v2Dry.stdout),
-  'v2 staging must absolutise all 7 question-image references and version all 4 pages');
+// Question-image path literals, counted by hand from the working tree:
+//   srs.js                 3  (frozen for WI-09; WI-10 owns srs.js)
+//   js/shared/questions.js 1  (questionImageSrc — the single home of what used
+//                              to be 4 inline copies across the pages)
+//   parent.html            1  (not yet migrated — WI-09 3/4)
+//   index.html             2  (not yet migrated — WI-09 4/4)
+// Re-pin this whenever a page migrates.
+const EXPECTED_IMAGE_REWRITES = 7;
+assert.ok(new RegExp(`${EXPECTED_IMAGE_REWRITES} image references absolutised, 4 pages versioned`).test(v2Dry.stdout),
+  `v2 staging must absolutise all ${EXPECTED_IMAGE_REWRITES} question-image references and version all 4 pages`);
+
+// ---------------------------------------------------------------------------
+// 6b. WI-09: an ES module served with the wrong MIME type is refused by the
+//     browser with no network error, so the lane must state the type instead
+//     of relying on az's extension inference.
+// ---------------------------------------------------------------------------
+const commonSrc = fs.readFileSync(path.join(REPO, 'scripts/lib/deploy_common.sh'), 'utf8');
+assert.ok(/\*\.js\).*--content-type "application\/javascript"/.test(commonSrc),
+  'upload_blob must set Content-Type: application/javascript for .js blobs');
+
+// ---------------------------------------------------------------------------
+// 6c. WI-09: a js/ module on disk that nobody added to APP_FILES would ship a
+//     page whose controller 404s. All three lane scripts must run the guard.
+// ---------------------------------------------------------------------------
+assert.ok(/assert_app_files_cover_js_tree\(\)/.test(commonSrc),
+  'deploy_common.sh must define assert_app_files_cover_js_tree');
+['scripts/deploy_v2.sh', 'scripts/deploy_beta.sh', 'scripts/promote_to_prod.sh'].forEach(sc => {
+  const src = fs.readFileSync(path.join(REPO, sc), 'utf8');
+  assert.ok(/^assert_app_files_cover_js_tree$/m.test(src),
+    `${sc} must call assert_app_files_cover_js_tree before staging`);
+});
 
 // ---------------------------------------------------------------------------
 // 7. promote_beta.sh is a hard-failing deprecation stub (it used to write both
