@@ -17,7 +17,7 @@
   </script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <!-- Unified Button System -->
-  <link rel="stylesheet" href="styles/buttons.css?v=20260829-6">
+  <link rel="stylesheet" href="styles/buttons.css?v=20260829-7">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -197,11 +197,23 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=20260829-6"></script>
+  <!-- Engine parts (WI-10): srs.js was split into js/engine/*.js and is now a
+       facade that recomposes them into window.PSAT_ENGINE. There is no build
+       step, so the parts load as ordinary classic scripts in DEPENDENCY ORDER
+       and srs.js must come last; a part loaded before its dependency, or srs.js
+       loaded without all six, throws immediately rather than leaving a partial
+       engine on the page. -->
+  <script src="js/engine/grading.js?v=20260829-7"></script>
+  <script src="js/engine/scheduler.js?v=20260829-7"></script>
+  <script src="js/engine/scoring.js?v=20260829-7"></script>
+  <script src="js/engine/storage.js?v=20260829-7"></script>
+  <script src="js/engine/examgen.js?v=20260829-7"></script>
+  <script src="js/engine/sync.js?v=20260829-7"></script>
+  <script src="srs.js?v=20260829-7"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=20260829-6"></script>
+  <script src="data/questions_data.js?v=20260829-7"></script>
 
   <!-- Page controller (WI-09: ES module, no inline logic) -->
-  <script type="module" src="js/pages/mistakes.js?v=20260829-6"></script>
+  <script type="module" src="js/pages/mistakes.js?v=20260829-7"></script>
 </body>
 </html>

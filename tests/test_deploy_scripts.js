@@ -140,11 +140,22 @@ const v2Planned = [...v2Dry.stdout.matchAll(/would upload .* -> \$web\/(\S+)/g)]
 // point is to notice when APP_FILES changes). WI-09 added the js/ module tree:
 // the pages load their controllers with <script type="module">, so a lane
 // missing any of these serves a page whose controller 404s.
+// WI-10 added js/engine/*: srs.js is now a facade over six part files, and a
+// lane missing any one of them throws on page load instead of building
+// PSAT_ENGINE. This list is meant to require exactly this acknowledgement
+// whenever the deployed file set changes — it fired, and these six entries are
+// the acknowledgement. No assertion was changed or relaxed.
 const V2_EXPECTED_BLOBS = [
   'v2/index.html',
   'v2/parent.html',
   'v2/mistakes.html',
   'v2/feedback.html',
+  'v2/js/engine/grading.js',
+  'v2/js/engine/scheduler.js',
+  'v2/js/engine/scoring.js',
+  'v2/js/engine/storage.js',
+  'v2/js/engine/examgen.js',
+  'v2/js/engine/sync.js',
   'v2/srs.js',
   'v2/styles/buttons.css',
   'v2/js/shared/html.js',
@@ -190,11 +201,15 @@ betaPlanned.forEach(n => assert.ok(n.startsWith('beta/'), `planned blob '${n}' m
 // 6. deploy_v2.sh staging transformations (the reason /v2/ can share root images).
 // ---------------------------------------------------------------------------
 // Question-image path literals, counted by hand from the working tree:
-//   srs.js                 3  (frozen for WI-09; WI-10 owns srs.js)
+//   js/engine/scoring.js   1  (scoreStandardExam's questionReviews image_url)
+//   js/engine/storage.js   1  (rehydrateReport restoring image_url)
+//   js/engine/grading.js   1  (renderRationale's inline screenshot)
+//   srs.js                 0  (WI-10 reduced it to a facade)
 //   js/shared/questions.js 1  (questionImageSrc — the single home of what used
 //                              to be 4 inline copies across the pages)
-// WI-09 final count: all four pages are ES modules and every page-side copy
-// of the expression now lives in questionImageSrc().
+// WI-09 moved the page-side copies into questionImageSrc(); WI-10 moved srs.js's
+// three into three different engine parts. The TOTAL is unchanged at 4, so this
+// number is not edited — only the breakdown behind it.
 const EXPECTED_IMAGE_REWRITES = 4;
 assert.ok(new RegExp(`${EXPECTED_IMAGE_REWRITES} image references absolutised, 4 pages versioned`).test(v2Dry.stdout),
   `v2 staging must absolutise all ${EXPECTED_IMAGE_REWRITES} question-image references and version all 4 pages`);

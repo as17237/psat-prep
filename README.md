@@ -35,7 +35,17 @@ An advanced, dependency-free PSAT preparation and mastery system featuring space
 │   └── images/                     # 3,059 high-resolution question card PNGs
 ├── index.html                      # Student Practice & Analytics Portal
 ├── parent.html                     # Parent Oversight & Progress Dashboard
-├── srs.js                          # Core Spaced Repetition (SM-2) & Grading Engine
+├── srs.js                          # UMD facade — recomposes js/engine/* into PSAT_ENGINE
+├── js/
+│   ├── engine/                     # The engine, split by concern (WI-10). Load order:
+│   │   ├── grading.js              #   free-response grading, rationales, calculator
+│   │   ├── scheduler.js            #   SM-2 scheduling, daily sessions, streaks
+│   │   ├── scoring.js              #   scaled scores, blueprints, exam scoring, error tags
+│   │   ├── storage.js              #   snapshots, outbox, demo guards, lean reports
+│   │   ├── examgen.js              #   adaptive MST exams, mini exams, drills
+│   │   └── sync.js                 #   cloud sync client + field-level merge
+│   ├── shared/                     # Shared page helpers (WI-09)
+│   └── pages/                      # Per-page ES-module controllers (WI-09)
 ├── extractor.py                    # Multi-core PDF parser & image renderer
 ├── validator.py                    # Dataset validation engine
 ├── rebuild_bundle.py               # Fast zero-PDF bundle generator

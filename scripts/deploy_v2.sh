@@ -137,10 +137,17 @@ for file in "${APP_FILES[@]}"; do
 done
 
 # Loud failure rather than a silently half-transformed lane (CLAUDE.md mode 5).
-# Where the question-image path literals live (recounted at the end of WI-09;
-# it was 7 across 6 files before the extraction).
-#   srs.js                    3  (lines ~1800, ~2210, ~2991 — srs.js is frozen
-#                                 for WI-09; WI-10 owns its decomposition)
+# Where the question-image path literals live (RECOUNTED at the end of WI-10;
+# it was 7 across 6 files before WI-09, then 4 across 2 files, and WI-10 moved
+# srs.js's three out of srs.js into three different engine parts — the total is
+# unchanged at 4, but every file in the breakdown changed):
+#   js/engine/scoring.js      1  (scoreStandardExam(), the questionReviews
+#                                 image_url fallback — was srs.js:1800)
+#   js/engine/storage.js      1  (rehydrateReport(), restoring image_url onto a
+#                                 lean report — was srs.js:2210)
+#   js/engine/grading.js      1  (renderRationale(), the inline screenshot —
+#                                 was srs.js:2991)
+#   srs.js                    0  (WI-10 reduced it to a facade with no literals)
 #   js/shared/questions.js    1  (questionImageSrc(), the single home of what
 #                                 used to be 4 inline copies across the pages:
 #                                 index.html x2, parent.html, mistakes.html)

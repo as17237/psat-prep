@@ -31,11 +31,22 @@ SITE_BASE_URL="https://psatprep4915.z13.web.core.windows.net"
 # reason everything else here is, and assert_app_files_cover_js_tree() below
 # hard-fails if a module exists on disk but is missing from this list — a
 # forgotten entry would otherwise ship a page whose controller is a 404.
+# WI-10 split srs.js into js/engine/*.js with srs.js kept as the facade. The
+# engine parts are listed in their LOAD ORDER (grading, scheduler, scoring,
+# storage, examgen, sync) — that is also the order the pages' <script> tags use,
+# and a part that loads before its dependency throws by design. srs.js must
+# come after all six.
 APP_FILES=(
   "index.html"
   "parent.html"
   "mistakes.html"
   "feedback.html"
+  "js/engine/grading.js"
+  "js/engine/scheduler.js"
+  "js/engine/scoring.js"
+  "js/engine/storage.js"
+  "js/engine/examgen.js"
+  "js/engine/sync.js"
   "srs.js"
   "styles/buttons.css"
   "js/shared/html.js"

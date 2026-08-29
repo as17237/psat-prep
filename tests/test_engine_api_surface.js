@@ -175,4 +175,62 @@ console.log('✓ frozen constant values intact (MIN_PER_SECTION=15, RW 27+27, Ma
 assert.strictEqual(require('../srs.js'), PSAT_ENGINE, 'require("../srs.js") must be idempotent (module cache)');
 console.log('✓ facade identity stable across require()');
 
+// ---------------------------------------------------------------------------
+// 5. The BROWSER load path — added when WI-10 split srs.js into js/engine/*.js.
+//
+// Node reaches the engine through require(); the four pages reach it through
+// plain <script> tags in dependency order. Those are two different code paths
+// through the same UMD wrappers, and only one of them is covered by everything
+// above. CLAUDE.md failure mode 2 ("a rule applied in one place but not its
+// twin") is exactly this shape, so the browser path is exercised here too, in
+// a `vm` sandbox with no `module`/`exports` — the same conditions a page has.
+// ---------------------------------------------------------------------------
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const REPO = path.join(__dirname, '..');
+const LOAD_ORDER = ['grading', 'scheduler', 'scoring', 'storage', 'examgen', 'sync'];
+
+/** Evaluates the given files as classic <script>s in a fresh browser-ish global. */
+function loadInBrowserSandbox(files) {
+  const sandbox = { console: console, Date: Date, Math: Math, JSON: JSON, fetch: undefined };
+  sandbox.self = sandbox;
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  files.forEach((rel) => {
+    vm.runInContext(fs.readFileSync(path.join(REPO, rel), 'utf8'), sandbox, { filename: rel });
+  });
+  return sandbox;
+}
+
+const partFiles = LOAD_ORDER.map((p) => `js/engine/${p}.js`);
+const browser = loadInBrowserSandbox(partFiles.concat(['srs.js']));
+assert.ok(browser.PSAT_ENGINE, 'a page loading the six parts then srs.js must get window.PSAT_ENGINE');
+assert.deepStrictEqual(
+  Object.keys(browser.PSAT_ENGINE).sort(),
+  EXPECTED_SYMBOLS.slice().sort(),
+  'window.PSAT_ENGINE must expose the identical frozen surface that require() does'
+);
+console.log(`✓ browser <script> path builds the same ${Object.keys(browser.PSAT_ENGINE).length}-symbol surface`);
+
+// The pages must not be able to half-load the engine. Both failure shapes
+// throw loudly rather than publishing a partial API (CLAUDE.md mode 5).
+assert.throws(
+  () => loadInBrowserSandbox(['srs.js']),
+  /engine part\(s\) not loaded/,
+  'srs.js with no parts loaded must throw, not publish a partial PSAT_ENGINE'
+);
+assert.throws(
+  () => loadInBrowserSandbox(['js/engine/scoring.js']),
+  /requires js\/engine\/grading\.js/,
+  'a part loaded before its dependency must throw and name the missing file'
+);
+assert.throws(
+  () => loadInBrowserSandbox(partFiles.slice(0, 5).concat(['srs.js'])),
+  /engine part\(s\) not loaded: sync/,
+  'srs.js with five of six parts must name the missing part'
+);
+console.log('✓ partial loads fail loudly (no parts / wrong order / one part missing)');
+
 console.log(`\nAll PSAT_ENGINE API-surface tests passed (${actual.length}/${EXPECTED_SYMBOLS.length} symbols).`);
