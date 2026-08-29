@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
+// WI-09: page logic now lives in js/pages/*.js ES modules. pageScript() returns
+// the same JavaScript this suite previously regex-extracted from the page's
+// inline <script> blocks (shared modules first, then the page module).
+// Loading mechanism only — every assertion below is unchanged.
+const { pageScript } = require('./helpers/page_source');
 
 console.log('Testing UI Page Script Executions & Trouble Spots Error Diagnostic Hub...');
 
@@ -10,7 +15,6 @@ const questionsData = require('../data/ela_questions.json').concat(require('../d
 // 1. Test mistakes.html Script Execution & Rendering
 function testMistakesPage() {
   const html = fs.readFileSync(path.join(__dirname, '../mistakes.html'), 'utf8');
-  const scripts = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
 
   const mockStorage = {};
   const mockElements = {};
@@ -75,7 +79,7 @@ function testMistakesPage() {
     [q3.id]: { answered: true, isCorrect: false, errorTag: 'misread', timesIncorrect: 1, timesCorrect: 0, timesSeen: 1 }
   });
 
-  const code = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  const code = pageScript('mistakes');
   const runner = new Function('window', 'document', 'localStorage', 'lucide', 'PSAT_ENGINE', 'alert', 'confirm', `
     ${code}
     loadMistakesData();
@@ -111,7 +115,6 @@ function testMistakesPage() {
 // 2. Browser-level regression test: Seed 1 practice miss + 1 exam miss -> Trouble Spots displays both
 function testTroubleSpotsPracticeAndExamIntegration() {
   const html = fs.readFileSync(path.join(__dirname, '../mistakes.html'), 'utf8');
-  const scripts = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
 
   const mockStorage = {};
   const mockElements = {};
@@ -205,7 +208,7 @@ function testTroubleSpotsPracticeAndExamIntegration() {
     }
   ]);
 
-  const code = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  const code = pageScript('mistakes');
   const runner = new Function('window', 'document', 'localStorage', 'lucide', 'PSAT_ENGINE', 'alert', 'confirm', `
     ${code}
     loadMistakesData();
@@ -246,7 +249,6 @@ function testParentDashboardTargetFocusAreaReaction() {
   console.log('Testing Parent Dashboard "Target Focus Area" Dynamic Reactivity...');
 
   const html = fs.readFileSync(path.join(__dirname, '..', 'parent.html'), 'utf8');
-  const scripts = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
 
   const mockDOM = {};
   function getMockElem(id) {
@@ -329,7 +331,7 @@ function testParentDashboardTargetFocusAreaReaction() {
     'q_rw3': { repetitions: 3, dueAt: Date.now() - 5000 }  // RW SRS due
   }));
 
-  const code = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  const code = pageScript('parent');
   const runner = new Function('window', 'document', 'localStorage', 'lucide', 'PSAT_ENGINE', 'alert', 'confirm', `
     ${code}
     updateGapTestCalculations();

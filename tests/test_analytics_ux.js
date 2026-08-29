@@ -22,6 +22,10 @@ const assert = require('assert');
 const PSAT_ENGINE = require('../srs.js');
 const questionsData = require('../data/ela_questions.json').concat(require('../data/math_questions.json'));
 const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+// WI-09: index.html's logic now lives in js/pages/student.js (+ js/shared/*).
+// pageScript() returns exactly the JavaScript this suite used to regex out of
+// the inline <script>. Loading mechanism only — assertions unchanged.
+const { pageScript } = require('./helpers/page_source');
 
 console.log('======================================================================');
 console.log('📊 Testing Student App Analytics UX, Classification & Data Flows');
@@ -177,9 +181,8 @@ function createStudentAppRuntime(customQuestions = null) {
 
   const lucide = { createIcons: () => {} };
 
-  // Extract core JS from index.html
-  const scripts = indexHtml.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
-  const jsCode = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  // Load the student page's JS: js/shared/* imports, then js/pages/student.js
+  const jsCode = pageScript('student');
 
   // Instantiate runtime runner
   const runner = new Function(

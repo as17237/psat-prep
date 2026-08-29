@@ -5,14 +5,21 @@ const assert = require('assert');
 console.log('Testing Button Integrity, Handlers, and Click Interactions across All Pages...');
 
 const PSAT_ENGINE = require('../srs.js');
+// WI-09: page logic moved from inline <script> blocks into js/pages/*.js ES
+// modules. pageScript() returns exactly the same JavaScript this suite used to
+// regex out of the HTML (shared modules first, then the page module, then any
+// remaining inline block), with the module syntax flattened so the
+// `new Function(...)` runners below are unchanged. Loading mechanism only —
+// every assertion in this file is untouched.
+const { pageScript } = require('./helpers/page_source');
 const questionsData = require('../data/ela_questions.json').concat(require('../data/math_questions.json'));
 const rootDir = path.join(__dirname, '..');
 
 const htmlFiles = [
-  { file: 'index.html', qVar: 'questions' },
-  { file: 'parent.html', qVar: 'window.QUESTIONS_DATA' },
-  { file: 'mistakes.html', qVar: 'window.QUESTIONS_DATA' },
-  { file: 'feedback.html', qVar: null }
+  { file: 'index.html', page: 'student', qVar: 'questions' },
+  { file: 'parent.html', page: 'parent', qVar: 'window.QUESTIONS_DATA' },
+  { file: 'mistakes.html', page: 'mistakes', qVar: 'window.QUESTIONS_DATA' },
+  { file: 'feedback.html', page: 'feedback', qVar: null }
 ];
 
 // Helper to create comprehensive DOM mock
@@ -118,7 +125,7 @@ function createMockEnv(fileName) {
 }
 
 // 1. Validate All Onclick Attributes and Button Handlers
-htmlFiles.forEach(({ file }) => {
+htmlFiles.forEach(({ file, page }) => {
   const filePath = path.join(rootDir, file);
   if (!fs.existsSync(filePath)) return;
 
@@ -135,9 +142,8 @@ htmlFiles.forEach(({ file }) => {
     assert.ok(!tag.includes('onclick=""'), `Empty onclick attribute found in ${file} at tag ${idx + 1}`);
   });
 
-  // Extract all inline scripts to build execution context
-  const scripts = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
-  const scriptCode = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  // Load the page's JavaScript (js/pages/<page>.js + its js/shared/* imports)
+  const scriptCode = pageScript(page);
 
   const env = createMockEnv(file);
 
@@ -228,9 +234,7 @@ mistakesEnv.mockStorage['psat_exam_history'] = JSON.stringify([
   }
 ]);
 
-const mistakesHtml = fs.readFileSync(path.join(rootDir, 'mistakes.html'), 'utf8');
-const mistakesScripts = mistakesHtml.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
-const mistakesCode = mistakesScripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+const mistakesCode = pageScript('mistakes');
 
 const mistakesRunner = new Function(
   'window',
@@ -322,8 +326,7 @@ parentEnv.mockStorage['psat_progress'] = JSON.stringify({
 });
 
 const parentHtml = fs.readFileSync(path.join(rootDir, 'parent.html'), 'utf8');
-const parentScripts = parentHtml.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
-const parentCode = parentScripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+const parentCode = pageScript('parent');
 
 const parentRunner = new Function(
   'window',
@@ -391,8 +394,7 @@ console.log('  ✓ Parent Dashboard Target Focus Area Gap Drill button & payload
 console.log('\n▶ Simulating Student App Core Button Interactions (index.html)...');
 const indexEnv = createMockEnv('index.html');
 const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
-const indexScripts = indexHtml.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
-const indexCode = indexScripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+const indexCode = pageScript('student');
 
 const indexRunner = new Function(
   'window',
