@@ -503,6 +503,7 @@
       const paginationContainer = document.getElementById('mistakes-pagination-container');
       if (!container) return;
 
+      const progress = safeGetStorage('psat_progress', {});
       let filtered = allMistakesList;
 
       // 1. Subject filter

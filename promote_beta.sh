@@ -22,6 +22,7 @@ echo "▶ Step 1/4: Running complete automated regression & safeguard tests..."
 echo "----------------------------------------------------------------------"
 
 node tests/test_html_syntax.js
+node tests/test_ui_rendering.js
 node tests/test_srs.js
 node tests/test_backup_restore.js
 node tests/test_free_response.js
