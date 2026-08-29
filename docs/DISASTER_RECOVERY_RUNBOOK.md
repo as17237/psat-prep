@@ -299,18 +299,49 @@ Observed after the 2026-08-29 run: the list printed `psat-prep-db` and nothing e
 
 ### 5.9 Cadence
 
-Re-run this whole cycle (restore → reconcile → teardown) **weekly for the duration of
-the refactor, and after every phase boundary in `REFACTOR_PLAN.md` §6.** A backup whose
-last proven restore is months old is an assumption again.
+Re-run this whole cycle (restore → reconcile → red demo → repair → reconcile →
+teardown) **weekly for the duration of the refactor, and after every phase boundary in
+`REFACTOR_PLAN.md` §6.** A backup whose last proven restore is months old is an
+assumption again.
 
-**WI-05 will wrap §5.5–5.8 in `scripts/weekly_restore_check.sh` as a single command.**
-Until that exists, run the four steps above by hand and record the counts. A run that
-does not include the red demonstration (§5.7) does not count as a verification.
+**`scripts/weekly_restore_check.sh` (WI-05) wraps §5.4–5.8 as a single command,
+including the red demonstration — it is now the canonical way to run this cycle:**
+
+```bash
+./scripts/weekly_restore_check.sh
+# ... offline asserts, restore, reconcile (PASS), corrupt one doc, reconcile
+# (FAIL, exactly 1 mismatch), repair, reconcile (PASS), teardown, verify ...
+# ends with: WEEKLY_RESTORE_CHECK_OK <baseline-folder>
+```
+
+It corrupts exactly one document in `psat-prep-db-drtest` via the committed
+`scripts/corrupt_one_doc.js` helper (guarded by the same `assertScratchTarget()` as the
+other two scripts — it cannot touch `psat-prep-db`), asserts the reconciler then fails
+with **exactly** one mismatch, repairs by re-running the restore script, asserts green
+again, tears the scratch database down, and hard-fails (no `WEEKLY_RESTORE_CHECK_OK`
+line, best-effort teardown still attempted) on any deviation — including reconcile
+passing when it shouldn't. **A run without the red demonstration does not count**; the
+script enforces that itself rather than relying on a human to remember §5.7. Observed
+live run (2026-08-29T16:37–16:38Z): restore 3059/10/0, reconcile PASS, corrupted
+`Questions/ccaa16c9.difficulty`, reconcile FAIL with exactly 1 mismatch (exit 1), repair
++ reconcile PASS, teardown verified (`az cosmosdb sql database list` → `psat-prep-db`
+only). Falling back to the manual §5.4–5.8 steps is only for debugging this script
+itself.
 
 
 ---
 
 ## 6. Backup scope, failure visibility & retention (WI-04, deployed 2026-08-29)
+
+**Per-work-item gate (WI-05):** before merging any change touching `api/`, storage,
+sync, or a deploy script, run `./scripts/preflight_backup.sh`. It triggers `POST
+/api/backup`, confirms the returned blob + sidecar exist in `cosmos-backups`,
+re-downloads and re-hashes the archive against both the sidecar and the API's own
+`sha256` field, sanity-checks `studentDocumentsBackedUp >= 10` and `questionsCount ==
+3059`, and ends with `PREFLIGHT_BACKUP_OK <filename>` — cite that filename in the
+work item's completion report. Observed live run: fresh 8,411,843-byte (v1.1) archive,
+checksum verified against both the sidecar and the API response, 10 student docs /
+3,059 question docs.
 
 ### 6.1 What the nightly backup now contains
 

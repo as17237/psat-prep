@@ -135,6 +135,14 @@ python3 -c "import json; from validator import validate_dataset; \
 # expect: 3059 0 2158
 ```
 
+**Refactor-period gate (WI-05, until the refactor closes):** any change touching
+`api/`, storage, sync, or a deploy script must run `./scripts/preflight_backup.sh`
+immediately before merge and cite the printed `PREFLIGHT_BACKUP_OK <filename>` in the
+completion report. Run `./scripts/weekly_restore_check.sh` at least weekly (and at
+every `REFACTOR_PLAN.md` §6 phase boundary) — a run without its red demonstration
+doesn't count (see runbook §5.9); cite its `WEEKLY_RESTORE_CHECK_OK <baseline-folder>`
+line.
+
 Then confirm, honestly:
 
 1. Did I **run** the changed path against real data and see real output? (mode 0)
