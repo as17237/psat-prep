@@ -1110,7 +1110,118 @@ const mockFetch = async (url, opts) => {
   const compacted = PSAT_ENGINE.compactSrsState(legacySrsState);
   assert.strictEqual(compacted.q_legacy.history.length, 20, 'compactSrsState must prune history array to 20 events');
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, and Cosmos DB Cloud Sync tests passed!');
+  // 23. SCORE-01: Blueprint-Balanced Exam Generation & Duplicate-Free Guarantee
+  // ------------------------------------------------------------------
+  const fullExam = PSAT_ENGINE.generateStandardPSAT89Exam(realBank, { isAdaptive: false });
+  assert.strictEqual(fullExam.blueprintVersion, 'PSAT89_2026_V1');
+  assert.strictEqual(fullExam.totalQuestions, 98);
+
+  const linearExamIds = [];
+  fullExam.modules.forEach(mod => {
+    mod.questions.forEach(q => { linearExamIds.push(q.id); });
+  });
+  assert.strictEqual(linearExamIds.length, 98);
+  const uniqueLinearIds = new Set(linearExamIds);
+  assert.strictEqual(uniqueLinearIds.size, 98, 'Every question in full standard exam must be strictly unique');
+
+  // Validate RW Module 1 Domain Balance
+  const rwM1 = fullExam.modules[0];
+  assert.strictEqual(rwM1.questions.length, 27);
+  const rwDomainCounts = {};
+  rwM1.questions.forEach(q => { rwDomainCounts[q.domain] = (rwDomainCounts[q.domain] || 0) + 1; });
+  assert.ok(rwDomainCounts['Craft and Structure'] >= 5, 'Craft and Structure must have at least 5 questions');
+  assert.ok(rwDomainCounts['Information and Ideas'] >= 5, 'Information and Ideas must have at least 5 questions');
+  assert.ok(rwDomainCounts['Standard English Conventions'] >= 5, 'Standard English Conventions must have at least 5 questions');
+  assert.ok(rwDomainCounts['Expression of Ideas'] >= 4, 'Expression of Ideas must have at least 4 questions');
+
+  // Validate Math Module 1 Domain & Type Balance
+  const mathM1 = fullExam.modules[2];
+  assert.strictEqual(mathM1.questions.length, 22);
+  const mathDomainCounts = {};
+  let mathSprCount = 0;
+  mathM1.questions.forEach(q => {
+    const norm = String(q.domain).replace(/[-\s]+/g, ' ').trim();
+    mathDomainCounts[norm] = (mathDomainCounts[norm] || 0) + 1;
+    if ((q.type || q.question_type) === 'free_response') mathSprCount++;
+  });
+  assert.ok(mathDomainCounts['Algebra'] >= 6, 'Algebra must have at least 6 questions');
+  assert.ok(mathDomainCounts['Advanced Math'] >= 4, 'Advanced Math must have at least 4 questions');
+  assert.ok(mathDomainCounts['Problem Solving and Data Analysis'] >= 3, 'Problem Solving must have at least 3 questions');
+  assert.ok(mathDomainCounts['Geometry and Trigonometry'] >= 2, 'Geometry must have at least 2 questions');
+  assert.strictEqual(mathSprCount, 5, 'Math Module 1 must contain exactly 5 student-produced responses');
+
+  // Mini Exam Blueprint Verification
+  const miniExam = PSAT_ENGINE.generateMiniPSAT89Exam(realBank, { isAdaptive: false });
+  assert.strictEqual(miniExam.totalQuestions, 8);
+  assert.strictEqual(miniExam.blueprintVersion, 'PSAT89_MINI_2026_V1');
+  const miniIds = [];
+  miniExam.modules.forEach(mod => { mod.questions.forEach(q => { miniIds.push(q.id); }); });
+  assert.strictEqual(new Set(miniIds).size, 8, 'Mini exam must have 8 unique questions');
+
+  // 24. SCORE-01: Calibrated Scaled Score Ranges, Confidence Metrics & Data Basis
+  // ------------------------------------------------------------------
+  // Score standard exam
+  const fullExamAnswers = {};
+  fullExam.modules.forEach(mod => {
+    mod.questions.forEach((q, idx) => {
+      if (idx % 4 !== 0) fullExamAnswers[q.id] = q.correct_answer; // 75% accuracy
+    });
+  });
+  const fullScored = PSAT_ENGINE.scoreStandardExam(fullExam, fullExamAnswers, {});
+  assert.strictEqual(fullScored.scores.isScaledReady, true);
+  assert.ok(typeof fullScored.scores.totalScaled === 'number');
+  assert.ok(Array.isArray(fullScored.scores.totalRange) && fullScored.scores.totalRange.length === 2);
+  assert.ok(fullScored.scores.totalRange[0] <= fullScored.scores.totalScaled);
+  assert.ok(fullScored.scores.totalRange[1] >= fullScored.scores.totalScaled);
+  assert.ok(typeof fullScored.scores.totalRangeFormatted === 'string');
+  assert.strictEqual(fullScored.scores.confidenceInterval, '90% Confidence Interval');
+  assert.strictEqual(fullScored.scores.examCategory, 'standard_benchmark');
+  assert.ok(fullScored.scores.rwRangeFormatted);
+  assert.ok(fullScored.scores.mathRangeFormatted);
+
+  // calculateScaledScore helper checks
+  const dummyProg = {};
+  realEla.slice(0, 20).forEach((q, idx) => {
+    dummyProg[q.id] = { answered: true, isCorrect: idx % 2 === 0 };
+  });
+  realMath.slice(0, 20).forEach((q, idx) => {
+    dummyProg[q.id] = { answered: true, isCorrect: idx % 2 === 0 };
+  });
+  const bankScore = PSAT_ENGINE.calculateScaledScore(realBank, dummyProg);
+  assert.strictEqual(bankScore.isReady, true);
+  assert.ok(bankScore.totalRangeFormatted);
+  assert.ok(bankScore.rwRangeFormatted);
+  assert.ok(bankScore.mathRangeFormatted);
+  assert.ok(bankScore.confidenceInterval);
+  assert.ok(bankScore.dataBasis);
+
+  // 25. SRS-02: Tag-Driven Adaptive Coaching Interventions & Longitudinal Trends
+  // ------------------------------------------------------------------
+  const tagProg = {};
+  const conceptQ1 = realBank[0];
+  const conceptQ2 = realBank[1];
+  const timeQ1 = realBank[2];
+  tagProg[conceptQ1.id] = { answered: true, isCorrect: false, errorTag: 'concept_gap', timestamp: Date.now() };
+  tagProg[conceptQ2.id] = { answered: true, isCorrect: false, errorTag: 'concept_gap', timestamp: Date.now() };
+  tagProg[timeQ1.id] = { answered: true, isCorrect: false, errorTag: 'time_pressure', timestamp: Date.now() - 10 * 86400000 };
+
+  const conceptDrill = PSAT_ENGINE.generateTagCoachingDrill(realBank, tagProg, 'concept_gap', { count: 8 });
+  assert.strictEqual(conceptDrill.tagId, 'concept_gap');
+  assert.ok(conceptDrill.questions.length >= 2);
+  assert.strictEqual(conceptDrill.isSpeedRound, false);
+
+  const speedDrill = PSAT_ENGINE.generateTagCoachingDrill(realBank, tagProg, 'time_pressure', { count: 6 });
+  assert.strictEqual(speedDrill.tagId, 'time_pressure');
+  assert.strictEqual(speedDrill.isSpeedRound, true);
+  assert.strictEqual(speedDrill.timeLimitPerQuestionSeconds, 45, 'Time pressure drills must use 45s speed timer');
+
+  const errorTrends = PSAT_ENGINE.calculateErrorTagTrends(tagProg, []);
+  assert.strictEqual(errorTrends.currentWeek.concept_gap, 2, 'Must count 2 concept gaps this week');
+  assert.strictEqual(errorTrends.priorWeek.time_pressure, 1, 'Must count 1 time pressure error in prior week');
+  assert.strictEqual(errorTrends.lifetime.concept_gap, 2);
+  assert.strictEqual(errorTrends.lifetime.time_pressure, 1);
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, Blueprint-Balanced Modules, Calibrated Score Confidence Ranges, Error Tag Coaching Drills, Longitudinal Error Trends, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

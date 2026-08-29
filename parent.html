@@ -1021,7 +1021,8 @@
       const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
       if (scoreData.isReady) {
         document.getElementById('hero-scaled-score').innerText = scoreData.totalScore;
-        document.getElementById('hero-score-subtext').innerText = `Estimated from ${scoreData.rwAttempted} Reading/Writing and ${scoreData.mathAttempted} Math questions. (RW: ${scoreData.rwScore}, Math: ${scoreData.mathScore})`;
+        const totalRangeStr = scoreData.totalRangeFormatted ? ` (Range: ${scoreData.totalRangeFormatted}, ${scoreData.confidenceInterval || '90% Confidence'})` : '';
+        document.getElementById('hero-score-subtext').innerText = `Estimated from ${scoreData.rwAttempted} Reading/Writing and ${scoreData.mathAttempted} Math questions${totalRangeStr}. (RW: ${scoreData.rwScore}, Math: ${scoreData.mathScore})`;
       } else {
         document.getElementById('hero-scaled-score').innerText = '—';
         document.getElementById('hero-score-subtext').innerText = `Needs at least ${scoreData.minRequiredPerSection} questions attempted per section (current: ${scoreData.rwAttempted} RW, ${scoreData.mathAttempted} Math).`;
@@ -1029,7 +1030,8 @@
 
       const elaBadge = document.getElementById('ela-section-score');
       if (scoreData.rwReady) {
-        elaBadge.innerText = `Est. Section Score: ${scoreData.rwScore} / 720`;
+        const rwRangeStr = scoreData.rwRangeFormatted ? ` (${scoreData.rwRangeFormatted})` : '';
+        elaBadge.innerText = `Est. Section Score: ${scoreData.rwScore} / 720${rwRangeStr}`;
         elaBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
       } else {
         elaBadge.innerText = `${scoreData.rwAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
@@ -1038,7 +1040,8 @@
 
       const mathBadge = document.getElementById('math-section-score');
       if (scoreData.mathReady) {
-        mathBadge.innerText = `Est. Section Score: ${scoreData.mathScore} / 720`;
+        const mathRangeStr = scoreData.mathRangeFormatted ? ` (${scoreData.mathRangeFormatted})` : '';
+        mathBadge.innerText = `Est. Section Score: ${scoreData.mathScore} / 720${mathRangeStr}`;
         mathBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
       } else {
         mathBadge.innerText = `${scoreData.mathAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
@@ -1260,17 +1263,26 @@
         chipsContainer.appendChild(link);
       });
 
-      // Populate Root-Cause Error Tags
+      // Populate Root-Cause Error Tags & Longitudinal Trends
       const tagContainer = document.getElementById('trouble-tag-chips');
       if (tagContainer && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.aggregateErrorTags && PSAT_ENGINE.ERROR_TAGS) {
         const tagSummary = PSAT_ENGINE.aggregateErrorTags(allTroubleList);
+        const trends = typeof PSAT_ENGINE.calculateErrorTagTrends === 'function' ? PSAT_ENGINE.calculateErrorTagTrends(progress, examHistory) : null;
         tagContainer.innerHTML = '';
         Object.entries(PSAT_ENGINE.ERROR_TAGS).forEach(([key, info]) => {
           const count = tagSummary.counts[key] || 0;
           if (count > 0) {
+            const curW = trends && trends.currentWeek ? (trends.currentWeek[key] || 0) : 0;
+            const priW = trends && trends.priorWeek ? (trends.priorWeek[key] || 0) : 0;
+            let trendBadge = '';
+            if (curW < priW) {
+              trendBadge = `<span class="ml-1.5 text-[10px] text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded-sm font-bold">↓ ${priW - curW} this week</span>`;
+            } else if (curW > priW && priW > 0) {
+              trendBadge = `<span class="ml-1.5 text-[10px] text-rose-700 bg-rose-100 px-1 py-0.5 rounded-sm font-bold">↑ ${curW - priW} this week</span>`;
+            }
             const span = document.createElement('span');
             span.className = 'px-2.5 py-1 rounded-lg border bg-rose-50 text-rose-900 border-rose-200 text-xs font-semibold flex items-center shadow-2xs';
-            span.innerHTML = `<span>${esc(info.label)}</span>&nbsp;<strong>(${count})</strong>`;
+            span.innerHTML = `<span>${esc(info.label)}</span>&nbsp;<strong>(${count})</strong>${trendBadge}`;
             tagContainer.appendChild(span);
           }
         });

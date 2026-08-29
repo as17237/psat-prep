@@ -119,8 +119,27 @@
         </div>
       </div>
 
+      <!-- Adaptive Root-Cause Error Coaching Actions -->
+      <div class="pt-3 border-t border-slate-100 space-y-2">
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Adaptive Error Coaching Drills:</span>
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="launchTagCoaching('concept_gap')" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+            <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5 text-rose-600"></i> Concept Mastery Drill
+          </button>
+          <button onclick="launchTagCoaching('time_pressure')" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+            <i data-lucide="clock" class="w-3.5 h-3.5 mr-1.5 text-indigo-600"></i> 45s Pacing Speed Round
+          </button>
+          <button onclick="launchTagCoaching('misread')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mr-1.5 text-amber-600"></i> Trap &amp; Prompt Dissection
+          </button>
+          <button onclick="launchTagCoaching('calc_error')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+            <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-blue-600"></i> Calculation &amp; Desmos Verification
+          </button>
+        </div>
+      </div>
+
       <!-- Domain Breakdown Filter Chips -->
-      <div class="pt-3 border-t border-slate-100 space-y-1.5">
+      <div class="pt-2 border-t border-slate-100 space-y-1.5">
         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Filter By Learning Domain:</span>
         <div id="domain-filter-chips" class="flex flex-wrap items-center gap-2">
           <!-- Dynamically populated -->
@@ -779,6 +798,26 @@
         window.location.href = 'index.html?mode=custom';
       } catch (e) {
         alert('Error preparing mistake drill: ' + e.message);
+      }
+    }
+
+    function launchTagCoaching(tagId) {
+      const questionsData = window.QUESTIONS_DATA || [];
+      const progress = safeGetStorage('psat_progress', {});
+      if (typeof PSAT_ENGINE === 'undefined' || !PSAT_ENGINE.generateTagCoachingDrill) {
+        alert('Coaching engine is not ready.');
+        return;
+      }
+      const drill = PSAT_ENGINE.generateTagCoachingDrill(questionsData, progress, tagId, { count: 10 });
+      if (!drill || !drill.questions || drill.questions.length === 0) {
+        alert('No questions found matching this coaching focus.');
+        return;
+      }
+      try {
+        sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
+        window.location.href = 'index.html?mode=custom';
+      } catch (e) {
+        alert('Error preparing coaching session: ' + e.message);
       }
     }
 

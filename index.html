@@ -1638,6 +1638,12 @@
         source: 'practice'
       });
 
+      const prevErrorTag = prevProg.errorTag || null;
+      let historicalErrorTags = Array.isArray(prevProg.historicalErrorTags) ? prevProg.historicalErrorTags.slice() : [];
+      if (prevErrorTag && isCorrect && !historicalErrorTags.some(h => h.tag === prevErrorTag)) {
+        historicalErrorTags.push({ tag: prevErrorTag, resolvedAt: Date.now() });
+      }
+
       progress[q.id] = {
         answered: true,
         selectedAnswer: selectedAnswer,
@@ -1646,6 +1652,8 @@
         timingReliable: timingReliable,
         timestamp: Date.now(),
         isFlagged: prevProg.isFlagged || false,
+        errorTag: isCorrect ? null : (prevProg.errorTag || null),
+        historicalErrorTags: historicalErrorTags,
         timesSeen: newTimesSeen,
         timesCorrect: newTimesCorrect,
         timesIncorrect: newTimesIncorrect,
@@ -2742,9 +2750,15 @@
         document.getElementById('report-score-label').innerText = 'Composite Scaled Score (240–1440)';
         document.getElementById('report-total-score').innerText = fullReport.scores.totalScaled;
         document.getElementById('report-scale-denom').innerText = '/ 1440';
-        document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwScaled} / 720`;
-        document.getElementById('report-math-score').innerText = `${fullReport.scores.mathScaled} / 720`;
-        document.getElementById('report-scaling-note').innerText = 'Score estimated from section accuracy scaled to the 240–1440 PSAT 8/9 composite range.';
+        
+        const rwRangeStr = fullReport.scores.rwRangeFormatted ? ` (${fullReport.scores.rwRangeFormatted})` : '';
+        const mathRangeStr = fullReport.scores.mathRangeFormatted ? ` (${fullReport.scores.mathRangeFormatted})` : '';
+        document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwScaled} / 720${rwRangeStr}`;
+        document.getElementById('report-math-score').innerText = `${fullReport.scores.mathScaled} / 720${mathRangeStr}`;
+
+        const rangeStr = fullReport.scores.totalRangeFormatted ? `Score Range: ${fullReport.scores.totalRangeFormatted} (${fullReport.scores.confidenceInterval || '90% Confidence Interval'}). ` : '';
+        const basisStr = fullReport.scores.dataBasis ? `Basis: ${fullReport.scores.dataBasis}. ` : '';
+        document.getElementById('report-scaling-note').innerText = `${rangeStr}${basisStr}Estimated from section accuracy scaled to the 240–1440 PSAT 8/9 scale.`;
       } else {
         document.getElementById('report-score-label').innerText = 'Practice Check Score (Raw)';
         document.getElementById('report-total-score').innerText = `${fullReport.totalCorrect} / ${fullReport.totalQuestions}`;

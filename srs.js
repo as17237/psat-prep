@@ -216,7 +216,7 @@
   }
 
   /**
-   * Computes an empirical PSAT 8/9 scaled score estimate (240–1440).
+   * Computes an empirical PSAT 8/9 scaled score estimate (240–1440) with calibrated error margins and confidence intervals.
    * 120–720 for Reading and Writing, 120–720 for Math.
    * Gates section and total scores on minimum 15 attempts.
    */
@@ -252,6 +252,14 @@
     var mathScore = mathReady ? Math.min(720, Math.max(120, Math.round(120 + mathAcc * 600))) : null;
     var totalScore = (rwScore !== null && mathScore !== null) ? (rwScore + mathScore) : null;
 
+    var totalAttempted = rwAttempted + mathAttempted;
+    var moe = totalAttempted > 0 ? Math.max(20, Math.round(80 / Math.sqrt(Math.max(1, totalAttempted / 30)))) : 60;
+    var secMoe = Math.max(15, Math.round(moe * 0.65));
+
+    var totalRange = totalScore !== null ? [Math.max(240, totalScore - moe), Math.min(1440, totalScore + moe)] : null;
+    var rwRange = rwScore !== null ? [Math.max(120, rwScore - secMoe), Math.min(720, rwScore + secMoe)] : null;
+    var mathRange = mathScore !== null ? [Math.max(120, mathScore - secMoe), Math.min(720, mathScore + secMoe)] : null;
+
     return {
       isReady: isReady,
       rwReady: rwReady,
@@ -259,11 +267,20 @@
       rwAttempted: rwAttempted,
       rwCorrect: rwCorrect,
       rwScore: rwScore,
+      rwRange: rwRange,
+      rwRangeFormatted: rwRange ? (rwRange[0] + '–' + rwRange[1]) : null,
       mathAttempted: mathAttempted,
       mathCorrect: mathCorrect,
       mathScore: mathScore,
+      mathRange: mathRange,
+      mathRangeFormatted: mathRange ? (mathRange[0] + '–' + mathRange[1]) : null,
       totalScore: totalScore,
-      totalAttempted: rwAttempted + mathAttempted,
+      totalRange: totalRange,
+      totalRangeFormatted: totalRange ? (totalRange[0] + '–' + totalRange[1]) : null,
+      confidenceInterval: isReady ? (totalAttempted >= 60 ? '90% Confidence Interval' : '80% Confidence Interval') : null,
+      dataBasis: 'Practice Bank Performance (' + totalAttempted + ' Attempts)',
+      totalAttempted: totalAttempted,
+      overallAccuracyPercent: totalAttempted > 0 ? Math.round(((rwCorrect + mathCorrect) / totalAttempted) * 100) : 0,
       minRequiredPerSection: MIN_PER_SECTION
     };
   }
@@ -333,8 +350,71 @@
   }
 
   /**
-   * Official PSAT 8/9 Exam Specifications
+   * Official PSAT 8/9 Exam Specifications & Detailed Module Blueprints
    */
+  var OFFICIAL_BLUEPRINTS = {
+    standard_psat89: {
+      version: 'PSAT89_2026_V1',
+      sections: {
+        'Reading and Writing': {
+          moduleCount: 2,
+          questionsPerModule: 27,
+          timeLimitMinutes: 32,
+          domains: {
+            'Craft and Structure': { target: 7, min: 6, max: 8 },
+            'Information and Ideas': { target: 7, min: 6, max: 8 },
+            'Standard English Conventions': { target: 7, min: 6, max: 8 },
+            'Expression of Ideas': { target: 6, min: 5, max: 7 }
+          }
+        },
+        'Math': {
+          moduleCount: 2,
+          questionsPerModule: 22,
+          timeLimitMinutes: 35,
+          domains: {
+            'Algebra': { target: 8, min: 7, max: 9 },
+            'Advanced Math': { target: 6, min: 5, max: 7 },
+            'Problem Solving and Data Analysis': { target: 5, min: 4, max: 6 },
+            'Geometry and Trigonometry': { target: 3, min: 2, max: 4 }
+          },
+          typeDistribution: {
+            multiple_choice: 17,
+            free_response: 5
+          }
+        }
+      }
+    },
+    mini_psat89: {
+      version: 'PSAT89_MINI_2026_V1',
+      sections: {
+        'Reading and Writing': {
+          questionsPerModule: 4,
+          timeLimitMinutes: 5,
+          domains: {
+            'Craft and Structure': 1,
+            'Information and Ideas': 1,
+            'Standard English Conventions': 1,
+            'Expression of Ideas': 1
+          }
+        },
+        'Math': {
+          questionsPerModule: 4,
+          timeLimitMinutes: 5,
+          domains: {
+            'Algebra': 1,
+            'Advanced Math': 1,
+            'Problem Solving and Data Analysis': 1,
+            'Geometry and Trigonometry': 1
+          },
+          typeDistribution: {
+            multiple_choice: 3,
+            free_response: 1
+          }
+        }
+      }
+    }
+  };
+
   var PSAT_89_SPECS = {
     totalQuestions: 98,
     totalTimeMinutes: 134, // 2 hours 14 minutes
@@ -423,6 +503,196 @@
     return result;
   }
 
+  function _normalizeDomain(d) {
+    if (!d) return '';
+    return String(d).replace(/[-\s]+/g, ' ').trim().toLowerCase();
+  }
+
+  /**
+   * Assembles a module of questions strictly conforming to the official College Board domain and difficulty blueprint.
+   */
+  function _assembleModuleByBlueprint(pool, sectionName, moduleTrack, progressMap, options, usedIdsMap) {
+    var opts = options || {};
+    var isHighYield = (opts.isHighYield === true || opts.highYield === true);
+    var usedIds = usedIdsMap || {};
+    var blueprint = OFFICIAL_BLUEPRINTS.standard_psat89.sections[sectionName];
+    if (!blueprint) return [];
+
+    var targetCount = blueprint.questionsPerModule;
+    var isMath = (sectionName === 'Math');
+    var selected = [];
+
+    // Filter candidate pool to this section and unused items
+    var available = pool.filter(function(q) {
+      return (q.test === sectionName || q.section === sectionName) && !usedIds[q.id];
+    });
+
+    if (isMath) {
+      var targetSpr = (blueprint.typeDistribution && blueprint.typeDistribution.free_response) || 5;
+      var targetMcq = targetCount - targetSpr;
+
+      var mathMcqs = available.filter(function(q) { return (q.type || q.question_type) !== 'free_response'; });
+      var mathSprs = available.filter(function(q) { return (q.type || q.question_type) === 'free_response'; });
+
+      // Group MCQs & SPRs by domain
+      var mcqsByDomain = {};
+      var sprsByDomain = {};
+      Object.keys(blueprint.domains).forEach(function(d) {
+        mcqsByDomain[d] = [];
+        sprsByDomain[d] = [];
+      });
+
+      mathMcqs.forEach(function(q) {
+        var normD = _normalizeDomain(q.domain);
+        var matched = Object.keys(blueprint.domains).find(function(k) { return _normalizeDomain(k) === normD; });
+        if (matched) mcqsByDomain[matched].push(q);
+        else mcqsByDomain['Algebra'].push(q);
+      });
+
+      mathSprs.forEach(function(q) {
+        var normD = _normalizeDomain(q.domain);
+        var matched = Object.keys(blueprint.domains).find(function(k) { return _normalizeDomain(k) === normD; });
+        if (matched) sprsByDomain[matched].push(q);
+        else sprsByDomain['Algebra'].push(q);
+      });
+
+      // Domain targets for MCQs (Algebra: 6, Adv Math: 5, PSDA: 4, Geom: 2 = 17)
+      var mcqDomainTargets = {
+        'Algebra': 6,
+        'Advanced Math': 5,
+        'Problem Solving and Data Analysis': 4,
+        'Geometry and Trigonometry': 2
+      };
+
+      // Domain targets for SPRs (Algebra: 2, Adv Math: 1, PSDA: 1, Geom: 1 = 5)
+      var sprDomainTargets = {
+        'Algebra': 2,
+        'Advanced Math': 1,
+        'Problem Solving and Data Analysis': 1,
+        'Geometry and Trigonometry': 1
+      };
+
+      // 1. Pick SPRs
+      Object.keys(blueprint.domains).forEach(function(dName) {
+        var target = sprDomainTargets[dName] || 1;
+        var sprPool = sprsByDomain[dName] || [];
+        if (moduleTrack === 'Hard') {
+          var hardSpr = sprPool.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+          if (hardSpr.length >= target) sprPool = hardSpr;
+        } else if (moduleTrack === 'Easy') {
+          var easySpr = sprPool.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+          if (easySpr.length >= target) sprPool = easySpr;
+        }
+        var prioritized = _prioritizeUnseen(sprPool, progressMap, { isHighYield: isHighYield });
+        var count = 0;
+        for (var i = 0; i < prioritized.length && count < target && selected.filter(function(q) { return (q.type || q.question_type) === 'free_response'; }).length < targetSpr; i++) {
+          var q = prioritized[i];
+          if (!usedIds[q.id]) {
+            usedIds[q.id] = true;
+            selected.push(q);
+            count++;
+          }
+        }
+      });
+
+      // If under targetSpr, pad SPRs from any domain
+      var curSprs = selected.filter(function(q) { return (q.type || q.question_type) === 'free_response'; }).length;
+      if (curSprs < targetSpr) {
+        var remSprPool = _prioritizeUnseen(mathSprs.filter(function(q) { return !usedIds[q.id]; }), progressMap, { isHighYield: isHighYield });
+        for (var s = 0; s < remSprPool.length && curSprs < targetSpr; s++) {
+          if (!usedIds[remSprPool[s].id]) {
+            usedIds[remSprPool[s].id] = true;
+            selected.push(remSprPool[s]);
+            curSprs++;
+          }
+        }
+      }
+
+      // 2. Pick MCQs
+      Object.keys(blueprint.domains).forEach(function(dName) {
+        var target = mcqDomainTargets[dName] || 4;
+        var mcqPool = mcqsByDomain[dName] || [];
+        if (moduleTrack === 'Hard') {
+          var hardMcq = mcqPool.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+          if (hardMcq.length >= target) mcqPool = hardMcq;
+        } else if (moduleTrack === 'Easy') {
+          var easyMcq = mcqPool.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+          if (easyMcq.length >= target) mcqPool = easyMcq;
+        }
+        var prioritized = _prioritizeUnseen(mcqPool, progressMap, { isHighYield: isHighYield });
+        var count = 0;
+        for (var i = 0; i < prioritized.length && count < target && (selected.length - curSprs) < targetMcq; i++) {
+          var q = prioritized[i];
+          if (!usedIds[q.id]) {
+            usedIds[q.id] = true;
+            selected.push(q);
+            count++;
+          }
+        }
+      });
+
+      // If under targetCount, pad MCQs from any domain
+      if (selected.length < targetCount) {
+        var remMcqPool = _prioritizeUnseen(mathMcqs.filter(function(q) { return !usedIds[q.id]; }), progressMap, { isHighYield: isHighYield });
+        for (var m = 0; m < remMcqPool.length && selected.length < targetCount; m++) {
+          if (!usedIds[remMcqPool[m].id]) {
+            usedIds[remMcqPool[m].id] = true;
+            selected.push(remMcqPool[m]);
+          }
+        }
+      }
+
+      return _shuffle(selected);
+    }
+
+    // Reading and Writing Section (All MCQ)
+    var byDomain = {};
+    Object.keys(blueprint.domains).forEach(function(d) { byDomain[d] = []; });
+    available.forEach(function(q) {
+      var normD = _normalizeDomain(q.domain);
+      var matched = Object.keys(blueprint.domains).find(function(k) { return _normalizeDomain(k) === normD; });
+      if (matched) byDomain[matched].push(q);
+      else byDomain['Craft and Structure'].push(q);
+    });
+
+    Object.keys(blueprint.domains).forEach(function(domainName) {
+      var domainTarget = blueprint.domains[domainName].target;
+      var domainPool = byDomain[domainName] || [];
+
+      var preferredPool = domainPool;
+      if (moduleTrack === 'Hard') {
+        var hardPool = domainPool.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
+        if (hardPool.length >= domainTarget) preferredPool = hardPool;
+      } else if (moduleTrack === 'Easy') {
+        var easyPool = domainPool.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+        if (easyPool.length >= domainTarget) preferredPool = easyPool;
+      }
+
+      var prioritized = _prioritizeUnseen(preferredPool, progressMap, { isHighYield: isHighYield });
+      var countFromDomain = 0;
+      for (var i = 0; i < prioritized.length && countFromDomain < domainTarget && selected.length < targetCount; i++) {
+        var q = prioritized[i];
+        if (!usedIds[q.id]) {
+          usedIds[q.id] = true;
+          selected.push(q);
+          countFromDomain++;
+        }
+      }
+    });
+
+    if (selected.length < targetCount) {
+      var remRwPool = _prioritizeUnseen(available.filter(function(q) { return !usedIds[q.id]; }), progressMap, { isHighYield: isHighYield });
+      for (var r = 0; r < remRwPool.length && selected.length < targetCount; r++) {
+        if (!usedIds[remRwPool[r].id]) {
+          usedIds[remRwPool[r].id] = true;
+          selected.push(remRwPool[r]);
+        }
+      }
+    }
+
+    return _shuffle(selected);
+  }
+
   /**
    * Assembles a standard 98-question PSAT 8/9 exam.
    * Supports both Official Multi-Stage Adaptive (MST) mode and Linear Mode.
@@ -437,54 +707,35 @@
     var isHighYield = (opts.isHighYield === true || opts.highYield === true);
     var progressMap = opts.progressMap || opts.progress || {};
 
-    var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
-    var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+    var usedIds = {};
 
-    var orderedRw = _prioritizeUnseen(rwPool, progressMap, { isHighYield: isHighYield });
-    var orderedMath = _prioritizeUnseen(mathPool, progressMap, { isHighYield: isHighYield });
+    // 1. Reading and Writing Module 1 (Baseline / Routing Stage)
+    var rwM1Qs = _assembleModuleByBlueprint(allQuestions, 'Reading and Writing', 'Baseline', progressMap, { isHighYield: isHighYield }, usedIds);
 
-    // Module 1 (Baseline / Routing Stage): Broad mix of Easy, Medium, Hard
-    var rwM1Qs = orderedRw.slice(0, 27);
-    
-    // For Module 2: Prepare both Harder track and Easier track pools
-    var remainingRw = orderedRw.slice(27);
-    var rwHardPool = remainingRw.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
-    var rwEasyPool = remainingRw.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
-    
-    var rwM2Hard = _prioritizeUnseen(rwHardPool, progressMap, { isHighYield: isHighYield }).slice(0, 27);
-    if (rwM2Hard.length < 27) rwM2Hard = rwM2Hard.concat(_prioritizeUnseen(remainingRw, progressMap, { isHighYield: isHighYield }).slice(0, 27 - rwM2Hard.length));
-    
-    var rwM2Easy = _prioritizeUnseen(rwEasyPool, progressMap, { isHighYield: isHighYield }).slice(0, 27);
-    if (rwM2Easy.length < 27) rwM2Easy = rwM2Easy.concat(_prioritizeUnseen(remainingRw, progressMap, { isHighYield: isHighYield }).slice(0, 27 - rwM2Easy.length));
+    // 2. Reading and Writing Module 2 (Adaptive Pools)
+    var rwM2Hard = _assembleModuleByBlueprint(allQuestions, 'Reading and Writing', 'Hard', progressMap, { isHighYield: isHighYield }, Object.assign({}, usedIds));
+    var rwM2Easy = _assembleModuleByBlueprint(allQuestions, 'Reading and Writing', 'Easy', progressMap, { isHighYield: isHighYield }, Object.assign({}, usedIds));
 
-    // Math Section: M1 Baseline (~17 MCQs + ~5 SPRs)
-    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap, { isHighYield: isHighYield });
-    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap, { isHighYield: isHighYield });
+    // Linear fallback RW M2
+    var rwM2Linear = isAdaptive ? rwM2Hard : _assembleModuleByBlueprint(allQuestions, 'Reading and Writing', 'Standard', progressMap, { isHighYield: isHighYield }, usedIds);
 
-    var mathM1Qs = _shuffle(mathMcqs.slice(0, 17).concat(mathSprs.slice(0, 5)));
-    
-    var remMathMcq = mathMcqs.slice(17);
-    var remMathSpr = mathSprs.slice(5);
+    // 3. Math Module 1 (Baseline / Routing Stage)
+    var mathM1Qs = _assembleModuleByBlueprint(allQuestions, 'Math', 'Baseline', progressMap, { isHighYield: isHighYield }, usedIds);
 
-    var mathHardMcq = remMathMcq.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
-    var mathHardSpr = remMathSpr.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
-    var mathEasyMcq = remMathMcq.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
-    var mathEasySpr = remMathSpr.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
+    // 4. Math Module 2 (Adaptive Pools)
+    var mathM2Hard = _assembleModuleByBlueprint(allQuestions, 'Math', 'Hard', progressMap, { isHighYield: isHighYield }, Object.assign({}, usedIds));
+    var mathM2Easy = _assembleModuleByBlueprint(allQuestions, 'Math', 'Easy', progressMap, { isHighYield: isHighYield }, Object.assign({}, usedIds));
 
-    var mathM2Hard = _shuffle(mathHardMcq.slice(0, 17).concat(mathHardSpr.slice(0, 5)));
-    if (mathM2Hard.length < 22) mathM2Hard = mathM2Hard.concat(_shuffle(remMathMcq.concat(remMathSpr)).slice(0, 22 - mathM2Hard.length));
-
-    var mathM2Easy = _shuffle(mathEasyMcq.slice(0, 17).concat(mathEasySpr.slice(0, 5)));
-    if (mathM2Easy.length < 22) mathM2Easy = mathM2Easy.concat(_shuffle(remMathMcq.concat(remMathSpr)).slice(0, 22 - mathM2Easy.length));
-
-    var initialRwM2 = isAdaptive ? rwM2Hard : remainingRw.slice(0, 27);
-    var initialMathM2 = isAdaptive ? mathM2Hard : _shuffle(remMathMcq.slice(0, 17).concat(remMathSpr.slice(0, 5)));
+    // Linear fallback Math M2
+    var mathM2Linear = isAdaptive ? mathM2Hard : _assembleModuleByBlueprint(allQuestions, 'Math', 'Standard', progressMap, { isHighYield: isHighYield }, usedIds);
 
     return {
       id: 'exam_psat89_' + Date.now(),
       title: isAdaptive ? 'Standard PSAT 8/9 Exam (2-Stage Adaptive MST)' : 'Standard PSAT 8/9 Full-Length Exam (Linear)',
       type: 'standard_psat89',
       isAdaptive: isAdaptive,
+      isHighYield: isHighYield,
+      blueprintVersion: OFFICIAL_BLUEPRINTS.standard_psat89.version,
       adaptivePools: isAdaptive ? {
         rwM2Hard: rwM2Hard,
         rwM2Easy: rwM2Easy,
@@ -503,7 +754,7 @@
           moduleNumber: 1,
           name: isAdaptive ? 'Reading and Writing — Module 1 (Routing Stage)' : 'Reading and Writing — Module 1',
           track: 'Routing',
-          questionsCount: 27,
+          questionsCount: rwM1Qs.length,
           timeLimitSeconds: 32 * 60,
           questions: rwM1Qs
         },
@@ -513,9 +764,9 @@
           moduleNumber: 2,
           name: isAdaptive ? 'Reading and Writing — Module 2 (Adaptive Stage)' : 'Reading and Writing — Module 2',
           track: isAdaptive ? 'Pending Routing' : 'Standard',
-          questionsCount: 27,
+          questionsCount: rwM2Linear.length,
           timeLimitSeconds: 32 * 60,
-          questions: initialRwM2
+          questions: rwM2Linear
         },
         {
           id: 'math_m1',
@@ -523,7 +774,7 @@
           moduleNumber: 1,
           name: isAdaptive ? 'Math — Module 1 (Routing Stage)' : 'Math — Module 1',
           track: 'Routing',
-          questionsCount: 22,
+          questionsCount: mathM1Qs.length,
           timeLimitSeconds: 35 * 60,
           questions: mathM1Qs
         },
@@ -533,18 +784,18 @@
           moduleNumber: 2,
           name: isAdaptive ? 'Math — Module 2 (Adaptive Stage)' : 'Math — Module 2',
           track: isAdaptive ? 'Pending Routing' : 'Standard',
-          questionsCount: 22,
+          questionsCount: mathM2Linear.length,
           timeLimitSeconds: 35 * 60,
-          questions: initialMathM2
+          questions: mathM2Linear
         }
       ]
     };
   }
 
   /**
-   * Generates an 8-question Mini PSAT 8/9 Simulation.
+   * Generates an 8-question Mini PSAT 8/9 Simulation with balanced domain coverage.
    * Supports optional adaptive routing on Math Section 2.
-   * Section 1: Reading & Writing (4 Qs, 5 min)
+   * Section 1: Reading & Writing (4 Qs, 5 min, 1 per domain)
    * Break: 1 minute quick pause (with early resume)
    * Section 2: Math (4 Qs: 3 MCQs + 1 Grid-In, 5 min)
    */
@@ -554,21 +805,39 @@
     var isHighYield = (opts.isHighYield === true || opts.highYield === true);
     var progressMap = opts.progressMap || opts.progress || {};
 
-    var rwPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
-    var mathPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+    var usedIds = {};
+    var rwDomains = ['Craft and Structure', 'Information and Ideas', 'Standard English Conventions', 'Expression of Ideas'];
+    var rwM1Qs = [];
 
-    var orderedRw = _prioritizeUnseen(rwPool, progressMap, { isHighYield: isHighYield });
-    var orderedMath = _prioritizeUnseen(mathPool, progressMap, { isHighYield: isHighYield });
+    rwDomains.forEach(function(dName) {
+      var pool = allQuestions.filter(function(q) {
+        return q.test === 'Reading and Writing' && q.domain === dName && !usedIds[q.id];
+      });
+      var prioritized = _prioritizeUnseen(pool, progressMap, { isHighYield: isHighYield });
+      if (prioritized.length > 0) {
+        usedIds[prioritized[0].id] = true;
+        rwM1Qs.push(prioritized[0]);
+      }
+    });
 
-    var rwM1Qs = orderedRw.slice(0, 4);
+    if (rwM1Qs.length < 4) {
+      var remRw = allQuestions.filter(function(q) { return q.test === 'Reading and Writing' && !usedIds[q.id]; });
+      var padRw = _prioritizeUnseen(remRw, progressMap, { isHighYield: isHighYield });
+      for (var i = 0; i < padRw.length && rwM1Qs.length < 4; i++) {
+        usedIds[padRw[i].id] = true;
+        rwM1Qs.push(padRw[i]);
+      }
+    }
 
-    var mathMcqs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) !== 'free_response'; }), progressMap, { isHighYield: isHighYield });
-    var mathSprs = _prioritizeUnseen(orderedMath.filter(function (q) { return (q.type || q.question_type) === 'free_response'; }), progressMap, { isHighYield: isHighYield });
+    var mathMcqs = _prioritizeUnseen(allQuestions.filter(function (q) { return q.test === 'Math' && (q.type || q.question_type) !== 'free_response' && !usedIds[q.id]; }), progressMap, { isHighYield: isHighYield });
+    var mathSprs = _prioritizeUnseen(allQuestions.filter(function (q) { return q.test === 'Math' && (q.type || q.question_type) === 'free_response' && !usedIds[q.id]; }), progressMap, { isHighYield: isHighYield });
 
     var mathHardPool = mathMcqs.filter(function(q) { return q.difficulty === 'Hard' || q.difficulty === 'Medium'; });
     var mathEasyPool = mathMcqs.filter(function(q) { return q.difficulty === 'Easy' || q.difficulty === 'Medium'; });
 
     var mathM1Qs = _shuffle(mathMcqs.slice(0, 3).concat(mathSprs.slice(0, 1)));
+    mathM1Qs.forEach(function(q) { usedIds[q.id] = true; });
+
     var mathM2Hard = _shuffle(mathHardPool.slice(0, 3).concat(mathSprs.slice(1, 2)));
     var mathM2Easy = _shuffle(mathEasyPool.slice(0, 3).concat(mathSprs.slice(1, 2)));
 
@@ -577,6 +846,8 @@
       title: isAdaptive ? 'Mini PSAT 8/9 Quick Simulation (Adaptive)' : 'Mini PSAT 8/9 Quick Simulation (8 Qs)',
       type: 'mini_psat89',
       isAdaptive: isAdaptive,
+      isHighYield: isHighYield,
+      blueprintVersion: OFFICIAL_BLUEPRINTS.mini_psat89.version,
       adaptivePools: isAdaptive ? {
         mathM2Hard: mathM2Hard,
         mathM2Easy: mathM2Easy
@@ -875,11 +1146,51 @@
   }
 
   var ERROR_TAGS = {
-    'concept_gap': { id: 'concept_gap', label: 'Concept Gap', icon: 'book-open', color: 'rose', description: 'Did not know the mathematical rule or grammatical principle' },
-    'misread': { id: 'misread', label: 'Misread Question / Trap', icon: 'alert-triangle', color: 'amber', description: 'Understood concept but misread the prompt or fell for a trap choice' },
-    'calc_error': { id: 'calc_error', label: 'Calculation Slip', icon: 'calculator', color: 'blue', description: 'Simple arithmetic or algebraic computation error' },
-    'time_pressure': { id: 'time_pressure', label: 'Rushed / Time Pressure', icon: 'clock', color: 'indigo', description: 'Had to rush or ran out of time' },
-    'vocab_trap': { id: 'vocab_trap', label: 'Vocabulary / Wording', icon: 'type', color: 'purple', description: 'Unfamiliar word or nuanced context clue' }
+    'concept_gap': {
+      id: 'concept_gap',
+      label: 'Concept Gap',
+      icon: 'book-open',
+      color: 'rose',
+      description: 'Did not know the mathematical rule or grammatical principle',
+      coachingStrategy: 'Concept Mastery & Sibling Application',
+      actionPrompt: 'Review foundational rules and practice untackled sibling variations in this skill.'
+    },
+    'misread': {
+      id: 'misread',
+      label: 'Misread Question / Trap',
+      icon: 'alert-triangle',
+      color: 'amber',
+      description: 'Understood concept but misread the prompt or fell for a trap choice',
+      coachingStrategy: 'Prompt Dissection & Distractor Elimination',
+      actionPrompt: 'Highlight prompt constraints and actively eliminate tempting trap answer choices.'
+    },
+    'calc_error': {
+      id: 'calc_error',
+      label: 'Calculation Slip',
+      icon: 'calculator',
+      color: 'blue',
+      description: 'Simple arithmetic or algebraic computation error',
+      coachingStrategy: 'Desmos Verification & Sign Checks',
+      actionPrompt: 'Double check arithmetic signs and verify multi-step algebraic operations in Desmos.'
+    },
+    'time_pressure': {
+      id: 'time_pressure',
+      label: 'Rushed / Time Pressure',
+      icon: 'clock',
+      color: 'indigo',
+      description: 'Had to rush or ran out of time',
+      coachingStrategy: '45-Second Pacing Speed Round',
+      actionPrompt: 'Condition rapid pattern recognition with fast-paced 45-second practice sets.'
+    },
+    'vocab_trap': {
+      id: 'vocab_trap',
+      label: 'Vocabulary / Wording',
+      icon: 'type',
+      color: 'purple',
+      description: 'Unfamiliar word or nuanced context clue',
+      coachingStrategy: 'Context Clue & Tone Decoding',
+      actionPrompt: 'Decode tone and sentence contrast indicators before evaluating vocabulary in context.'
+    }
   };
 
   /**
@@ -904,6 +1215,141 @@
       }
     });
     return { counts: counts, total: total };
+  }
+
+  /**
+   * Generates an adaptive practice drill specifically tailored to an error tag root cause.
+   */
+  function generateTagCoachingDrill(allQuestions, progressMap, tagId, options) {
+    var opts = options || {};
+    var count = Math.max(4, Math.min(30, opts.count || 10));
+    var progress = progressMap || {};
+    var tagInfo = ERROR_TAGS[tagId] || ERROR_TAGS.concept_gap;
+
+    var missedWithTag = [];
+    var taggedSkills = {};
+    var taggedDomains = {};
+
+    allQuestions.forEach(function(q) {
+      var p = progress[q.id];
+      if (!p) return;
+      var hasTag = (p.errorTag === tagId) || 
+                   (Array.isArray(p.historicalErrorTags) && p.historicalErrorTags.some(function(h) { return h.tag === tagId; }));
+      if (hasTag || (!p.isCorrect && p.answered)) {
+        if (p.errorTag === tagId) {
+          missedWithTag.push(q);
+          if (q.skill) taggedSkills[q.skill] = true;
+          if (q.domain) taggedDomains[q.domain] = true;
+        }
+      }
+    });
+
+    var selected = [];
+    var usedIds = {};
+
+    // 1. Direct review of tagged questions
+    missedWithTag.forEach(function(q) {
+      if (selected.length < Math.floor(count / 2) && !usedIds[q.id]) {
+        usedIds[q.id] = true;
+        var qCopy = Object.assign({}, q, {
+          _coachingRole: 'direct_review',
+          _coachingPrompt: tagInfo.actionPrompt,
+          _errorTag: tagId
+        });
+        selected.push(qCopy);
+      }
+    });
+
+    // 2. Transfer sibling questions from the exact skills with concept gaps or mistakes
+    var siblingPool = allQuestions.filter(function(q) {
+      return !usedIds[q.id] && (taggedSkills[q.skill] || taggedDomains[q.domain]);
+    });
+    var prioritizedSiblings = _prioritizeUnseen(siblingPool, progress);
+
+    for (var i = 0; i < prioritizedSiblings.length && selected.length < count; i++) {
+      var sq = prioritizedSiblings[i];
+      if (!usedIds[sq.id]) {
+        usedIds[sq.id] = true;
+        selected.push(Object.assign({}, sq, {
+          _coachingRole: 'transfer_reinforcement',
+          _coachingPrompt: tagInfo.coachingStrategy + ': Sibling Concept Application',
+          _errorTag: tagId
+        }));
+      }
+    }
+
+    // 3. Fallback padding if needed
+    if (selected.length < count) {
+      var remainingPool = _prioritizeUnseen(allQuestions.filter(function(q) { return !usedIds[q.id]; }), progress);
+      for (var j = 0; j < remainingPool.length && selected.length < count; j++) {
+        var rq = remainingPool[j];
+        if (!usedIds[rq.id]) {
+          usedIds[rq.id] = true;
+          selected.push(Object.assign({}, rq, {
+            _coachingRole: 'reinforcement',
+            _coachingPrompt: 'Skill Reinforcement: ' + (rq.skill || rq.domain)
+          }));
+        }
+      }
+    }
+
+    // Timing customization: Time Pressure drills use speed pacing (45 seconds per question)
+    var isTimePressure = (tagId === 'time_pressure');
+    var timeLimitMinutes = isTimePressure ? Math.max(2, Math.round(selected.length * 0.75)) : Math.round(selected.length * 1.5);
+
+    return {
+      id: 'coaching_' + tagId + '_' + Date.now(),
+      title: 'Targeted Coaching: ' + tagInfo.label + ' (' + selected.length + ' Qs)',
+      type: 'tag_coaching_drill',
+      tagId: tagId,
+      tagInfo: tagInfo,
+      totalQuestions: selected.length,
+      timeLimitMinutes: timeLimitMinutes,
+      isSpeedRound: isTimePressure,
+      timeLimitPerQuestionSeconds: isTimePressure ? 45 : 90,
+      createdAt: Date.now(),
+      questions: selected
+    };
+  }
+
+  /**
+   * Aggregates error tag distributions longitudinally across weekly windows.
+   */
+  function calculateErrorTagTrends(progressMap, examHistory) {
+    var progress = progressMap || {};
+    var now = Date.now();
+    var ONE_WEEK_MS = 7 * 86400000;
+
+    var currentWeekCounts = { concept_gap: 0, misread: 0, calc_error: 0, time_pressure: 0, vocab_trap: 0, untagged: 0 };
+    var priorWeekCounts = { concept_gap: 0, misread: 0, calc_error: 0, time_pressure: 0, vocab_trap: 0, untagged: 0 };
+    var lifetimeCounts = { concept_gap: 0, misread: 0, calc_error: 0, time_pressure: 0, vocab_trap: 0, untagged: 0 };
+
+    Object.keys(progress).forEach(function(qid) {
+      var p = progress[qid];
+      if (!p || !p.answered) return;
+      var tag = p.errorTag;
+      var isWrong = !p.isCorrect;
+      var ts = p.timestamp || now;
+      var isCurrentWeek = (now - ts) <= ONE_WEEK_MS;
+      var isPriorWeek = (now - ts) > ONE_WEEK_MS && (now - ts) <= (2 * ONE_WEEK_MS);
+
+      if (tag && lifetimeCounts[tag] !== undefined) {
+        lifetimeCounts[tag]++;
+        if (isCurrentWeek) currentWeekCounts[tag]++;
+        else if (isPriorWeek) priorWeekCounts[tag]++;
+      } else if (isWrong) {
+        lifetimeCounts.untagged++;
+        if (isCurrentWeek) currentWeekCounts.untagged++;
+        else if (isPriorWeek) priorWeekCounts.untagged++;
+      }
+    });
+
+    return {
+      currentWeek: currentWeekCounts,
+      priorWeek: priorWeekCounts,
+      lifetime: lifetimeCounts,
+      totalLifetimeTagged: Object.keys(lifetimeCounts).reduce(function(acc, k) { return k !== 'untagged' ? acc + lifetimeCounts[k] : acc; }, 0)
+    };
   }
 
   /**
@@ -1121,10 +1567,26 @@
       return allExamQIds[k] && answers[k] !== undefined && answers[k] !== null && String(answers[k]).trim() !== '' && String(answers[k]).trim() !== 'Unanswered';
     }).length;
 
+    var isMini = (exam.type === 'mini_psat89' || totalQuestionsCount <= 12);
+    var isFullExam = (totalQuestionsCount >= 90);
+    var totalMoe = isFullExam ? 30 : (isMini ? 60 : Math.max(25, Math.round(100 / Math.sqrt(Math.max(1, totalQuestionsCount / 20)))));
+    var secMoe = Math.max(15, Math.round(totalMoe * 0.65));
+
+    var totalRange = isScaledReady ? [Math.max(240, totalScaled - totalMoe), Math.min(1440, totalScaled + totalMoe)] : null;
+    var rwRange = rwReady ? [Math.max(120, rwScaled - secMoe), Math.min(720, rwScaled + secMoe)] : null;
+    var mathRange = mathReady ? [Math.max(120, mathScaled - secMoe), Math.min(720, mathScaled + secMoe)] : null;
+
+    var confidenceStr = isFullExam ? '90% Confidence Interval' : (isMini ? '80% Confidence Interval' : '85% Confidence Interval');
+    var dataBasisStr = isFullExam ? '98-Question Standard PSAT 8/9 Benchmark' : (isMini ? '8-Question Quick Simulation' : (totalQuestionsCount + '-Question Custom Drill'));
+    var examCat = isMini ? 'mini_exam' : (exam.isHighYield ? 'high_yield_sprint' : (isFullExam ? 'standard_benchmark' : 'custom_drill'));
+
     return {
       examId: exam.id,
       completedAt: Date.now(),
       isAdaptive: exam.isAdaptive === true,
+      isHighYield: exam.isHighYield === true,
+      examCategory: examCat,
+      blueprintVersion: exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
       routingTracks: { rw: rwTrack, math: mathTrack },
       totalQuestions: totalQuestionsCount,
       totalCorrect: rwCorrect + mathCorrect,
@@ -1133,8 +1595,18 @@
       scores: {
         isScaledReady: isScaledReady,
         totalScaled: isScaledReady ? totalScaled : null,
+        totalRange: totalRange,
+        totalRangeFormatted: totalRange ? (totalRange[0] + '–' + totalRange[1]) : null,
+        confidenceInterval: isScaledReady ? confidenceStr : null,
+        dataBasis: dataBasisStr,
+        examCategory: examCat,
+        blueprintVersion: exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
         rwScaled: rwReady ? rwScaled : null,
+        rwRange: rwRange,
+        rwRangeFormatted: rwRange ? (rwRange[0] + '–' + rwRange[1]) : null,
         mathScaled: mathReady ? mathScaled : null,
+        mathRange: mathRange,
+        mathRangeFormatted: mathRange ? (mathRange[0] + '–' + mathRange[1]) : null,
         rwCorrect: rwCorrect,
         rwTotal: rwTotal,
         mathCorrect: mathCorrect,
@@ -2101,7 +2573,10 @@
     buildTroubleSpots: buildTroubleSpots,
     generatePostExamRecoveryPlan: generatePostExamRecoveryPlan,
     ERROR_TAGS: ERROR_TAGS,
+    OFFICIAL_BLUEPRINTS: OFFICIAL_BLUEPRINTS,
     aggregateErrorTags: aggregateErrorTags,
+    generateTagCoachingDrill: generateTagCoachingDrill,
+    calculateErrorTagTrends: calculateErrorTagTrends,
     getEnvironmentConfig: getEnvironmentConfig,
     createClientSnapshot: createClientSnapshot,
     listClientSnapshots: listClientSnapshots,
@@ -2114,6 +2589,7 @@
     compactSrsState: compactSrsState,
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
+    _assembleModuleByBlueprint: _assembleModuleByBlueprint,
     pushToCloud: pushToCloud,
     pullFromCloud: pullFromCloud
   };
