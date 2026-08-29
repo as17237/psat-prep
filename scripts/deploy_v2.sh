@@ -142,11 +142,10 @@ done
 #                                 for WI-09; WI-10 owns its decomposition)
 #   js/shared/questions.js    1  (questionImageSrc(), the single home of what
 #                                 used to be 4 inline copies in the pages)
-#   parent.html               1  (not yet migrated — WI-09 3/4)
 #   index.html                2  (not yet migrated — WI-09 4/4)
 # Recount and re-pin this whenever a page migrates; a stale number is a loud
 # failure here rather than a silently half-transformed lane.
-EXPECTED_IMAGE_REWRITES=7
+EXPECTED_IMAGE_REWRITES=6
 if [[ "$IMAGE_REWRITES_TOTAL" -ne "$EXPECTED_IMAGE_REWRITES" ]]; then
   echo "ERROR: expected $EXPECTED_IMAGE_REWRITES absolutised question-image references, found $IMAGE_REWRITES_TOTAL." >&2
   echo "       The image-path pattern in the app changed — update this script before deploying." >&2

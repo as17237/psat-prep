@@ -17,18 +17,23 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const parentHtml = fs.readFileSync(path.join(__dirname, '..', 'parent.html'), 'utf8');
+// WI-09: the widget's code moved out of parent.html's inline <script> into
+// js/pages/parent.js (loaded as <script type="module">). This suite still
+// slices the SAME source text between the SAME two markers and still evaluates
+// it for real -- only the file it is read from changed.
+const { entryPath } = require('./helpers/page_source');
+const parentSource = fs.readFileSync(entryPath('parent'), 'utf8');
 
 // ---------------------------------------------------------------------------
-// Extract the widget source slice from parent.html and evaluate it for real.
+// Extract the widget source slice from js/pages/parent.js and evaluate it for real.
 // ---------------------------------------------------------------------------
 const startMarker = "const PARENT_API_BASE = 'https://psat-api-4915.azurewebsites.net/api';";
 const endMarker = "document.addEventListener('DOMContentLoaded', () => {";
-const startIdx = parentHtml.indexOf(startMarker);
-assert.ok(startIdx > -1, 'parent.html must declare PARENT_API_BASE for the widget');
-const endIdx = parentHtml.indexOf(endMarker, startIdx);
+const startIdx = parentSource.indexOf(startMarker);
+assert.ok(startIdx > -1, 'js/pages/parent.js must declare PARENT_API_BASE for the widget');
+const endIdx = parentSource.indexOf(endMarker, startIdx);
 assert.ok(endIdx > startIdx, 'The widget block must sit above the DOMContentLoaded bootstrap');
-const widgetSource = parentHtml.slice(startIdx, endIdx);
+const widgetSource = parentSource.slice(startIdx, endIdx);
 
 for (const fn of ['formatBackupAge', 'renderBackupStatus', 'refreshBackupStatus']) {
   assert.ok(widgetSource.includes('function ' + fn), `Widget slice must contain ${fn}`);

@@ -127,6 +127,12 @@ function pageScript(pageName) {
     return inlineScripts(htmlPath(pageName));
   }
   const chunks = [];
+  // ES modules are ALWAYS strict mode; the inline <script> blocks they replaced
+  // were sloppy. Running the flattened source non-strict here would let a suite
+  // pass on code the browser rejects (this is exactly how the SVGElement
+  // className assignment in parent.js was found -- see js/shared/dom.js).
+  // The directive must be the first statement of the returned program.
+  chunks.push("'use strict';");
   flatten(entry, new Set(), chunks);
   chunks.push(`/* ==== inline <script> in ${PAGES[pageName].html} ==== */\n${inlineScripts(htmlPath(pageName))}`);
   return chunks.join('\n');
