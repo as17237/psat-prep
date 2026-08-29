@@ -31,3 +31,7 @@ node_modules/
 api/node_modules/
 *.zip
 
+# Playwright (WI-08 E2E harness)
+playwright-report/
+test-results/
+

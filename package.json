@@ -1,0 +1,13 @@
+{
+  "name": "psat-prep-e2e-harness",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dev-only Playwright E2E harness for the PSAT prep static app. The app itself stays dependency-free; this package.json exists only to pin test tooling.",
+  "scripts": {
+    "test:e2e": "playwright test --project=chromium-desktop --project=chromium-mobile",
+    "test:e2e:v2smoke": "playwright test --project=v2smoke --grep @v2smoke"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
