@@ -1354,16 +1354,18 @@
       const visualContainer = document.getElementById('q-visual-container');
       const textContainer = document.getElementById('q-text-container');
 
+      // The card/text toggle buttons and the text container were removed in the
+      // UI simplification pass (7b22ff6); guard every read so this never throws.
       if (mode === 'card') {
-        btnCard.className = 'btn btn-sm btn-primary is-active';
-        btnText.className = 'btn btn-sm btn-ghost text-slate-600';
-        visualContainer.classList.remove('hidden');
-        textContainer.classList.add('hidden');
+        if (btnCard) btnCard.className = 'btn btn-sm btn-primary is-active';
+        if (btnText) btnText.className = 'btn btn-sm btn-ghost text-slate-600';
+        if (visualContainer) visualContainer.classList.remove('hidden');
+        if (textContainer) textContainer.classList.add('hidden');
       } else {
-        btnText.className = 'btn btn-sm btn-primary is-active';
-        btnCard.className = 'btn btn-sm btn-ghost text-slate-600';
-        visualContainer.classList.add('hidden');
-        textContainer.classList.remove('hidden');
+        if (btnText) btnText.className = 'btn btn-sm btn-primary is-active';
+        if (btnCard) btnCard.className = 'btn btn-sm btn-ghost text-slate-600';
+        if (visualContainer) visualContainer.classList.add('hidden');
+        if (textContainer) textContainer.classList.remove('hidden');
       }
       lucide.createIcons();
     }
@@ -1461,24 +1463,27 @@
       const imgPath = q.image_url || (q.question_image ? `data/${q.question_image}` : '');
       document.getElementById('q-image').src = imgPath;
 
-      // Text View Warnings
+      // Text View Warnings (#text-mode-warning was removed in 7b22ff6 -- guard it)
       const textWarning = document.getElementById('text-mode-warning');
       if (q.text_complete === false) {
-        textWarning.classList.remove('hidden');
+        if (textWarning) textWarning.classList.remove('hidden');
         if (viewMode === 'text') setViewMode('card');
       } else {
-        textWarning.classList.add('hidden');
+        if (textWarning) textWarning.classList.add('hidden');
       }
 
-      // Text Body
-      document.getElementById('q-text-body').innerText = q.question_text || 'Stimulus formulas displayed in Visual Card view.';
+      // Text Body (#q-text-body was removed in 7b22ff6 -- guard it)
+      const textBody = document.getElementById('q-text-body');
+      if (textBody) textBody.innerText = q.question_text || 'Stimulus formulas displayed in Visual Card view.';
 
-      // Mismatch Notice
+      // Mismatch Notice (#mismatch-notice was removed in 7b22ff6 -- guard it)
       const mismatchNotice = document.getElementById('mismatch-notice');
-      if (q.rationale_letter_mismatch) {
-        mismatchNotice.classList.remove('hidden');
-      } else {
-        mismatchNotice.classList.add('hidden');
+      if (mismatchNotice) {
+        if (q.rationale_letter_mismatch) {
+          mismatchNotice.classList.remove('hidden');
+        } else {
+          mismatchNotice.classList.add('hidden');
+        }
       }
 
       // Options vs Free Response
@@ -1786,8 +1791,12 @@
       });
 
       const acc = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-      document.getElementById('hdr-attempted').innerText = `${attempted}/${total}`;
-      document.getElementById('hdr-accuracy').innerText = `${acc}%`;
+      // #hdr-attempted / #hdr-accuracy were removed from the header in 7b22ff6 --
+      // guard them so this never aborts renderAnalytics() or saveProgress().
+      const hdrAttempted = document.getElementById('hdr-attempted');
+      if (hdrAttempted) hdrAttempted.innerText = `${attempted}/${total}`;
+      const hdrAccuracy = document.getElementById('hdr-accuracy');
+      if (hdrAccuracy) hdrAccuracy.innerText = `${acc}%`;
 
       document.getElementById('stat-attempted').innerText = `${attempted} / ${total}`;
       document.getElementById('stat-accuracy').innerText = `${acc}%`;
@@ -2636,8 +2645,13 @@
       flushExamQuestionTime();
       currentExamReport = PSAT_ENGINE.scoreStandardExam(activeExam, examUserAnswers, examUserTimes);
       
-      currentExamReport.examTitle = activeExam.title || 'Standard PSAT 8/9 Exam';
-      currentExamReport.examType = activeExam.type || 'standard_psat89';
+      // PSAT_ENGINE.toLeanReport() persists `title`/`type` -- writing
+      // `examTitle`/`examType` here stored every exam-history entry with
+      // title: undefined, type: undefined (so parent.html/index.html both
+      // fell back to the generic "Practice Exam" label and never recognised
+      // a standard exam). Field names must match the engine's contract.
+      currentExamReport.title = activeExam.title || 'Standard PSAT 8/9 Exam';
+      currentExamReport.type = activeExam.type || 'standard_psat89';
       currentExamReport.formattedDate = new Date(currentExamReport.completedAt).toLocaleString();
 
       // Automatically persist all answered questions to practice progress & SRS

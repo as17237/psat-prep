@@ -4,21 +4,15 @@
  * constants; with seedEmpty, no non-zero stat should appear anywhere
  * (CLAUDE.md mode 1).
  *
- * IMPORTANT CAVEAT (see known-defects.spec.js defect #2): renderAnalytics()
- * calls the broken updateHeaderStats() as its first statement, which throws
- * on the missing '#hdr-attempted' element and aborts the rest of
- * renderAnalytics() -- so NONE of #stat-attempted/#stat-accuracy/
- * #stat-flagged/#stat-weakness are ever updated by JS today, regardless of
- * profile data. That means:
- *   - the "real numbers from the fixture profile" assertion is genuinely
- *     unreachable today and is marked test.fail() (see known-defects.spec.js
- *     defect #2 for the direct pin on this crash).
- *   - the "no non-zero stat on an empty profile" assertion below still
- *     passes, but for two overlapping reasons: seedEmpty() legitimately has
- *     zero attempts AND the crash means nothing is ever re-rendered either
- *     way. This test cannot, by itself, distinguish "correctly rendered
- *     zero" from "never rendered at all" -- known-defects.spec.js is the
- *     spec that actually proves which one it is.
+ * HISTORY (WI-08 -> WI-08.5): renderAnalytics() used to call the broken
+ * updateHeaderStats() as its first statement, which threw on the missing
+ * '#hdr-attempted' element and aborted the whole render, so no stat was
+ * ever updated regardless of profile data. WI-08.5 null-guarded the two
+ * dangling header reads. Both tests below are now plain must-pass
+ * assertions, and the empty-state one now passes for the RIGHT reason --
+ * known-defects.spec.js asserts that renderAnalytics() actually runs and
+ * writes the fixture numbers, so "rendered zero" is distinguishable from
+ * "never rendered".
  */
 const { test, expect, seedEmpty, seedFixtureProfile, FIXTURE, findNonZeroDigits } = require('./fixtures');
 
@@ -29,17 +23,29 @@ test.describe('student analytics tab', () => {
     await page.click('#tab-analytics', { force: true });
     await page.waitForTimeout(200);
 
+    // Prove renderAnalytics() actually RAN before trusting its zeros: these
+    // three strings exist nowhere in the static HTML template (the lists are
+    // empty <div>s there) and are written only by renderAnalytics(). Without
+    // this, "correctly rendered zero" is indistinguishable from "crashed
+    // before rendering anything" -- which is exactly what WI-08 found.
+    await expect(page.locator('#strengths-list')).toContainText('No mastered skills yet');
+    await expect(page.locator('#weaknesses-list')).toContainText('No weak areas identified yet');
+    await expect(page.locator('#inprogress-list')).toContainText('No skills currently in progress');
+
+    // CLAUDE.md mode 1: with localStorage cleared, no non-zero number may appear.
     const offenders = await findNonZeroDigits(
       page,
       '#stat-attempted, #stat-accuracy, #stat-weakness, #stat-flagged, #hdr-attempted, #hdr-accuracy',
       ['3,059', '3059'] // the real, static total question-bank count is not a "student stat"
     );
     expect(offenders).toEqual([]);
+    await expect(page.locator('#stat-attempted')).toHaveText('0 / 3059');
+    await expect(page.locator('#stat-accuracy')).toHaveText('0%');
+    await expect(page.locator('#stat-flagged')).toHaveText('0');
+    await expect(page.locator('#stat-weakness')).toHaveText('None yet');
   });
 
   test('fixture profile: analytics reflect the hand-computed 70% / 20-attempt numbers', async ({ page }) => {
-    test.fail(true, 'blocked by known-defects.spec.js defect #2 (updateHeaderStats crash on #hdr-attempted aborts renderAnalytics before any stat updates)');
-
     await page.goto('/index.html');
     await seedFixtureProfile(page);
     await page.click('#tab-analytics', { force: true });

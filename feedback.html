@@ -203,6 +203,22 @@
       renderFeedbackList();
     });
 
+    // Single place that owns #form-msg styling, so a failure can never be
+    // rendered in the success colour (CLAUDE.md mode 5).
+    const FORM_MSG_CLASSES = {
+      pending: 'text-xs font-semibold text-slate-500',
+      success: 'text-xs font-semibold text-emerald-600',
+      error: 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1.5 mr-3'
+    };
+
+    function setFormMsg(text, kind) {
+      const msg = document.getElementById('form-msg');
+      if (!msg) return;
+      msg.className = FORM_MSG_CLASSES[kind] || FORM_MSG_CLASSES.pending;
+      msg.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      msg.innerText = text;
+    }
+
     function handleFeedbackSubmit(e) {
       e.preventDefault();
       const entry = {
@@ -220,8 +236,7 @@
       localStorage.setItem('psat_uat_feedback', JSON.stringify(feedbackEntries));
 
       document.getElementById('feedback-form').reset();
-      const msg = document.getElementById('form-msg');
-      msg.innerText = '⏳ Syncing feedback to Cosmos DB...';
+      setFormMsg('⏳ Syncing feedback to Cosmos DB...', 'pending');
 
       // Push to Azure Cosmos DB UATFeedback container
       fetch('https://psat-api-4915.azurewebsites.net/api/feedback', {
@@ -230,15 +245,16 @@
         body: JSON.stringify(entry)
       }).then(res => {
         if (res.ok) {
-          msg.innerText = '✓ Feedback entry logged & synced to Cosmos DB successfully!';
+          setFormMsg('✓ Feedback entry logged & synced to Cosmos DB successfully!', 'success');
+          setTimeout(() => { setFormMsg('', 'pending'); }, 3500);
         } else {
-          msg.innerText = '✓ Feedback saved locally (Cosmos DB offline)';
+          // A real server rejection must never look like a success (CLAUDE.md mode 5).
+          console.error('Cosmos feedback sync rejected with HTTP', res.status);
+          setFormMsg(`⚠ NOT synced — the server rejected this report (HTTP ${res.status}). Your entry is saved on this device and listed in the table below; please submit it again later, or send the Markdown export instead.`, 'error');
         }
-        setTimeout(() => { msg.innerText = ''; }, 3500);
       }).catch(err => {
-        console.warn('Cosmos feedback sync error:', err);
-        msg.innerText = '✓ Feedback saved locally (Cosmos DB offline)';
-        setTimeout(() => { msg.innerText = ''; }, 3500);
+        console.error('Cosmos feedback sync error:', err);
+        setFormMsg('⚠ NOT synced — could not reach the feedback server (you may be offline). Your entry is saved on this device and listed in the table below; please submit it again once you are back online, or send the Markdown export instead.', 'error');
       });
 
       renderFeedbackList();

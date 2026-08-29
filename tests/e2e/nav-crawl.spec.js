@@ -4,20 +4,17 @@
  * for any resource on the destination page) and no unexpected uncaught
  * page errors.
  *
- * ALLOWLIST (documented, per the WI-08 brief's "allowlist known benign ones
- * only if unavoidable, documented"): the three real, pre-existing defects
- * pinned in known-defects.spec.js fire on ordinary page loads/interactions
- * of index.html and parent.html regardless of navigation, so they are
- * allowlisted here by exact message pattern -- anything else is a real
- * failure. See known-defects.spec.js for the root-cause detail on each.
+ * ALLOWLIST: EMPTY. WI-08 had to allowlist three real, pre-existing page
+ * errors here (loadQuestion's null '#text-mode-warning', updateHeaderStats's
+ * null '#hdr-attempted', and parent.html's `attemptedCount is not defined`).
+ * WI-08.5 fixed all three -- plus a fourth, `initCustomDomainSkills is not
+ * defined`, that the third one was masking -- so every page must now load
+ * with ZERO uncaught page errors. Do not re-add entries here to make a
+ * failing crawl green: an entry in this list is a shipped crash.
  */
 const { test, expect, seedEmpty } = require('./fixtures');
 
-const ALLOWED_PAGE_ERRORS = [
-  /Cannot read properties of null \(reading 'classList'\)/, // known-defects #1
-  /Cannot set properties of null \(setting 'innerText'\)/, // known-defects #2 / #2b
-  /attemptedCount is not defined/, // known-defects #3
-];
+const ALLOWED_PAGE_ERRORS = [];
 
 function isAllowedError(message) {
   return ALLOWED_PAGE_ERRORS.some((re) => re.test(message));

@@ -9,12 +9,12 @@
  * Subject=All / Difficulty=All / Status=due, the filtered pool must be
  * exactly those 4 questions, in bundle order.
  *
- * The "grading path works" assertion is marked test.fail() for the same
- * reason as practice-flow.spec.js: index.html loadQuestion() throws on the
- * missing #text-mode-warning element before it ever renders the option
- * buttons a grade click would need (see known-defects.spec.js defect #1).
- * This applies here too because the "due" filter still routes through
- * loadQuestion().
+ * HISTORY: the "grading path works" assertion was marked test.fail() during
+ * WI-08 for the same reason as practice-flow.spec.js -- index.html
+ * loadQuestion() threw on the missing #text-mode-warning element before it
+ * ever rendered the option buttons a grade click needs, and the "due"
+ * filter routes through loadQuestion() too. WI-08.5 fixed that; it is now a
+ * plain must-pass regression assertion.
  */
 const { test, expect, seedFixtureProfile, QUESTIONS } = require('./fixtures');
 
@@ -44,14 +44,12 @@ test.describe('SRS review queue', () => {
       seen.push(await page.locator('#q-id-badge').innerText());
     }
     expect(seen).toEqual(EXPECTED_ORDER.map((id) => `ID: ${id}`));
-    // NOTE: we do not assert #btn-next becomes disabled on the last due
-    // question -- that line runs after the known-defects.spec.js defect #1
-    // crash point in loadQuestion(), so it never executes today.
+    // NOTE: we still do not assert #btn-next becomes disabled on the last
+    // due question -- that behaviour is out of this spec's scope; the queue
+    // contents are what it verifies.
   });
 
   test('grading a due card from the queue', async ({ page }) => {
-    test.fail(true, 'blocked by known-defects.spec.js defect #1 (index.html loadQuestion crash on #text-mode-warning)');
-
     await page.selectOption('#filter-status', 'due');
     await expect(page.locator('#q-index-badge')).toHaveText('Q1 of 4');
 

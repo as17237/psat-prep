@@ -4,15 +4,14 @@
  * a message still appears (CLAUDE.md mode 5 checks that a failure is never
  * silently swallowed with no visible signal at all).
  *
- * NOTE on the 500 case: the current app's handleFeedbackSubmit() catches
- * both the !res.ok and network-error cases and shows the exact same text
- * ("Feedback saved locally (Cosmos DB offline)") it would show on a genuine
- * offline/no-network condition, styled with the SAME static emerald/success
- * class as the real success message (#form-msg's class is never changed).
- * There is no visually distinguishable "error" state for a real server
- * failure (as opposed to being offline) -- entered here as the honest,
- * verified current behavior; see known-defects.spec.js defect #4 for the
- * pinned assertion that this is unchanged.
+ * NOTE on the 500 case (WI-08 -> WI-08.5): handleFeedbackSubmit() used to
+ * render a server rejection with the exact same text and the same
+ * emerald/success class as a real success. WI-08.5 introduced a single
+ * setFormMsg(text, kind) owner for #form-msg with distinct pending /
+ * success / error styling, so a failure is now a red, non-auto-clearing,
+ * actionable message. The full styling assertions live in
+ * known-defects.spec.js; this spec keeps the coarser "never silently
+ * swallowed" check.
  */
 const { test, expect } = require('./fixtures');
 
@@ -45,10 +44,11 @@ test.describe('feedback form', () => {
     await page.click('#feedback-form button[type="submit"]', { force: true });
 
     // The entry is never lost -- it is always saved to localStorage first,
-    // before the network call -- and SOME message is always shown (never a
-    // silent, unindicated failure).
+    // before the network call -- and the failure is now REPORTED, not
+    // dressed up as a success (CLAUDE.md mode 5).
     await expect(page.locator('#form-msg')).not.toBeEmpty();
-    await expect(page.locator('#form-msg')).toContainText('saved locally');
+    await expect(page.locator('#form-msg')).toContainText('NOT synced');
+    await expect(page.locator('#form-msg')).not.toContainText('successfully');
     await expect(page.locator('#feedback-count')).toHaveText('1');
   });
 });

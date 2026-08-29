@@ -5,16 +5,14 @@
  * one incorrectly, then switch to Math and answer a known free-response
  * (SPR) question.
  *
- * NOTE: the interactive-answer assertions below are marked test.fail()
- * because of a real, pre-existing defect in the current app -- see
- * tests/e2e/known-defects.spec.js defect #1 (index.html loadQuestion()
- * throws on `#text-mode-warning`, which is missing from the template, and
- * that exception aborts option/rationale/feedback rendering before it
- * happens). The filter-navigation assertions (which DO work today, because
- * they run before the crash point) are left as normal, must-pass
- * assertions. When defect #1 is fixed, these test.fail() blocks will start
- * unexpectedly passing, which Playwright reports as a failure -- that is
- * the intended signal to remove the annotation and the known-defects pin.
+ * HISTORY: the interactive-answer assertions below were marked test.fail()
+ * during WI-08 because of a real, pre-existing defect -- index.html
+ * loadQuestion() threw on `#text-mode-warning` (deleted from the template
+ * by 7b22ff6) before it ever rendered options, free-response mode, the
+ * feedback banner or the rationale. WI-08.5 null-guarded that read (and the
+ * two other dangling reads in the same function), so these are now plain
+ * must-pass regression assertions: if the crash ever comes back, they go
+ * red directly rather than being pinned as "expected".
  */
 const { test, expect, seedEmpty, KNOWN_RW_QUESTION, KNOWN_MATH_FR_QUESTION, QUESTIONS } = require('./fixtures');
 
@@ -45,8 +43,6 @@ test.describe('student practice flow', () => {
   });
 
   test('answer correctly, see rationale, then answer the next one incorrectly', async ({ page }) => {
-    test.fail(true, 'blocked by known-defects.spec.js defect #1 (index.html loadQuestion crash on #text-mode-warning)');
-
     await page.selectOption('#filter-subject', 'Reading and Writing');
     await expect(page.locator('#q-id-badge')).toHaveText(`ID: ${KNOWN_RW_QUESTION.id}`);
 
@@ -72,8 +68,6 @@ test.describe('student practice flow', () => {
   });
 
   test('enter a free-response answer for a known SPR question', async ({ page }) => {
-    test.fail(true, 'blocked by known-defects.spec.js defect #1 (free-response-container never toggles visible)');
-
     await page.selectOption('#filter-subject', 'Math');
 
     await expect(page.locator('#q-id-badge')).toHaveText(`ID: ${KNOWN_MATH_FR_QUESTION.id}`);

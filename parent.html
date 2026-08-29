@@ -895,7 +895,11 @@
         if (banner) banner.classList.remove('hidden');
       }
       renderParentMetrics();
-      initCustomDomainSkills();
+      // initCustomDomainSkills() was deleted by 7b22ff6 along with the custom
+      // domain/skill picker UI, but its call site was left behind -- a
+      // ReferenceError that killed every call below it. The function has no
+      // surviving consumers, so the dangling call is removed rather than
+      // resurrected (WI-08.5).
       setGapCount(20);
       syncParentFromCloud(false);
       updateParentSyncStatusBadge();
@@ -1095,7 +1099,7 @@
           recDesc.innerText = 'The student has sub-75% accuracy in key skills. Launch a targeted gap drill to build mastery.';
           recCta.innerText = 'Launch Weakness Drill →';
           recCta.href = '#bview-gap';
-        } else if (attemptedCount < 50) {
+        } else if (totalAttempted < 50) {
           recTitle.innerText = 'Take a Quick Mini PSAT 8/9 Diagnostic';
           recDesc.innerText = 'Complete an 8-question timed simulation to calibrate the student\'s scaled score prediction.';
           recCta.innerText = 'Start Mini Exam →';

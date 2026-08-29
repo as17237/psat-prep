@@ -3,20 +3,17 @@
  * mid-exam (resume state persists via psat_active_exam_state), finish, and
  * the score report renders.
  *
- * Unlike the Practice tab, the Exam tab renders questions through
- * loadExamQuestion()/renderExamMcqOptions() -- a separate code path from
- * loadQuestion() that does not reference the missing '#text-mode-warning'
- * element (see known-defects.spec.js defect #1), so starting, answering,
- * reloading and resuming an exam all work today and are tested as normal,
- * must-pass assertions below.
+ * The Exam tab renders questions through loadExamQuestion()/
+ * renderExamMcqOptions() -- a separate code path from loadQuestion().
  *
- * Finishing the exam is a different story: finishExamAndShowReport() calls
- * saveProgress(), which unconditionally calls the SAME broken
- * updateHeaderStats() as the Analytics tab (missing '#hdr-attempted') --
- * see known-defects.spec.js defect #2b. That throws before the report ever
- * renders, before the exam is appended to psat_exam_history, and before the
- * in-progress exam state is cleared. The final "report renders" assertions
- * are marked test.fail() for that reason.
+ * HISTORY (WI-08 -> WI-08.5): finishing an exam used to be blocked --
+ * finishExamAndShowReport() calls saveProgress(), which called the broken
+ * updateHeaderStats() (missing '#hdr-attempted'), throwing before the
+ * report rendered, before the exam was appended to psat_exam_history and
+ * before the in-progress exam state was cleared. WI-08.5 null-guarded those
+ * reads, so the finish assertions below are now plain must-pass
+ * regressions. See known-defects.spec.js for the crashed-finish recovery
+ * case (a held psat_active_exam_state resumed and finished cleanly).
  */
 const { test, expect, seedEmpty } = require('./fixtures');
 
@@ -86,8 +83,6 @@ test.describe('exam flow (mini exam)', () => {
   });
 
   test('finishing the exam shows the score report and records history', async ({ page }) => {
-    test.fail(true, 'blocked by known-defects.spec.js defect #2b (saveProgress -> updateHeaderStats crash on #hdr-attempted aborts finishExamAndShowReport before the report renders)');
-
     await page.click('#tab-exam', { force: true });
     await page.click('button:has-text("Start Mini Exam")', { force: true });
 
