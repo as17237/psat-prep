@@ -175,7 +175,9 @@ app.http('sync', {
           }
         }
 
-        return { status: 200, jsonBody: { success: true, updatedAt: now } };
+        const ackOpIds = Array.isArray(body.outboxOps) ? body.outboxOps.map(op => op.id).filter(Boolean) : [];
+
+        return { status: 200, jsonBody: { success: true, updatedAt: now, ackOpIds: ackOpIds } };
       } catch (err) {
         context.error('Error writing to Cosmos DB:', err);
         return { status: 500, jsonBody: { error: err.message } };

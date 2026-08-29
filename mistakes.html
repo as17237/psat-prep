@@ -252,22 +252,26 @@
       if (!APP_ENV.isBeta) return;
       if (!confirm('Reset Beta Sandbox data to fresh state?')) return;
       
-      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
-        const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
-        if (!snap || !snap.success) {
-          alert('❌ Reset Cancelled: Could not create pre-reset safety snapshot (' + ((snap && snap.error) || 'Storage error') + '). Beta sandbox data has not been modified.');
-          return;
-        }
-      }
+      const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
+        PSAT_ENGINE.runTransactionalAction(localStorage, 'reset_beta_sandbox', function(ctx) {
+          localStorage.removeItem('beta_psat_progress');
+          localStorage.removeItem('beta_psat_srs');
+          localStorage.removeItem('beta_psat_sessions');
+          localStorage.removeItem('beta_psat_exam_history');
+          localStorage.removeItem('beta_psat_sample_data_active');
+          localStorage.removeItem('beta_psat_pre_sample_backup');
+          localStorage.removeItem('beta_psat_pending_sync_count');
+          localStorage.removeItem('beta_psat_last_cloud_sync_time');
+          localStorage.removeItem('beta_psat_sync_outbox');
+          localStorage.removeItem('beta_psat_active_exam_state');
+          return { success: true };
+        }, window.location) :
+        { success: false, error: 'Engine unavailable' };
 
-      localStorage.removeItem('beta_psat_progress');
-      localStorage.removeItem('beta_psat_srs');
-      localStorage.removeItem('beta_psat_sessions');
-      localStorage.removeItem('beta_psat_exam_history');
-      localStorage.removeItem('beta_psat_sample_data_active');
-      localStorage.removeItem('beta_psat_pre_sample_backup');
-      localStorage.removeItem('beta_psat_pending_sync_count');
-      localStorage.removeItem('beta_psat_last_cloud_sync_time');
+      if (!result.success) {
+        alert('❌ Reset Cancelled: Could not create pre-reset safety snapshot (' + (result.error || 'Storage error') + '). Beta sandbox data has not been modified.');
+        return;
+      }
 
       alert('✓ Beta Sandbox reset to clean state! Reloading...');
       location.reload();
@@ -276,7 +280,9 @@
     function updateMistakesSyncBadge() {
       const txt = document.getElementById('mistakes-sync-status-text');
       if (!txt) return;
-      const pending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const outboxOps = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getOutboxOps) ? PSAT_ENGINE.getOutboxOps(localStorage, window.location) : [];
+      const pendingLegacy = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const pending = Math.max(outboxOps.length, pendingLegacy);
       const lastSync = localStorage.getItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time');
 
       let timeAgoStr = '';

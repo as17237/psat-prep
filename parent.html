@@ -783,22 +783,26 @@
       if (!APP_ENV.isBeta) return;
       if (!confirm('Reset Beta Sandbox data to fresh state?')) return;
       
-      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
-        const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_beta_reset');
-        if (!snap || !snap.success) {
-          alert('❌ Reset Cancelled: Could not create pre-reset safety snapshot (' + ((snap && snap.error) || 'Storage error') + '). Beta sandbox data has not been modified.');
-          return;
-        }
-      }
+      const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
+        PSAT_ENGINE.runTransactionalAction(localStorage, 'reset_beta_sandbox', function(ctx) {
+          localStorage.removeItem('beta_psat_progress');
+          localStorage.removeItem('beta_psat_srs');
+          localStorage.removeItem('beta_psat_sessions');
+          localStorage.removeItem('beta_psat_exam_history');
+          localStorage.removeItem('beta_psat_sample_data_active');
+          localStorage.removeItem('beta_psat_pre_sample_backup');
+          localStorage.removeItem('beta_psat_pending_sync_count');
+          localStorage.removeItem('beta_psat_last_cloud_sync_time');
+          localStorage.removeItem('beta_psat_sync_outbox');
+          localStorage.removeItem('beta_psat_active_exam_state');
+          return { success: true };
+        }, window.location) :
+        { success: false, error: 'Engine unavailable' };
 
-      localStorage.removeItem('beta_psat_progress');
-      localStorage.removeItem('beta_psat_srs');
-      localStorage.removeItem('beta_psat_sessions');
-      localStorage.removeItem('beta_psat_exam_history');
-      localStorage.removeItem('beta_psat_sample_data_active');
-      localStorage.removeItem('beta_psat_pre_sample_backup');
-      localStorage.removeItem('beta_psat_pending_sync_count');
-      localStorage.removeItem('beta_psat_last_cloud_sync_time');
+      if (!result.success) {
+        alert('❌ Reset Cancelled: Could not create pre-reset safety snapshot (' + (result.error || 'Storage error') + '). Beta sandbox data has not been modified.');
+        return;
+      }
 
       alert('✓ Beta Sandbox reset to clean state! Reloading...');
       location.reload();
@@ -807,7 +811,9 @@
     function updateParentSyncStatusBadge() {
       const textEl = document.getElementById('cloud-sync-status-text');
       if (!textEl) return;
-      const pending = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const outboxOps = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getOutboxOps) ? PSAT_ENGINE.getOutboxOps(localStorage, window.location) : [];
+      const pendingLegacy = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10);
+      const pending = Math.max(outboxOps.length, pendingLegacy);
       const lastSync = localStorage.getItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time');
 
       let timeAgoStr = '';
@@ -1939,22 +1945,35 @@
         const existingBackup = {
           progress: safeGetStorage('psat_progress', {}),
           srsState: safeGetStorage('psat_srs', {}),
-          sessionsState: safeGetStorage('psat_sessions', {}),
-          examHistory: safeGetStorage('psat_exam_history', [])
-        };
-        safeSetStorage('psat_pre_sample_backup', existingBackup);
-      }
-      localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
-
       const samplePayload = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.generateSampleDiagnosticPayload) ?
         PSAT_ENGINE.generateSampleDiagnosticPayload(questions, PSAT_ENGINE.localDateKey()) :
         null;
 
-      if (samplePayload) {
-        safeSetStorage('psat_progress', samplePayload.progress);
-        safeSetStorage('psat_srs', samplePayload.srsState);
-        safeSetStorage('psat_sessions', samplePayload.sessionsState);
-        safeSetStorage('psat_exam_history', samplePayload.examHistory);
+      if (!samplePayload) {
+        alert('Could not generate sample payload.');
+        return;
+      }
+
+      const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
+        PSAT_ENGINE.runTransactionalAction(localStorage, 'load_sample_data', function(ctx) {
+          if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.backupRealData) {
+            PSAT_ENGINE.backupRealData(localStorage, safeGetStorage, safeSetStorage, window.location);
+          }
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
+          const ok1 = safeSetStorage('psat_progress', samplePayload.progress);
+          const ok2 = safeSetStorage('psat_srs', samplePayload.srsState);
+          const ok3 = safeSetStorage('psat_sessions', samplePayload.sessionsState);
+          const ok4 = safeSetStorage('psat_exam_history', samplePayload.examHistory);
+          if (!ok1 || !ok2 || !ok3 || !ok4) {
+            return { success: false, error: 'Storage write failed while loading sample data' };
+          }
+          return { success: true };
+        }, window.location) :
+        { success: false, error: 'Engine unavailable' };
+
+      if (!result.success) {
+        alert('❌ Action Cancelled: ' + (result.error || 'Failed to safely load sample data') + '. Your real student records have not been modified.');
+        return;
       }
 
       location.reload();
@@ -1962,7 +1981,17 @@
 
     function restoreRealStudentData() {
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
-        PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
+        const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
+          PSAT_ENGINE.runTransactionalAction(localStorage, 'restore_real_data', function(ctx) {
+            const ok = PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage, window.location);
+            return { success: !!ok };
+          }, window.location) :
+          { success: false };
+
+        if (!result.success) {
+          alert('❌ Restore Cancelled: Could not create pre-restore snapshot. Your backup remains intact.');
+          return;
+        }
         location.reload();
       } else {
         alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
@@ -1988,25 +2017,28 @@
           totalAttempted: scoreData.totalAttempted,
           totalExamsCompleted: examHistory.length,
           estimatedScore: scoreData.isReady ? scoreData.totalScore : null,
-          rwScore: scoreData.rwScore,
-          mathScore: scoreData.mathScore,
-          streakDays: PSAT_ENGINE.calculateStreak(sessionsState),
-          isSampleData: (localStorage.getItem('psat_sample_data_active') === 'true')
+          readingWritingScore: scoreData.isReady ? scoreData.rwScore : null,
+          mathScore: scoreData.isReady ? scoreData.mathScore : null,
+          overallAccuracyPercent: scoreData.overallAccuracyPercent,
+          activeStreakDays: PSAT_ENGINE.calculateStreak(sessionsState),
+          srsCardsTracked: Object.keys(srsState).length,
+          isSampleData: (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.isDemoModeActive) ? PSAT_ENGINE.isDemoModeActive(localStorage, window.location) : false
         },
-        examHistoryLog: examHistory,
-        sessionsLog: sessionsState,
         questionAttempts: progress,
         spacedRepetitionCards: srsState,
-        uatFeedbackLogs: feedback
+        sessionsLog: sessionsState,
+        examHistoryLog: examHistory,
+        userFeedbackLog: feedback
       };
 
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(auditSnapshot, null, 2));
-      const a = document.createElement('a');
-      a.setAttribute("href", dataStr);
-      a.setAttribute("download", `psat_audit_trail_${Date.now()}.json`);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      const jsonStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(auditSnapshot, null, 2));
+      const downloadAnchor = document.createElement('a');
+      const filename = `PSAT_Audit_Trail_${new Date().toISOString().slice(0, 10)}.json`;
+      downloadAnchor.setAttribute('href', jsonStr);
+      downloadAnchor.setAttribute('download', filename);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
     }
 
     function importAuditTrail(event) {
@@ -2037,57 +2069,58 @@
             return;
           }
 
-          // 1. Mandatory Pre-Import Safety Snapshot
-          if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createClientSnapshot) {
-            const snap = PSAT_ENGINE.createClientSnapshot(localStorage, 'pre_file_import');
-            if (!snap.success) {
-              alert('❌ Import Cancelled: Could not create pre-import safety snapshot (' + snap.error + '). Your existing student data has not been modified.');
-              return;
-            }
-          }
-
           // 2. Interactive Merge vs Replace Prompt
           const isMerge = confirm(
             'Import Strategy Choice:\n\n' +
             '• Click "OK" to MERGE imported test records with current data (Safest — retains existing attempts).\n' +
             '• Click "Cancel" to REPLACE current student data entirely with this backup file.\n\n' +
-            '(A safety recovery snapshot has already been saved).'
+            '(A safety recovery snapshot will be created before applying changes).'
           );
 
-          if (isMerge && typeof PSAT_ENGINE !== 'undefined') {
-            const currProg = safeGetStorage('psat_progress', {});
-            const currSrs = safeGetStorage('psat_srs', {});
-            const currSess = safeGetStorage('psat_sessions', {});
-            const currHist = safeGetStorage('psat_exam_history', []);
+          const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
+            PSAT_ENGINE.runTransactionalAction(localStorage, isMerge ? 'merge_file_import' : 'replace_file_import', function(ctx) {
+              if (isMerge && typeof PSAT_ENGINE !== 'undefined') {
+                const currProg = safeGetStorage('psat_progress', {});
+                const currSrs = safeGetStorage('psat_srs', {});
+                const currSess = safeGetStorage('psat_sessions', {});
+                const currHist = safeGetStorage('psat_exam_history', []);
 
-            const mergedProg = PSAT_ENGINE.mergeProgress(impProgress, currProg);
-            const mergedSrs = PSAT_ENGINE.mergeSrsState(impSrs, currSrs);
-            const mergedSess = PSAT_ENGINE.mergeSessionsState(impSessions, currSess, mergedProg);
-            const mergedHist = PSAT_ENGINE.mergeExamHistory(impExams, currHist, 15);
+                const mergedProg = PSAT_ENGINE.mergeProgress(impProgress, currProg);
+                const mergedSrs = PSAT_ENGINE.mergeSrsState(impSrs, currSrs);
+                const mergedSess = PSAT_ENGINE.mergeSessionsState(impSessions, currSess, mergedProg);
+                const mergedHist = PSAT_ENGINE.mergeExamHistory(impExams, currHist, 15);
 
-            safeSetStorage('psat_progress', mergedProg);
-            safeSetStorage('psat_srs', mergedSrs);
-            safeSetStorage('psat_sessions', mergedSess);
-            safeSetStorage('psat_exam_history', mergedHist);
-            alert(`✓ Successfully MERGED imported data! (${Object.keys(mergedProg).length} total attempts active)`);
-          } else {
-            if (impProgress) safeSetStorage('psat_progress', impProgress);
-            if (impSrs) safeSetStorage('psat_srs', impSrs);
-            if (impSessions) safeSetStorage('psat_sessions', impSessions);
-            if (impExams) safeSetStorage('psat_exam_history', impExams);
-            alert('✓ Successfully REPLACED student data from backup file!');
-          }
+                const ok1 = safeSetStorage('psat_progress', mergedProg);
+                const ok2 = safeSetStorage('psat_srs', mergedSrs);
+                const ok3 = safeSetStorage('psat_sessions', mergedSess);
+                const ok4 = safeSetStorage('psat_exam_history', mergedHist);
+                if (!ok1 || !ok2 || !ok3 || !ok4) return { success: false, error: 'Storage write failed during merge' };
+              } else {
+                if (impProgress) safeSetStorage('psat_progress', impProgress);
+                if (impSrs) safeSetStorage('psat_srs', impSrs);
+                if (impSessions) safeSetStorage('psat_sessions', impSessions);
+                if (impExams) safeSetStorage('psat_exam_history', impExams);
+              }
 
-          if (data.summary && data.summary.isSampleData) {
-            localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
-          } else {
-            localStorage.removeItem(APP_ENV.storagePrefix + 'psat_sample_data_active');
+              if (data.summary && data.summary.isSampleData) {
+                localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
+              } else {
+                localStorage.removeItem(APP_ENV.storagePrefix + 'psat_sample_data_active');
+              }
+              return { success: true };
+            }, window.location) :
+            { success: false, error: 'Engine unavailable' };
+
+          if (!result.success) {
+            alert('❌ Import Cancelled: ' + (result.error || 'Failed to safely import file') + '. Your existing data has not been modified.');
+            return;
           }
 
           if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-            PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
+            PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName, window.location);
           }
 
+          alert(isMerge ? '✓ Successfully MERGED imported data!' : '✓ Successfully REPLACED student data from backup file!');
           location.reload();
         } catch (err) {
           alert('Failed to import audit file: ' + err.message);

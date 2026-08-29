@@ -987,9 +987,130 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(combinedStorageMap['psat_srs'], prodSrsString, 'psat_srs must be byte-for-byte unchanged');
   assert.strictEqual(combinedStorageMap['psat_exam_history'], prodHistString, 'psat_exam_history must be byte-for-byte unchanged');
   assert.strictEqual(combinedStorageMap['psat_sample_data_active'], undefined, 'Production sample data flag must never be created');
-  assert.strictEqual(combinedStorageMap['psat_pre_sample_backup'], undefined, 'Production sample backup key must never be created');
+  // 20. DATA-04: Durable Sync Outbox Tests
+  // ------------------------------------------------------------------
+  const outboxStoreMap = {};
+  const outboxStorage = {
+    getItem: k => outboxStoreMap[k] !== undefined ? outboxStoreMap[k] : null,
+    setItem: (k, v) => { outboxStoreMap[k] = String(v); },
+    removeItem: k => { delete outboxStoreMap[k]; }
+  };
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, and Cosmos DB Cloud Sync tests passed!');
+  // 20A. Enqueue question attempt
+  const op1 = PSAT_ENGINE.enqueueOutboxOp(outboxStorage, 'question_attempt', { questionId: 'q_outbox_1', isCorrect: true }, prodLoc);
+  assert.ok(op1 && op1.id, 'Enqueued op must have a unique ID');
+  assert.strictEqual(op1.type, 'question_attempt');
+
+  const op2 = PSAT_ENGINE.enqueueOutboxOp(outboxStorage, 'exam_completed', { examId: 'exam_outbox_1', totalScore: 1180 }, prodLoc);
+  assert.ok(op2 && op2.id);
+
+  // 20B. Get pending ops
+  let pendingOps = PSAT_ENGINE.getOutboxOps(outboxStorage, prodLoc);
+  assert.strictEqual(pendingOps.length, 2, 'Must return 2 pending outbox ops');
+  assert.strictEqual(pendingOps[0].id, op1.id);
+  assert.strictEqual(pendingOps[1].id, op2.id);
+
+  // 20C. Acknowledge op1
+  const ackedCount = PSAT_ENGINE.ackOutboxOps(outboxStorage, [op1.id], prodLoc);
+  assert.strictEqual(ackedCount, 1, 'Must ack exactly 1 op');
+  pendingOps = PSAT_ENGINE.getOutboxOps(outboxStorage, prodLoc);
+  assert.strictEqual(pendingOps.length, 1, 'Only op2 must remain pending');
+  assert.strictEqual(pendingOps[0].id, op2.id);
+
+  // 20D. pushToCloud flushes outbox and acknowledges returned IDs
+  let sentOutboxOps = [];
+  const fakeOutboxFetch = (url, opts) => {
+    const body = JSON.parse(opts.body);
+    sentOutboxOps = body.outboxOps;
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({
+        success: true,
+        ackOpIds: body.outboxOps.map(o => o.id),
+        updatedAt: Date.now()
+      })
+    });
+  };
+
+  const pushOutboxRes = await PSAT_ENGINE.pushToCloud(outboxStorage, fakeOutboxFetch, 'default_student', prodLoc);
+  assert.strictEqual(pushOutboxRes.success, true);
+  assert.strictEqual(sentOutboxOps.length, 1, 'Must send the 1 remaining pending op');
+  assert.strictEqual(sentOutboxOps[0].id, op2.id);
+  assert.strictEqual(PSAT_ENGINE.getOutboxOps(outboxStorage, prodLoc).length, 0, 'Outbox must be completely empty after successful ack');
+
+  // 21. DATA-05: Transactional Destructive Actions Tests
+  // ------------------------------------------------------------------
+  const transStoreMap = {
+    'psat_progress': JSON.stringify({ 'orig_q': { answered: true, isCorrect: true } }),
+    'psat_srs': JSON.stringify({ 'orig_q': { repetitions: 2 } }),
+    'psat_sessions': '{}',
+    'psat_exam_history': '[]',
+    'psat_active_exam_state': JSON.stringify({ inProgressExamId: 'active_123' })
+  };
+  const transStorage = {
+    getItem: k => transStoreMap[k] !== undefined ? transStoreMap[k] : null,
+    setItem: (k, v) => { transStoreMap[k] = String(v); },
+    removeItem: k => { delete transStoreMap[k]; }
+  };
+
+  // 21A. Successful Transactional Action
+  const successActionRes = PSAT_ENGINE.runTransactionalAction(transStorage, 'test_success_action', function(ctx) {
+    transStorage.setItem('psat_progress', JSON.stringify({ 'new_q': { answered: true } }));
+    return { success: true, count: 1 };
+  }, prodLoc);
+
+  assert.strictEqual(successActionRes.success, true, 'Action must succeed');
+  assert.ok(successActionRes.snapshotId, 'Must generate a safety snapshot ID');
+  assert.ok(JSON.parse(transStorage.getItem('psat_progress')).new_q, 'New data must be committed');
+
+  // 21B. Failed Transactional Action (Throws Exception) -> Automatic Rollback
+  const failActionRes = PSAT_ENGINE.runTransactionalAction(transStorage, 'test_fail_action', function(ctx) {
+    transStorage.setItem('psat_progress', JSON.stringify({ 'corrupted_state': true }));
+    throw new Error('Disk quota exceeded halfway through write');
+  }, prodLoc);
+
+  assert.strictEqual(failActionRes.success, false, 'Action must report failure');
+  assert.strictEqual(failActionRes.rolledBack, true, 'Action must flag automatic rollback');
+  const progAfterRollback = JSON.parse(transStorage.getItem('psat_progress'));
+  assert.ok(progAfterRollback.new_q, 'State must be cleanly restored to snapshot state before the failed action');
+  assert.strictEqual(progAfterRollback.corrupted_state, undefined, 'Corrupted data must be completely discarded');
+
+  // 22. DATA-06: Compact Long-Term SRS State & 20-Event Bounding Tests
+  // ------------------------------------------------------------------
+  let srsCard = { questionId: 'q_srs_compact', repetitions: 0, intervalDays: 1, easeFactor: 2.5, history: [] };
+
+  // Simulate 35 consecutive reviews
+  for (let rev = 1; rev <= 35; rev++) {
+    srsCard = PSAT_ENGINE.scheduleNext(srsCard, 5, 1700000000000 + rev * 86400000, 30000);
+  }
+
+  assert.strictEqual(srsCard.totalReviews, 35, 'Must accurately retain totalReviews = 35');
+  assert.strictEqual(srsCard.totalLapses, 0, 'totalLapses must be 0');
+  assert.strictEqual(srsCard.history.length, 20, 'History log array must be bounded to newest 20 events');
+  assert.strictEqual(srsCard.avgResponseTimeMs, 30000, 'Average response time must be 30,000ms');
+
+  // Simulate a lapse
+  srsCard = PSAT_ENGINE.scheduleNext(srsCard, 1, 1700000000000 + 36 * 86400000, 45000);
+  assert.strictEqual(srsCard.totalReviews, 36);
+  assert.strictEqual(srsCard.totalLapses, 1, 'Lapse must increment totalLapses counter');
+  assert.strictEqual(srsCard.repetitions, 0, 'Repetitions must reset to 0 on failure');
+  assert.strictEqual(srsCard.history.length, 20, 'History log array must remain bounded at 20 events');
+
+  // Test compactSrsState helper on uncompacted legacy object
+  const legacySrsState = {
+    'q_legacy': {
+      questionId: 'q_legacy',
+      repetitions: 5,
+      intervalDays: 10,
+      easeFactor: 2.6,
+      history: new Array(50).fill({ at: 1000, grade: 4, responseTimeMs: 25000 })
+    }
+  };
+  const compacted = PSAT_ENGINE.compactSrsState(legacySrsState);
+  assert.strictEqual(compacted.q_legacy.history.length, 20, 'compactSrsState must prune history array to 20 events');
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

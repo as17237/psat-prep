@@ -118,13 +118,16 @@
   /**
    * Schedules next review using SuperMemo SM-2 algorithm.
    */
-  function scheduleNext(existingCard, grade, nowMs) {
+  function scheduleNext(existingCard, grade, nowMs, responseTimeMs) {
     var now = typeof nowMs === 'number' ? nowMs : Date.now();
     var card = existingCard || {};
     var ef = typeof card.easeFactor === 'number' ? card.easeFactor : 2.5;
     var reps = typeof card.repetitions === 'number' ? card.repetitions : 0;
     var interval = typeof card.intervalDays === 'number' ? card.intervalDays : 1;
     var history = Array.isArray(card.history) ? card.history.slice() : [];
+    var totalReviews = (typeof card.totalReviews === 'number' ? card.totalReviews : (card.lastReviewedAt ? 1 : 0)) + 1;
+    var totalLapses = (typeof card.totalLapses === 'number' ? card.totalLapses : 0) + (grade < 3 ? 1 : 0);
+    var firstReviewedAt = card.firstReviewedAt || card.lastReviewedAt || now;
 
     // Calculate new Ease Factor: EF' = max(1.3, EF + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)))
     var q = Math.max(1, Math.min(5, grade));
@@ -153,16 +156,63 @@
 
     var dueAt = now + (newInterval * 86400000);
 
+    // Track review event in bounded history (capped to newest 20 events)
+    history.push({
+      reviewedAt: now,
+      grade: q,
+      intervalDays: newInterval,
+      responseTimeMs: typeof responseTimeMs === 'number' ? responseTimeMs : null
+    });
+    if (history.length > 20) {
+      history = history.slice(-20);
+    }
+
+    // Compute rolling average response time
+    var times = history.map(function(h) { return h.responseTimeMs; }).filter(function(t) { return typeof t === 'number' && t > 0; });
+    var avgResponseTimeMs = times.length > 0 ? Math.round(times.reduce(function(a, b) { return a + b; }, 0) / times.length) : (card.avgResponseTimeMs || null);
+
     return {
       questionId: card.questionId || '',
       repetitions: newReps,
       intervalDays: newInterval,
       easeFactor: Math.round(newEf * 100) / 100,
       lastReviewedAt: now,
+      firstReviewedAt: firstReviewedAt,
+      totalReviews: totalReviews,
+      totalLapses: totalLapses,
+      avgResponseTimeMs: avgResponseTimeMs,
       dueAt: dueAt,
       lastGrade: q,
       history: history
     };
+  }
+
+  /**
+   * Enforces compact state budget across long-term SRS cards (max 20 detailed events per card).
+   */
+  function compactSrsState(srsState) {
+    if (!srsState || typeof srsState !== 'object') return {};
+    var compacted = {};
+    Object.keys(srsState).forEach(function(qid) {
+      var card = srsState[qid];
+      if (!card) return;
+      var hist = Array.isArray(card.history) ? card.history.slice(-20) : [];
+      compacted[qid] = {
+        questionId: card.questionId || qid,
+        repetitions: typeof card.repetitions === 'number' ? card.repetitions : 0,
+        intervalDays: typeof card.intervalDays === 'number' ? card.intervalDays : 1,
+        easeFactor: typeof card.easeFactor === 'number' ? card.easeFactor : 2.5,
+        lastReviewedAt: card.lastReviewedAt || null,
+        firstReviewedAt: card.firstReviewedAt || card.lastReviewedAt || null,
+        totalReviews: typeof card.totalReviews === 'number' ? card.totalReviews : (card.lastReviewedAt ? 1 : 0),
+        totalLapses: typeof card.totalLapses === 'number' ? card.totalLapses : 0,
+        avgResponseTimeMs: typeof card.avgResponseTimeMs === 'number' ? card.avgResponseTimeMs : null,
+        dueAt: typeof card.dueAt === 'number' ? card.dueAt : null,
+        lastGrade: typeof card.lastGrade === 'number' ? card.lastGrade : null,
+        history: hist
+      };
+    });
+    return compacted;
   }
 
   /**
@@ -1519,7 +1569,7 @@
   }
 
   /**
-   * Merges SRS card states by choosing the newer review record per question.
+   * Merges SRS card states by choosing the newer review record per question while preserving cumulative counters.
    */
   function mergeSrsState(cloudSrs, localSrs) {
     var cloud = cloudSrs || {};
@@ -1535,11 +1585,46 @@
       if (c && l) {
         var cTime = (typeof c.lastReviewedAt === 'number') ? c.lastReviewedAt : (c.timestamp || 0);
         var lTime = (typeof l.lastReviewedAt === 'number') ? l.lastReviewedAt : (l.timestamp || 0);
-        merged[qid] = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
+        var chosen = (lTime >= cTime) ? Object.assign({}, l) : Object.assign({}, c);
+
+        // Preserve cumulative counters across sync
+        var cRev = typeof c.totalReviews === 'number' ? c.totalReviews : (c.lastReviewedAt ? 1 : 0);
+        var lRev = typeof l.totalReviews === 'number' ? l.totalReviews : (l.lastReviewedAt ? 1 : 0);
+        chosen.totalReviews = Math.max(cRev, lRev, chosen.totalReviews || 0);
+
+        var cLapses = typeof c.totalLapses === 'number' ? c.totalLapses : 0;
+        var lLapses = typeof l.totalLapses === 'number' ? l.totalLapses : 0;
+        chosen.totalLapses = Math.max(cLapses, lLapses, chosen.totalLapses || 0);
+
+        var cFirst = c.firstReviewedAt || c.lastReviewedAt || null;
+        var lFirst = l.firstReviewedAt || l.lastReviewedAt || null;
+        if (cFirst && lFirst) chosen.firstReviewedAt = Math.min(cFirst, lFirst);
+        else chosen.firstReviewedAt = cFirst || lFirst || chosen.lastReviewedAt || null;
+
+        // Merge and deduplicate review history array, capped at 20 newest events
+        var cHist = Array.isArray(c.history) ? c.history : [];
+        var lHist = Array.isArray(l.history) ? l.history : [];
+        var histMap = {};
+        cHist.concat(lHist).forEach(function(ev) {
+          if (ev && ev.reviewedAt) histMap[ev.reviewedAt] = ev;
+        });
+        var combinedHist = Object.keys(histMap).map(function(k) { return histMap[k]; }).sort(function(a, b) { return a.reviewedAt - b.reviewedAt; }).slice(-20);
+        chosen.history = combinedHist;
+
+        if (combinedHist.length > 0) {
+          var times = combinedHist.map(function(h) { return h.responseTimeMs; }).filter(function(t) { return typeof t === 'number' && t > 0; });
+          if (times.length > 0) {
+            chosen.avgResponseTimeMs = Math.round(times.reduce(function(a, b) { return a + b; }, 0) / times.length);
+          }
+        }
+
+        merged[qid] = chosen;
       } else if (c) {
         merged[qid] = Object.assign({}, c);
+        if (Array.isArray(c.history) && c.history.length > 20) merged[qid].history = c.history.slice(-20);
       } else if (l) {
         merged[qid] = Object.assign({}, l);
+        if (Array.isArray(l.history) && l.history.length > 20) merged[qid].history = l.history.slice(-20);
       }
     });
 
@@ -1590,6 +1675,84 @@
   }
 
   /**
+   * Enqueues an immutable operation to the local durable sync outbox.
+   */
+  function enqueueOutboxOp(store, opType, payload, loc) {
+    if (!store) return null;
+    var env = getEnvironmentConfig(loc);
+    var outboxKey = env.storagePrefix + 'psat_sync_outbox';
+    var op = {
+      id: 'op_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+      type: opType || 'question_attempt',
+      timestamp: Date.now(),
+      payload: payload || {}
+    };
+    try {
+      var raw = store.getItem(outboxKey);
+      var queue = raw ? JSON.parse(raw) : [];
+      queue.push(op);
+      // Cap outbox to 500 ops maximum to prevent quota issues during long offline periods
+      if (queue.length > 500) {
+        queue = queue.slice(-500);
+      }
+      store.setItem(outboxKey, JSON.stringify(queue));
+      return op;
+    } catch (e) {
+      console.warn('Failed to enqueue outbox op:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Retrieves all pending outbox operations.
+   */
+  function getOutboxOps(store, loc) {
+    if (!store) return [];
+    var env = getEnvironmentConfig(loc);
+    var outboxKey = env.storagePrefix + 'psat_sync_outbox';
+    try {
+      var raw = store.getItem(outboxKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * Acknowledges and removes confirmed operations from the outbox.
+   */
+  function ackOutboxOps(store, ackOpIds, loc) {
+    if (!store || !Array.isArray(ackOpIds) || ackOpIds.length === 0) return 0;
+    var env = getEnvironmentConfig(loc);
+    var outboxKey = env.storagePrefix + 'psat_sync_outbox';
+    try {
+      var raw = store.getItem(outboxKey);
+      if (!raw) return 0;
+      var queue = JSON.parse(raw);
+      var ackSet = {};
+      ackOpIds.forEach(function(id) { ackSet[id] = true; });
+      var initialLen = queue.length;
+      var filtered = queue.filter(function(op) { return !ackSet[op.id]; });
+      store.setItem(outboxKey, JSON.stringify(filtered));
+      return initialLen - filtered.length;
+    } catch (e) {
+      console.warn('Failed to ack outbox ops:', e);
+      return 0;
+    }
+  }
+
+  /**
+   * Clears the outbox queue.
+   */
+  function clearOutbox(store, loc) {
+    if (!store) return;
+    var env = getEnvironmentConfig(loc);
+    try {
+      store.removeItem(env.storagePrefix + 'psat_sync_outbox');
+    } catch (e) {}
+  }
+
+  /**
    * Creates a durable pre-action client snapshot in localStorage before critical state changes.
    * Capped to the last 5 snapshots to avoid storage bloat.
    */
@@ -1601,6 +1764,8 @@
     var sKey = prefix + 'psat_srs';
     var sessKey = prefix + 'psat_sessions';
     var hKey = prefix + 'psat_exam_history';
+    var actKey = prefix + 'psat_active_exam_state';
+    var outKey = prefix + 'psat_sync_outbox';
 
     var snapId = 'snap_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     var snapshot = {
@@ -1612,7 +1777,9 @@
         progress: JSON.parse((store.getItem ? store.getItem(pKey) : null) || '{}'),
         srs: JSON.parse((store.getItem ? store.getItem(sKey) : null) || '{}'),
         sessions: JSON.parse((store.getItem ? store.getItem(sessKey) : null) || '{}'),
-        examHistory: JSON.parse((store.getItem ? store.getItem(hKey) : null) || '[]')
+        examHistory: JSON.parse((store.getItem ? store.getItem(hKey) : null) || '[]'),
+        activeExamState: JSON.parse((store.getItem ? store.getItem(actKey) : null) || 'null'),
+        outbox: JSON.parse((store.getItem ? store.getItem(outKey) : null) || '[]')
       }
     };
 
@@ -1677,6 +1844,14 @@
       store.setItem(prefix + 'psat_srs', JSON.stringify(snap.data.srs || {}));
       store.setItem(prefix + 'psat_sessions', JSON.stringify(snap.data.sessions || {}));
       store.setItem(prefix + 'psat_exam_history', JSON.stringify(snap.data.examHistory || []));
+      if (snap.data.activeExamState !== undefined && snap.data.activeExamState !== null) {
+        store.setItem(prefix + 'psat_active_exam_state', JSON.stringify(snap.data.activeExamState));
+      } else {
+        try { store.removeItem(prefix + 'psat_active_exam_state'); } catch (e) {}
+      }
+      if (Array.isArray(snap.data.outbox)) {
+        store.setItem(prefix + 'psat_sync_outbox', JSON.stringify(snap.data.outbox));
+      }
       return { success: true, timestamp: snap.timestamp, reason: snap.reason };
     } catch (e) {
       return { success: false, error: e.message };
@@ -1684,7 +1859,63 @@
   }
 
   /**
-   * Pushes progress and exam history to Cosmos DB cloud API.
+   * Executes a destructive action with automated pre-action safety snapshotting and transactional rollback.
+   * If snapshot creation fails, aborts immediately.
+   * If mutationFn throws or returns { success: false }, automatically rolls back all storage keys to initial snapshot state.
+   */
+  function runTransactionalAction(store, actionName, mutationFn, loc) {
+    if (!store || typeof mutationFn !== 'function') {
+      return { success: false, error: 'Invalid parameters for transactional action' };
+    }
+    var env = getEnvironmentConfig(loc);
+    
+    // 1. Mandatory Pre-Action Snapshot
+    var snap = createClientSnapshot(store, actionName || 'transactional_action', loc);
+    if (!snap || !snap.success) {
+      return {
+        success: false,
+        error: 'Pre-action safety snapshot creation failed: ' + ((snap && snap.error) || 'Storage error'),
+        aborted: true
+      };
+    }
+
+    try {
+      var result = mutationFn({
+        snapshotId: snap.snapshotId,
+        storagePrefix: env.storagePrefix
+      });
+
+      // If mutationFn returned an explicit failure object, roll back
+      if (result && result.success === false) {
+        restoreClientSnapshot(store, snap.snapshotId, loc);
+        return {
+          success: false,
+          error: result.error || 'Action failed during execution; rolled back to snapshot',
+          rolledBack: true,
+          snapshotId: snap.snapshotId
+        };
+      }
+
+      return {
+        success: true,
+        snapshotId: snap.snapshotId,
+        result: result
+      };
+    } catch (err) {
+      // Automatic rollback on exception / quota error
+      console.error('Transactional action failed, rolling back to snapshot ' + snap.snapshotId + ':', err);
+      restoreClientSnapshot(store, snap.snapshotId, loc);
+      return {
+        success: false,
+        error: err.message || 'Exception during execution; rolled back to snapshot',
+        rolledBack: true,
+        snapshotId: snap.snapshotId
+      };
+    }
+  }
+
+  /**
+   * Pushes progress, exam history, and pending outbox operations to Cosmos DB cloud API.
    */
   function pushToCloud(store, customFetch, studentName, loc) {
     var env = getEnvironmentConfig(loc);
@@ -1698,6 +1929,7 @@
     var srs = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_srs') : null) || '{}');
     var sessions = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_sessions') : null) || '{}');
     var history = JSON.parse((store && store.getItem ? store.getItem(prefix + 'psat_exam_history') : null) || '[]');
+    var outbox = getOutboxOps(store, loc);
 
     var payload = {
       student_name: sName,
@@ -1705,6 +1937,7 @@
       srsState: srs,
       sessionsState: sessions,
       examHistory: history,
+      outboxOps: outbox,
       clientTimestamp: new Date().toISOString()
     };
 
@@ -1720,7 +1953,13 @@
         if (!result || !result.success || result.error) {
           return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
         }
-        return { success: true, updatedAt: result.updatedAt };
+        // Acknowledge synced outbox ops
+        if (Array.isArray(result.ackOpIds) && result.ackOpIds.length > 0) {
+          ackOutboxOps(store, result.ackOpIds, loc);
+        } else if (outbox.length > 0) {
+          ackOutboxOps(store, outbox.map(function(o) { return o.id; }), loc);
+        }
+        return { success: true, updatedAt: result.updatedAt, ackCount: outbox.length };
       });
     }).catch(function(err) {
       return { success: false, error: err.message };
@@ -1867,6 +2106,12 @@
     createClientSnapshot: createClientSnapshot,
     listClientSnapshots: listClientSnapshots,
     restoreClientSnapshot: restoreClientSnapshot,
+    runTransactionalAction: runTransactionalAction,
+    enqueueOutboxOp: enqueueOutboxOp,
+    getOutboxOps: getOutboxOps,
+    ackOutboxOps: ackOutboxOps,
+    clearOutbox: clearOutbox,
+    compactSrsState: compactSrsState,
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
     pushToCloud: pushToCloud,
