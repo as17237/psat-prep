@@ -853,6 +853,76 @@
 
 
   /**
+   * WI-11 — the ONE builder for a stored per-question progress entry.
+   *
+   * This record shape existed twice inside js/pages/student.js: once in
+   * recordAttempt() for practice, once in the exam-submission handler. The two
+   * copies had diverged — the exam copy omitted `errorTag` and
+   * `historicalErrorTags` entirely, so answering a tagged question inside an exam
+   * silently DELETED the error tag the student had set on it. That is CLAUDE.md
+   * mode 2 ("a rule applied in one place but not its twin") with real data loss
+   * attached, so the shape now lives here and both call sites use it.
+   *
+   * PURE and clock-free: the caller passes `at`, so a test and a simulation can
+   * drive it deterministically (CLAUDE.md mode 4 — no monkeypatched clocks).
+   *
+   * @param {Object|null|undefined} prevEntry the stored entry for this question, if any
+   * @param {{selectedAnswer:*, isCorrect:boolean, timeSpentMs:(number|null),
+   *          timingReliable:boolean, at:number, source:string}} attempt
+   * @returns {Object} the new entry; `prevEntry` is not mutated
+   */
+  function buildProgressEntry(prevEntry, attempt) {
+    var prev = prevEntry || {};
+    var a = attempt || {};
+    var at = typeof a.at === 'number' ? a.at : Date.now();
+
+    var prevSeen = prev.timesSeen || (prev.answered ? 1 : 0);
+    var prevCorrect = prev.timesCorrect || (prev.answered && prev.isCorrect ? 1 : 0);
+    var prevIncorrect = prev.timesIncorrect || (prev.answered && !prev.isCorrect ? 1 : 0);
+
+    var newSeen = prevSeen + 1;
+    var newCorrect = prevCorrect + (a.isCorrect ? 1 : 0);
+    var newIncorrect = prevIncorrect + (a.isCorrect ? 0 : 1);
+
+    var attempts = Array.isArray(prev.attempts) ? prev.attempts.slice() : [];
+    attempts.push({
+      at: at,
+      selectedAnswer: a.selectedAnswer,
+      isCorrect: !!a.isCorrect,
+      timeSpentMs: (typeof a.timeSpentMs === 'number') ? a.timeSpentMs : null,
+      source: a.source || 'practice'
+    });
+
+    // An error tag the student set on a miss is resolved — moved into the history
+    // list — the first time they get the question right, from EITHER path.
+    var prevErrorTag = prev.errorTag || null;
+    var historicalErrorTags = Array.isArray(prev.historicalErrorTags) ? prev.historicalErrorTags.slice() : [];
+    if (prevErrorTag && a.isCorrect && !historicalErrorTags.some(function (h) { return h && h.tag === prevErrorTag; })) {
+      historicalErrorTags.push({ tag: prevErrorTag, resolvedAt: at });
+    }
+
+    return {
+      answered: true,
+      selectedAnswer: a.selectedAnswer,
+      isCorrect: !!a.isCorrect,
+      timeSpentMs: (typeof a.timeSpentMs === 'number') ? a.timeSpentMs : null,
+      timingReliable: !!a.timingReliable,
+      timestamp: at,
+      isFlagged: prev.isFlagged || false,
+      errorTag: a.isCorrect ? null : prevErrorTag,
+      historicalErrorTags: historicalErrorTags,
+      timesSeen: newSeen,
+      timesCorrect: newCorrect,
+      timesIncorrect: newIncorrect,
+      accuracyPercent: Math.round((newCorrect / newSeen) * 100),
+      // The detailed attempt log stays capped at the newest 3 (unchanged), while
+      // timesSeen/timesCorrect/timesIncorrect above remain the durable exact counts.
+      attempts: attempts.slice(-3)
+    };
+  }
+
+
+  /**
    * WI-11 — the stable, content-derived identity of an append-only op.
    *
    * Before WI-11 an op id was `op_<Date.now()>_<random>`, which meant the SAME
@@ -985,6 +1055,7 @@
     listClientSnapshots: listClientSnapshots,
     restoreClientSnapshot: restoreClientSnapshot,
     runTransactionalAction: runTransactionalAction,
+    buildProgressEntry: buildProgressEntry,
     enqueueOutboxOp: enqueueOutboxOp,
     getOutboxOps: getOutboxOps,
     ackOutboxOps: ackOutboxOps,

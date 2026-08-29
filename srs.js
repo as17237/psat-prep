@@ -105,6 +105,7 @@
       'listClientSnapshots',
       'restoreClientSnapshot',
       'runTransactionalAction',
+      'buildProgressEntry',
       'enqueueOutboxOp',
       'getOutboxOps',
       'ackOutboxOps',

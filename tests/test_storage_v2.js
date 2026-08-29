@@ -634,6 +634,68 @@ assert.strictEqual(mutationRan, false, 'the destructive mutation must never have
 assert.deepStrictEqual(JSON.parse(abortStore.getItem('psat_progress')), realProgress, 'data must be exactly as it was');
 ok('runTransactionalAction aborts before the mutation when the safety snapshot fails');
 
+// ===========================================================================
+section('buildProgressEntry: the one stored-attempt record shape');
+// ===========================================================================
+
+// Hand-computed. Question q_rec is answered three times: correct, incorrect, correct.
+//   after #1: timesSeen 1, correct 1, incorrect 0, accuracy 100
+//   after #2: timesSeen 2, correct 1, incorrect 1, accuracy round(1/2*100)  = 50
+//   after #3: timesSeen 3, correct 2, incorrect 1, accuracy round(2/3*100)  = 67
+const e1 = PSAT_ENGINE.buildProgressEntry(undefined, {
+  selectedAnswer: 'A', isCorrect: true, timeSpentMs: 30000, timingReliable: true, at: T0 + 1000, source: 'practice'
+});
+assert.strictEqual(e1.timesSeen, 1, 'first attempt -> timesSeen 1');
+assert.strictEqual(e1.timesCorrect, 1, 'first attempt correct -> timesCorrect 1');
+assert.strictEqual(e1.timesIncorrect, 0, 'first attempt correct -> timesIncorrect 0');
+assert.strictEqual(e1.accuracyPercent, 100, 'accuracy 100');
+assert.strictEqual(e1.answered, true, 'the entry is answered');
+assert.strictEqual(e1.timestamp, T0 + 1000, 'timestamp must be the attempt time passed in, never a clock read');
+assert.strictEqual(e1.attempts.length, 1, 'one attempt logged');
+assert.strictEqual(e1.attempts[0].source, 'practice', 'the attempt log records its source');
+
+const e2 = PSAT_ENGINE.buildProgressEntry(e1, {
+  selectedAnswer: 'B', isCorrect: false, timeSpentMs: 50000, timingReliable: true, at: T0 + 2000, source: 'practice'
+});
+assert.strictEqual(e2.timesSeen, 2, 'second attempt -> timesSeen 2');
+assert.strictEqual(e2.timesIncorrect, 1, 'second attempt wrong -> timesIncorrect 1');
+assert.strictEqual(e2.accuracyPercent, 50, 'accuracy round(1/2*100) = 50');
+
+const e3 = PSAT_ENGINE.buildProgressEntry(e2, {
+  selectedAnswer: 'A', isCorrect: true, timeSpentMs: 25000, timingReliable: true, at: T0 + 3000, source: 'exam_mini'
+});
+assert.strictEqual(e3.timesSeen, 3, 'third attempt -> timesSeen 3');
+assert.strictEqual(e3.timesCorrect, 2, 'two of three correct');
+assert.strictEqual(e3.accuracyPercent, 67, 'accuracy round(2/3*100) = 67');
+assert.strictEqual(e3.attempts.length, 3, 'the attempt log holds 3');
+
+// The attempt log is capped at the newest 3 -- unchanged from the shipped behaviour.
+const e4 = PSAT_ENGINE.buildProgressEntry(e3, {
+  selectedAnswer: 'C', isCorrect: true, timeSpentMs: 20000, timingReliable: true, at: T0 + 4000, source: 'practice'
+});
+assert.strictEqual(e4.attempts.length, 3, 'the attempt log stays capped at 3');
+assert.strictEqual(e4.attempts[0].at, T0 + 2000, 'the oldest of the 4 attempts is dropped');
+assert.strictEqual(e4.timesSeen, 4, 'the durable counter still says 4 even though only 3 attempts are logged');
+ok('buildProgressEntry counters are exact and the attempt log stays capped at 3');
+
+// Flags and error tags: preserved across a re-answer, cleared correctly on a pass.
+const tagged = PSAT_ENGINE.buildProgressEntry(
+  { answered: true, isCorrect: false, isFlagged: true, errorTag: 'misread', historicalErrorTags: [], timesSeen: 1, timesIncorrect: 1, timesCorrect: 0 },
+  { selectedAnswer: 'D', isCorrect: false, timeSpentMs: 40000, timingReliable: true, at: T0 + 5000, source: 'practice' }
+);
+assert.strictEqual(tagged.isFlagged, true, 'a flag must survive a re-answer');
+assert.strictEqual(tagged.errorTag, 'misread', 'an unresolved error tag must survive another miss');
+
+const resolved = PSAT_ENGINE.buildProgressEntry(
+  { answered: true, isCorrect: false, isFlagged: false, errorTag: 'misread', historicalErrorTags: [], timesSeen: 1, timesIncorrect: 1, timesCorrect: 0 },
+  { selectedAnswer: 'A', isCorrect: true, timeSpentMs: 20000, timingReliable: true, at: T0 + 6000, source: 'exam_mini' }
+);
+assert.strictEqual(resolved.errorTag, null, 'a correct answer clears the live error tag');
+assert.strictEqual(resolved.historicalErrorTags.length, 1, 'the resolved tag is recorded in history');
+assert.strictEqual(resolved.historicalErrorTags[0].tag, 'misread', 'the resolved tag keeps its name');
+assert.strictEqual(resolved.historicalErrorTags[0].resolvedAt, T0 + 6000, 'the resolution time is the attempt time');
+ok('error tags resolve on the exam path too (they used to be dropped there)');
+
 })().then(function () {
   console.log('\nALL WI-11 STORAGE/SYNC TESTS PASSED');
 }).catch(function (err) {

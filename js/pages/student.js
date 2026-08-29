@@ -592,46 +592,19 @@ function recordAttempt(selectedAnswer, isCorrect) {
     }
   }
 
-  const prevProg = progress[q.id] || {};
-  const prevTimesSeen = prevProg.timesSeen || (prevProg.answered ? 1 : 0);
-  const prevTimesCorrect = prevProg.timesCorrect || (prevProg.answered && prevProg.isCorrect ? 1 : 0);
-  const prevTimesIncorrect = prevProg.timesIncorrect || (prevProg.answered && !prevProg.isCorrect ? 1 : 0);
-  const prevAttempts = Array.isArray(prevProg.attempts) ? prevProg.attempts.slice() : [];
-
-  const newTimesSeen = prevTimesSeen + 1;
-  const newTimesCorrect = prevTimesCorrect + (isCorrect ? 1 : 0);
-  const newTimesIncorrect = prevTimesIncorrect + (isCorrect ? 0 : 1);
-
-  prevAttempts.push({
-    at: Date.now(),
-    selectedAnswer: selectedAnswer,
-    isCorrect: isCorrect,
-    timeSpentMs: timeSpentMs,
-    source: 'practice'
-  });
-
-  const prevErrorTag = prevProg.errorTag || null;
-  let historicalErrorTags = Array.isArray(prevProg.historicalErrorTags) ? prevProg.historicalErrorTags.slice() : [];
-  if (prevErrorTag && isCorrect && !historicalErrorTags.some(h => h.tag === prevErrorTag)) {
-    historicalErrorTags.push({ tag: prevErrorTag, resolvedAt: Date.now() });
-  }
-
-  progress[q.id] = {
-    answered: true,
+  // WI-11: the stored-attempt record shape lives in the engine
+  // (PSAT_ENGINE.buildProgressEntry) so this page and the exam-submission handler
+  // below cannot drift apart again. `at` is passed explicitly rather than read from
+  // the clock inside the builder.
+  const attemptAt = Date.now();
+  progress[q.id] = PSAT_ENGINE.buildProgressEntry(progress[q.id], {
     selectedAnswer: selectedAnswer,
     isCorrect: isCorrect,
     timeSpentMs: timeSpentMs,
     timingReliable: timingReliable,
-    timestamp: Date.now(),
-    isFlagged: prevProg.isFlagged || false,
-    errorTag: isCorrect ? null : (prevProg.errorTag || null),
-    historicalErrorTags: historicalErrorTags,
-    timesSeen: newTimesSeen,
-    timesCorrect: newTimesCorrect,
-    timesIncorrect: newTimesIncorrect,
-    accuracyPercent: Math.round((newTimesCorrect / newTimesSeen) * 100),
-    attempts: prevAttempts.slice(-3)
-  };
+    at: attemptAt,
+    source: 'practice'
+  });
 
   // Spaced Repetition SM-2 Update
   const grade = PSAT_ENGINE.gradeAttempt(isCorrect, timeSpentMs, timingReliable);
@@ -643,12 +616,14 @@ function recordAttempt(selectedAnswer, isCorrect) {
 
   // Durable Outbox Op Enqueue
   if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.enqueueOutboxOp) {
+    // The SAME attemptAt used for the stored entry, so the op's content-derived id
+    // (att_<questionId>_<timestamp>) is stable across a retry of this handler.
     PSAT_ENGINE.enqueueOutboxOp(localStorage, 'question_attempt', {
       questionId: q.id,
       selectedAnswer: selectedAnswer,
       isCorrect: isCorrect,
       timeSpentMs: timeSpentMs,
-      timestamp: Date.now()
+      timestamp: attemptAt
     }, window.location);
   }
 
@@ -1654,41 +1629,20 @@ function finishExamAndShowReport() {
   currentExamReport.moduleReports.forEach(m => {
     m.questions.forEach(q => {
       if (q.answered && q.userAnswer && q.userAnswer !== 'Unanswered') {
-        const existingProgress = progress[q.questionId] || {};
         const timeSpent = q.timeSpentMs || 0;
         const isReliable = timeSpent > 0;
 
-        const prevSeen = existingProgress.timesSeen || (existingProgress.answered ? 1 : 0);
-        const prevCorrect = existingProgress.timesCorrect || (existingProgress.answered && existingProgress.isCorrect ? 1 : 0);
-        const prevIncorrect = existingProgress.timesIncorrect || (existingProgress.answered && !existingProgress.isCorrect ? 1 : 0);
-        const prevAttempts = Array.isArray(existingProgress.attempts) ? existingProgress.attempts.slice() : [];
-
-        const newSeen = prevSeen + 1;
-        const newCorrect = prevCorrect + (q.isCorrect ? 1 : 0);
-        const newIncorrect = prevIncorrect + (q.isCorrect ? 0 : 1);
-
-        prevAttempts.push({
-          at: Date.now(),
-          selectedAnswer: q.userAnswer,
-          isCorrect: q.isCorrect,
-          timeSpentMs: timeSpent,
-          source: activeExam.type || 'exam'
-        });
-
-        progress[q.questionId] = {
-          answered: true,
+        // WI-11: same builder as the practice path. This copy used to omit
+        // errorTag / historicalErrorTags entirely, so answering a tagged question
+        // inside an exam silently deleted the student's error tag.
+        progress[q.questionId] = PSAT_ENGINE.buildProgressEntry(progress[q.questionId], {
           selectedAnswer: q.userAnswer,
           isCorrect: q.isCorrect,
           timeSpentMs: timeSpent,
           timingReliable: isReliable,
-          isFlagged: existingProgress.isFlagged || false,
-          timestamp: Date.now(),
-          timesSeen: newSeen,
-          timesCorrect: newCorrect,
-          timesIncorrect: newIncorrect,
-          accuracyPercent: Math.round((newCorrect / newSeen) * 100),
-          attempts: prevAttempts.slice(-3)
-        };
+          at: Date.now(),
+          source: activeExam.type || 'exam'
+        });
 
         const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
         srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now(), timeSpent);

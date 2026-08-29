@@ -24,15 +24,17 @@
  * original kind and value.
  *
  *   WI-10 (baseline, srs.js @66c88cc) ........................ 56 symbols
- *   WI-11 (storage & sync hardening) .......................... +10 = 66
+ *   WI-11 (storage & sync hardening) .......................... +11 = 67
  *       scheduler: SRS_HISTORY_CAP, summarizeSrsCard
  *           the 20-event cap constant and the exact durable per-card summary
  *           (totalReviews / totalLapses / firstReviewedAt / lastReviewedAt)
  *           that has to stay correct after history is truncated.
  *       storage:   SCHEMA_VERSION, readSchemaMeta, migrateLocalStateToV2,
- *                  rollbackLocalStateToV1, buildStateEnvelope
+ *                  rollbackLocalStateToV1, buildStateEnvelope,
+ *                  buildProgressEntry
  *           the versioned local envelope and its idempotent, reversible
- *           v1 -> v2 migration.
+ *           v1 -> v2 migration, plus the single stored-attempt record builder
+ *           that replaced two diverged copies inside js/pages/student.js.
  *       sync:      buildSyncDelta, getSyncCursor, resetSyncCursor
  *           delta-push selection and the ack cursor that drives it.
  *   Note SRS_HISTORY_CAP and SCHEMA_VERSION are NUMBER constants, so the
@@ -106,6 +108,7 @@ const EXPECTED_SYMBOLS = [
   'listClientSnapshots',
   'restoreClientSnapshot',
   'runTransactionalAction',
+  'buildProgressEntry',    // WI-11
   'enqueueOutboxOp',
   'getOutboxOps',
   'ackOutboxOps',
@@ -134,8 +137,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  66,
-  `The hand-written contract must list exactly 66 symbols (56 @66c88cc + 10 from WI-11); found ${EXPECTED_SYMBOLS.length}. ` +
+  67,
+  `The hand-written contract must list exactly 67 symbols (56 @66c88cc + 11 from WI-11); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
