@@ -234,13 +234,178 @@ function testTroubleSpotsPracticeAndExamIntegration() {
   assert.strictEqual(container.children[0].id, `qcard-${ctx.allMistakesList[0].questionId}`);
   assert.strictEqual(container.children[1].id, `qcard-${ctx.allMistakesList[1].questionId}`);
 
-  // Assert card HTML includes question IDs
+  // Assert card HTML includes question IDs and structured rationale sections
   assert.ok(container.children.some(c => c.innerHTML.includes(qPractice.id)), 'DOM must contain practice question card');
   assert.ok(container.children.some(c => c.innerHTML.includes(qExam.id)), 'DOM must contain exam question card');
+  assert.ok(container.children.some(c => c.innerHTML.includes('Choice') && (c.innerHTML.includes('Correct Answer ✓') || c.innerHTML.includes('Extracted Explanation'))), 'Card must render structured rationale blocks');
 
-  console.log(`✓ Browser-level regression verified: Trouble Spots successfully loaded & rendered both practice miss (${qPractice.id}) and completed exam miss (${qExam.id})`);
+  console.log(`✓ Browser-level regression verified: Trouble Spots successfully loaded & rendered both practice miss (${qPractice.id}) and completed exam miss (${qExam.id}) with structured rationales`);
+}
+
+function testParentDashboardTargetFocusAreaReaction() {
+  console.log('Testing Parent Dashboard "Target Focus Area" Dynamic Reactivity...');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'parent.html'), 'utf8');
+  const scripts = html.match(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi) || [];
+
+  const mockDOM = {};
+  function getMockElem(id) {
+    if (!mockDOM[id]) {
+      mockDOM[id] = {
+        id: id,
+        innerText: '',
+        innerHTML: '',
+        className: '',
+        value: (id === 'gap-focus-type' ? 'all' : (id === 'cust-diff' ? 'All' : (id === 'cust-qtype' ? 'all' : (id === 'cust-count' ? '20' : (id === 'cust-time' ? '30' : ''))))),
+        checked: false,
+        style: {},
+        classList: {
+          contains: () => false,
+          add: () => {},
+          remove: () => {},
+          toggle: () => {}
+        },
+        children: [],
+        appendChild: function(c) { this.children.push(c); },
+        setAttribute: () => {},
+        getAttribute: () => null,
+        addEventListener: () => {}
+      };
+    }
+    return mockDOM[id];
+  }
+
+  const document = {
+    getElementById: (id) => getMockElem(id),
+    createElement: (tag) => ({
+      tagName: tag.toUpperCase(),
+      innerText: '',
+      innerHTML: '',
+      className: '',
+      style: {},
+      children: [],
+      appendChild: function(c) { this.children.push(c); },
+      setAttribute: () => {},
+      getAttribute: () => null,
+      classList: { add: () => {}, remove: () => {}, toggle: () => {} }
+    }),
+    querySelectorAll: () => [],
+    addEventListener: () => {}
+  };
+
+  const mockStorage = {};
+  const localStorage = {
+    getItem: (k) => mockStorage[k] || null,
+    setItem: (k, v) => { mockStorage[k] = String(v); },
+    removeItem: (k) => { delete mockStorage[k]; },
+    clear: () => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }
+  };
+
+  const window = {
+    location: { href: 'parent.html', origin: 'http://localhost:8000', pathname: '/parent.html' },
+    localStorage: localStorage,
+    sessionStorage: { setItem: () => {}, getItem: () => null },
+    document: document,
+    MathJax: { typesetPromise: () => Promise.resolve() },
+    QUESTIONS_DATA: [
+      { id: 'q_m1', test: 'Math', skill: 'Linear equations in one variable', domain: 'Algebra', difficulty: 'Easy' },
+      { id: 'q_m2', test: 'Math', skill: 'Linear equations in one variable', domain: 'Algebra', difficulty: 'Medium' },
+      { id: 'q_m3', test: 'Math', skill: 'Nonlinear functions', domain: 'Advanced Math', difficulty: 'Hard' },
+      { id: 'q_rw1', test: 'Reading and Writing', skill: 'Boundaries', domain: 'Standard English Conventions', difficulty: 'Easy' },
+      { id: 'q_rw2', test: 'Reading and Writing', skill: 'Boundaries', domain: 'Standard English Conventions', difficulty: 'Medium' },
+      { id: 'q_rw3', test: 'Reading and Writing', skill: 'Central Ideas and Details', domain: 'Information and Ideas', difficulty: 'Hard' }
+    ]
+  };
+
+  localStorage.clear();
+  localStorage.setItem('psat_progress', JSON.stringify({
+    'q_m1': { answered: true, isCorrect: false },
+    'q_m2': { answered: true, isCorrect: false }, // Linear equations: 0/2 => weak skill in Math
+    'q_rw1': { answered: true, isCorrect: false },
+    'q_rw2': { answered: true, isCorrect: false }  // Boundaries: 0/2 => weak skill in RW
+  }));
+  localStorage.setItem('psat_srs', JSON.stringify({
+    'q_m3': { repetitions: 2, dueAt: Date.now() - 5000 }, // Math SRS due
+    'q_rw3': { repetitions: 3, dueAt: Date.now() - 5000 }  // RW SRS due
+  }));
+
+  const code = scripts.map(s => s.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '')).join('\n');
+  const runner = new Function('window', 'document', 'localStorage', 'lucide', 'PSAT_ENGINE', 'alert', 'confirm', `
+    ${code}
+    updateGapTestCalculations();
+    return {
+      updateGapTestCalculations: updateGapTestCalculations,
+      setGapCount: setGapCount,
+      launchGapDrill: launchGapDrill
+    };
+  `);
+
+  const lucide = { createIcons: () => {} };
+  const ctx = runner(window, document, localStorage, lucide, PSAT_ENGINE, () => {}, () => true);
+
+  // 1. Initial 'all' Focus State
+  assert.strictEqual(getMockElem('gap-stat-label-1').innerText, 'Due SRS Cards');
+  assert.strictEqual(getMockElem('gap-due-srs').innerText, 2);
+  assert.strictEqual(getMockElem('gap-stat-label-2').innerText, 'Weak Skills');
+  assert.strictEqual(getMockElem('gap-weak-skills').innerText, 2);
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch Gap Drill (20 Qs)'), 'Must show default Gap Drill CTA');
+
+  // 2. Switch to 'math_only' Focus
+  getMockElem('gap-focus-type').value = 'math_only';
+  ctx.updateGapTestCalculations();
+
+  assert.strictEqual(getMockElem('gap-stat-label-1').innerText, 'Due Math Cards');
+  assert.strictEqual(getMockElem('gap-due-srs').innerText, 1, 'Must show 1 due math card');
+  assert.strictEqual(getMockElem('gap-stat-label-2').innerText, 'Weak Math Skills');
+  assert.strictEqual(getMockElem('gap-weak-skills').innerText, 1, 'Must show 1 weak math skill');
+  assert.ok(getMockElem('gap-focus-desc').innerText.includes('Math Mastery Focus'), 'Must update focus description for Math');
+  assert.strictEqual(getMockElem('gap-focus-pool-badge').innerText, '3 in Pool');
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch Math Drill (20 Qs)'), 'Must update CTA text for Math Drill');
+
+  // 3. Switch to 'rw_only' Focus
+  getMockElem('gap-focus-type').value = 'rw_only';
+  ctx.updateGapTestCalculations();
+
+  assert.strictEqual(getMockElem('gap-stat-label-1').innerText, 'Due R&W Cards');
+  assert.strictEqual(getMockElem('gap-due-srs').innerText, 1, 'Must show 1 due R&W card');
+  assert.strictEqual(getMockElem('gap-stat-label-2').innerText, 'Weak R&W Skills');
+  assert.strictEqual(getMockElem('gap-weak-skills').innerText, 1, 'Must show 1 weak R&W skill');
+  assert.ok(getMockElem('gap-focus-desc').innerText.includes('Reading & Writing Focus'));
+  assert.strictEqual(getMockElem('gap-focus-pool-badge').innerText, '3 in Pool');
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch R&W Drill (20 Qs)'));
+
+  // 4. Switch to 'srs_only' Focus
+  getMockElem('gap-focus-type').value = 'srs_only';
+  ctx.updateGapTestCalculations();
+
+  assert.strictEqual(getMockElem('gap-stat-label-1').innerText, 'Due SRS Cards');
+  assert.strictEqual(getMockElem('gap-due-srs').innerText, 2);
+  assert.strictEqual(getMockElem('gap-stat-label-2').innerText, 'Total SRS Cards');
+  assert.strictEqual(getMockElem('gap-weak-skills').innerText, 2);
+  assert.ok(getMockElem('gap-focus-desc').innerText.includes('Spaced Repetition Review'));
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch SRS Review (20 Qs)'));
+
+  // 5. Switch to 'weak_only' Focus
+  getMockElem('gap-focus-type').value = 'weak_only';
+  ctx.updateGapTestCalculations();
+
+  assert.strictEqual(getMockElem('gap-stat-label-1').innerText, 'Weak Skills (<75%)');
+  assert.strictEqual(getMockElem('gap-due-srs').innerText, 2);
+  assert.strictEqual(getMockElem('gap-stat-label-2').innerText, 'Missed & Weak Qs');
+  assert.strictEqual(getMockElem('gap-weak-skills').innerText, 4);
+  assert.ok(getMockElem('gap-focus-desc').innerText.includes('Weakness Remediation Focus'));
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch Weakness Drill (20 Qs)'));
+
+  // 6. Test Question Count Adjustment (e.g. 30 Qs)
+  ctx.setGapCount(30);
+  assert.strictEqual(getMockElem('gap-est-time').innerText, '45 minutes');
+  assert.ok(getMockElem('btn-launch-gap').innerHTML.includes('Launch Weakness Drill (30 Qs)'));
+
+  console.log('✓ Target Focus Area reactivity verified: All 5 focus area options dynamically recompute metrics, stat cards, descriptions, pool counts, and CTA buttons');
 }
 
 testMistakesPage();
 testTroubleSpotsPracticeAndExamIntegration();
+testParentDashboardTargetFocusAreaReaction();
 console.log('✓ All UI Page rendering and browser-level regression tests passed!\n');
+process.exit(0);

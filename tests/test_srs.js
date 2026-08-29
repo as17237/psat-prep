@@ -1221,7 +1221,126 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(errorTrends.lifetime.concept_gap, 2);
   assert.strictEqual(errorTrends.lifetime.time_pressure, 1);
 
-  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, Blueprint-Balanced Modules, Calibrated Score Confidence Ranges, Error Tag Coaching Drills, Longitudinal Error Trends, and Cosmos DB Cloud Sync tests passed!');
+  // 26. High-Fidelity Structured Rationale Rendering (renderRationale)
+  // ------------------------------------------------------------------
+  const completeMCQ = {
+    id: 'test_mcq_1',
+    correct_answer: 'B',
+    text_complete: true,
+    formula_complete: true,
+    rationale: `Choice B is the best answer because it directly explains why the linear function increases at a constant rate.\nChoice A is incorrect because it describes a quadratic function, not a linear function.\nChoice C is incorrect because the slope is positive, not negative.\nChoice D is incorrect because the y-intercept is at (0, 4).`
+  };
+
+  const renderedMCQ = PSAT_ENGINE.renderRationale(completeMCQ, { userSelectedAnswer: 'A' });
+  assert.ok(renderedMCQ.includes('Official Step-by-Step Solution &amp; Trap Rationale'), 'Complete MCQ must have official solution header');
+  assert.ok(renderedMCQ.includes('Choice B — Correct Answer ✓'), 'Must highlight Choice B as correct answer');
+  assert.ok(renderedMCQ.includes('bg-emerald-50/90') && renderedMCQ.includes('border-emerald-300'), 'Correct answer must have emerald styling');
+  assert.ok(renderedMCQ.includes('Choice A — Incorrect'), 'Choice A must be labeled as incorrect');
+  assert.ok(renderedMCQ.includes('Student Selected ❌'), 'Choice A must show Student Selected tag');
+  assert.ok(renderedMCQ.includes('Choice C — Incorrect') && renderedMCQ.includes('Choice D — Incorrect'), 'All choice cards must be present');
+
+  // Incomplete Rationale Test (text_complete: false)
+  const incompleteQ = {
+    id: 'test_incomp_1',
+    correct_answer: 'C',
+    text_complete: false,
+    formula_complete: false,
+    image_url: 'data/images/math_card_123.png',
+    rationale: `Choice C is the best answer. The value of x satisfies the equation when simplified.\nChoice A is incorrect.\nChoice B is incorrect.\nChoice D is incorrect.`
+  };
+
+  const renderedIncomp = PSAT_ENGINE.renderRationale(incompleteQ, { includeScreenshot: true });
+  assert.ok(renderedIncomp.includes('Extracted Explanation (Partial Text)'), 'Incomplete question must NOT be labeled Official Step-by-Step Solution');
+  assert.ok(!renderedIncomp.includes('Official Step-by-Step Solution'), 'Incomplete question must omit official solution badge');
+  assert.ok(renderedIncomp.includes('Some mathematical notation was lost during text extraction'), 'Must include math notation extraction warning');
+  assert.ok(renderedIncomp.includes('data/images/math_card_123.png'), 'Must render question diagram screenshot');
+
+  // XSS & Escaping Integrity Test
+  const maliciousQ = {
+    id: 'test_xss_1',
+    correct_answer: 'A',
+    text_complete: true,
+    rationale: `<script>alert("XSS Attack")</script> Choice A is correct with <img src=x onerror=alert(1)>. Choice B is incorrect.`
+  };
+
+  const renderedXSS = PSAT_ENGINE.renderRationale(maliciousQ, { userSelectedAnswer: '<script>evil()</script>' });
+  assert.ok(!renderedXSS.includes('<script>'), 'Must not contain raw script tags');
+  assert.ok(renderedXSS.includes('&lt;script&gt;alert(&quot;XSS Attack&quot;)&lt;/script&gt;'), 'Script tags must be fully HTML-escaped');
+  assert.ok(!renderedXSS.includes('<img src=x onerror=alert(1)>'), 'Image injection must be fully HTML-escaped');
+
+  // 27. Dynamic Reactive Gap Drill Focus Metrics (calculateGapFocusMetrics)
+  // ------------------------------------------------------------------
+  const mockSrsBank = [
+    { id: 'mq1', test: 'Math', skill: 'Linear equations in one variable', domain: 'Algebra' },
+    { id: 'mq2', test: 'Math', skill: 'Linear equations in one variable', domain: 'Algebra' },
+    { id: 'mq3', test: 'Math', skill: 'Nonlinear functions', domain: 'Advanced Math' },
+    { id: 'rq1', test: 'Reading and Writing', skill: 'Boundaries', domain: 'Standard English Conventions' },
+    { id: 'rq2', test: 'Reading and Writing', skill: 'Boundaries', domain: 'Standard English Conventions' },
+    { id: 'rq3', test: 'Reading and Writing', skill: 'Central Ideas and Details', domain: 'Information and Ideas' }
+  ];
+
+  const mockProgress = {
+    'mq1': { answered: true, isCorrect: false },
+    'mq2': { answered: true, isCorrect: false }, // Linear equations: 0/2 => weak skill in Math
+    'rq1': { answered: true, isCorrect: false },
+    'rq2': { answered: true, isCorrect: false }  // Boundaries: 0/2 => weak skill in RW
+  };
+
+  const mockSrs = {
+    'mq3': { repetitions: 2, dueAt: Date.now() - 10000 }, // Math SRS due
+    'rq3': { repetitions: 3, dueAt: Date.now() - 10000 }  // RW SRS due
+  };
+
+  // Test 'all' focus
+  const allMetrics = PSAT_ENGINE.calculateGapFocusMetrics(mockSrsBank, mockProgress, mockSrs, 'all');
+  assert.strictEqual(allMetrics.focusType, 'all');
+  assert.strictEqual(allMetrics.statLabel1, 'Due SRS Cards');
+  assert.strictEqual(allMetrics.statValue1, 2, 'Must count 2 total due cards');
+  assert.strictEqual(allMetrics.statLabel2, 'Weak Skills');
+  assert.strictEqual(allMetrics.statValue2, 2, 'Must count 2 total weak skills');
+  assert.strictEqual(allMetrics.matchingPoolCount, 6);
+
+  // Test 'math_only' focus
+  const mathMetrics = PSAT_ENGINE.calculateGapFocusMetrics(mockSrsBank, mockProgress, mockSrs, 'math_only');
+  assert.strictEqual(mathMetrics.focusType, 'math_only');
+  assert.strictEqual(mathMetrics.statLabel1, 'Due Math Cards');
+  assert.strictEqual(mathMetrics.statValue1, 1, 'Must count 1 due math card');
+  assert.strictEqual(mathMetrics.statLabel2, 'Weak Math Skills');
+  assert.strictEqual(mathMetrics.statValue2, 1, 'Must count 1 weak math skill');
+  assert.strictEqual(mathMetrics.matchingPoolCount, 3);
+  assert.strictEqual(mathMetrics.focusShortName, 'Math Drill');
+
+  // Test 'rw_only' focus
+  const rwMetrics = PSAT_ENGINE.calculateGapFocusMetrics(mockSrsBank, mockProgress, mockSrs, 'rw_only');
+  assert.strictEqual(rwMetrics.focusType, 'rw_only');
+  assert.strictEqual(rwMetrics.statLabel1, 'Due R&W Cards');
+  assert.strictEqual(rwMetrics.statValue1, 1, 'Must count 1 due R&W card');
+  assert.strictEqual(rwMetrics.statLabel2, 'Weak R&W Skills');
+  assert.strictEqual(rwMetrics.statValue2, 1, 'Must count 1 weak R&W skill');
+  assert.strictEqual(rwMetrics.matchingPoolCount, 3);
+  assert.strictEqual(rwMetrics.focusShortName, 'R&W Drill');
+
+  // Test 'srs_only' focus
+  const srsMetrics = PSAT_ENGINE.calculateGapFocusMetrics(mockSrsBank, mockProgress, mockSrs, 'srs_only');
+  assert.strictEqual(srsMetrics.focusType, 'srs_only');
+  assert.strictEqual(srsMetrics.statLabel1, 'Due SRS Cards');
+  assert.strictEqual(srsMetrics.statValue1, 2);
+  assert.strictEqual(srsMetrics.statLabel2, 'Total SRS Cards');
+  assert.strictEqual(srsMetrics.statValue2, 2);
+  assert.strictEqual(srsMetrics.matchingPoolCount, 2);
+  assert.strictEqual(srsMetrics.focusShortName, 'SRS Review');
+
+  // Test 'weak_only' focus
+  const weakMetrics = PSAT_ENGINE.calculateGapFocusMetrics(mockSrsBank, mockProgress, mockSrs, 'weak_only');
+  assert.strictEqual(weakMetrics.focusType, 'weak_only');
+  assert.strictEqual(weakMetrics.statLabel1, 'Weak Skills (<75%)');
+  assert.strictEqual(weakMetrics.statValue1, 2);
+  assert.strictEqual(weakMetrics.statLabel2, 'Missed & Weak Qs');
+  assert.strictEqual(weakMetrics.statValue2, 4);
+  assert.strictEqual(weakMetrics.matchingPoolCount, 4);
+  assert.strictEqual(weakMetrics.focusShortName, 'Weakness Drill');
+
+  console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, Blueprint-Balanced Modules, Calibrated Score Confidence Ranges, Error Tag Coaching Drills, Longitudinal Error Trends, High-Fidelity Structured Rationale Rendering (renderRationale), Dynamic Reactive Gap Drill Focus Metrics (calculateGapFocusMetrics), and Cosmos DB Cloud Sync tests passed!');
 })();
 
 

@@ -22,11 +22,16 @@ echo "▶ Step 1/4: Running complete automated regression & safeguard tests..."
 echo "----------------------------------------------------------------------"
 
 node tests/test_html_syntax.js
+node tests/test_ui_simplifications.js
 node tests/test_ui_rendering.js
+node tests/test_buttons_and_interactions.js
 node tests/test_srs.js
 node tests/test_backup_restore.js
 node tests/test_free_response.js
 node tests/test_dataset_free_response.js
+node tests/test_scaled_score.js
+node tests/test_math_tools_and_reference.js
+node tests/test_analytics_ux.js
 python3 -m unittest test_extractor.py -v
 
 echo ""
@@ -95,12 +100,12 @@ echo "----------------------------------------------------------------------"
 
 ACCOUNT_KEY=$(az storage account keys list --resource-group rg-psat-prep --account-name psatprep4915 --query '[0].value' -o tsv)
 
-for file in index.html parent.html mistakes.html srs.js; do
+for file in index.html parent.html mistakes.html feedback.html srs.js styles/buttons.css; do
   echo "  • Uploading $file to production root..."
-  az storage blob upload --account-name psatprep4915 --account-key "$ACCOUNT_KEY" --container-name '$web' --name "$file" --file "$file" --overwrite true --output none
+  az storage blob upload --account-name psatprep4915 --account-key "$ACCOUNT_KEY" --container-name '$web' --name "$file" --file "$file" --content-cache-control "no-cache, no-store, must-revalidate" --overwrite true --output none
   
   echo "  • Uploading $file to beta/ subfolder..."
-  az storage blob upload --account-name psatprep4915 --account-key "$ACCOUNT_KEY" --container-name '$web' --name "beta/$file" --file "$file" --overwrite true --output none
+  az storage blob upload --account-name psatprep4915 --account-key "$ACCOUNT_KEY" --container-name '$web' --name "beta/$file" --file "$file" --content-cache-control "no-cache, no-store, must-revalidate" --overwrite true --output none
 done
 
 echo ""

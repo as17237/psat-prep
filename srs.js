@@ -215,19 +215,139 @@
     return compacted;
   }
 
+  // ============================================================================
+  // UNVALIDATED SCALING ASSUMPTIONS & MST ROUTING CONSTANTS
+  // ----------------------------------------------------------------------------
+  // NOTE: College Board does not publish raw-to-scale conversion tables or IRT
+  // item parameters for the digital adaptive PSAT 8/9. The digital suite is scored
+  // using Item Response Theory (IRT) where the scaled score depends on the
+  // specific item parameters and adaptive routing stage, not a simple raw percentage.
+  // No client-side function can reproduce official College Board scores.
+  //
+  // The curves, track exponents (0.85 Hard, 1.1 Easy), lower-track cap (580), and
+  // routing threshold (0.58) below are empirical approximations and unvalidated
+  // assumptions that do not represent official College Board psychometrics.
+  // ============================================================================
+  var SCALING_ASSUMPTIONS = {
+    SECTION_FLOOR: 120,
+    SECTION_CEILING: 720,
+    TOTAL_FLOOR: 240,
+    TOTAL_CEILING: 1440,
+    MIN_PER_SECTION: 15,
+    LOW_SAMPLE_THRESHOLD: 30, // Sample sizes < 30 per section indicate high variance
+    HARD_TRACK_EXPONENT: 0.85, // Upper difficulty track power curve (unvalidated)
+    EASY_TRACK_EXPONENT: 1.1,  // Lower difficulty track power curve (unvalidated)
+    EASY_TRACK_MAX: 580,       // Maximum score cap for lower difficulty track (unvalidated)
+    ROUTING_THRESHOLD: 0.58,   // Cutoff proportion to route into upper track (>= 16/27, >= 13/22)
+    ALLOWED_TRACKS: ['Standard', 'Hard', 'Easy', 'Baseline'],
+    // 90% Confidence Interval z-value for two-tailed normal distribution (alpha = 0.10)
+    CONFIDENCE_Z_90: 1.6448536269514722
+  };
+
   /**
-   * Computes an empirical PSAT 8/9 scaled score estimate (240–1440) with calibrated error margins and confidence intervals.
+   * Evaluates section scaled score (120–720) from raw accuracy ratio [0, 1].
+   * Explicitly checks track against SCALING_ASSUMPTIONS.ALLOWED_TRACKS.
+   * Returns null if track is invalid or unallowed.
+   *
+   * @param {number} rawRatio - Accuracy proportion (0.0 to 1.0)
+   * @param {string} [track] - 'Standard' | 'Hard' | 'Easy' | 'Baseline'
+   * @param {boolean} [isAdaptive] - Whether adaptive routing applies
+   * @returns {number|null} Scaled section score (120–720) or null if track is invalid
+   */
+  function scaleSectionRawScore(rawRatio, track, isAdaptive) {
+    if (typeof rawRatio !== 'number' || isNaN(rawRatio)) return null;
+    var clampedRatio = Math.max(0, Math.min(1, rawRatio));
+
+    var effectiveTrack = track;
+    if (!isAdaptive) {
+      if (effectiveTrack === undefined || effectiveTrack === null || effectiveTrack === '') {
+        effectiveTrack = 'Standard';
+      }
+    }
+
+    if (typeof effectiveTrack !== 'string' || SCALING_ASSUMPTIONS.ALLOWED_TRACKS.indexOf(effectiveTrack) === -1) {
+      return null;
+    }
+
+    if (!isAdaptive || effectiveTrack === 'Standard' || effectiveTrack === 'Baseline') {
+      return Math.min(
+        SCALING_ASSUMPTIONS.SECTION_CEILING,
+        Math.max(
+          SCALING_ASSUMPTIONS.SECTION_FLOOR,
+          Math.round(SCALING_ASSUMPTIONS.SECTION_FLOOR + clampedRatio * (SCALING_ASSUMPTIONS.SECTION_CEILING - SCALING_ASSUMPTIONS.SECTION_FLOOR))
+        )
+      );
+    }
+
+    if (effectiveTrack === 'Hard') {
+      var curvedHard = Math.pow(clampedRatio, SCALING_ASSUMPTIONS.HARD_TRACK_EXPONENT);
+      return Math.min(
+        SCALING_ASSUMPTIONS.SECTION_CEILING,
+        Math.max(
+          SCALING_ASSUMPTIONS.SECTION_FLOOR,
+          Math.round(SCALING_ASSUMPTIONS.SECTION_FLOOR + curvedHard * (SCALING_ASSUMPTIONS.SECTION_CEILING - SCALING_ASSUMPTIONS.SECTION_FLOOR))
+        )
+      );
+    }
+
+    if (effectiveTrack === 'Easy') {
+      var curvedEasy = Math.pow(clampedRatio, SCALING_ASSUMPTIONS.EASY_TRACK_EXPONENT);
+      return Math.min(
+        SCALING_ASSUMPTIONS.EASY_TRACK_MAX,
+        Math.max(
+          SCALING_ASSUMPTIONS.SECTION_FLOOR,
+          Math.round(SCALING_ASSUMPTIONS.SECTION_FLOOR + curvedEasy * (SCALING_ASSUMPTIONS.EASY_TRACK_MAX - SCALING_ASSUMPTIONS.SECTION_FLOOR))
+        )
+      );
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculates the Wilson score interval for binomial proportion.
+   *
+   * @param {number} k - Number of correct responses
+   * @param {number} n - Total number of attempts (n > 0)
+   * @param {number} [z] - Standard normal quantile (defaults to 1.6448536269514722 for 90% CI)
+   * @returns {{ center: number, lower: number, upper: number, margin: number }}
+   */
+  function calculateWilsonScoreInterval(k, n, z) {
+    if (!n || n <= 0) return { center: 0, lower: 0, upper: 0, margin: 0 };
+    var zVal = (typeof z === 'number' && z > 0) ? z : SCALING_ASSUMPTIONS.CONFIDENCE_Z_90;
+    var p = Math.max(0, Math.min(1, k / n));
+    var z2 = zVal * zVal;
+    var denom = 1 + z2 / n;
+    var center = (p + z2 / (2 * n)) / denom;
+    var margin = (zVal / denom) * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n));
+    var lower = Math.max(0, center - margin);
+    var upper = Math.min(1, center + margin);
+    return {
+      center: center,
+      lower: lower,
+      upper: upper,
+      margin: margin
+    };
+  }
+
+  /**
+   * Computes an empirical PSAT 8/9 scaled score estimate (240–1440) using unified section scaling
+   * and Wilson score confidence intervals added in quadrature.
    * 120–720 for Reading and Writing, 120–720 for Math.
    * Gates section and total scores on minimum 15 attempts.
    */
   function calculateScaledScore(questions, progress) {
+    var qs = Array.isArray(questions) ? questions : [];
+    var prog = progress || {};
+
     var rwAttempted = 0;
     var rwCorrect = 0;
     var mathAttempted = 0;
     var mathCorrect = 0;
 
-    questions.forEach(function (q) {
-      var p = progress[q.id];
+    qs.forEach(function (q) {
+      if (!q || !q.id) return;
+      var p = prog[q.id];
       if (p && p.answered) {
         if (q.test === 'Reading and Writing') {
           rwAttempted++;
@@ -239,7 +359,7 @@
       }
     });
 
-    var MIN_PER_SECTION = 15;
+    var MIN_PER_SECTION = SCALING_ASSUMPTIONS.MIN_PER_SECTION;
     var rwReady = rwAttempted >= MIN_PER_SECTION;
     var mathReady = mathAttempted >= MIN_PER_SECTION;
     var isReady = rwReady && mathReady;
@@ -247,23 +367,50 @@
     var rwAcc = rwAttempted > 0 ? (rwCorrect / rwAttempted) : 0;
     var mathAcc = mathAttempted > 0 ? (mathCorrect / mathAttempted) : 0;
 
-    // Mapping: 120 floor + accuracy * 600 points = 120 to 720
-    var rwScore = rwReady ? Math.min(720, Math.max(120, Math.round(120 + rwAcc * 600))) : null;
-    var mathScore = mathReady ? Math.min(720, Math.max(120, Math.round(120 + mathAcc * 600))) : null;
+    var rwScore = rwReady ? scaleSectionRawScore(rwAcc, 'Standard', false) : null;
+    var mathScore = mathReady ? scaleSectionRawScore(mathAcc, 'Standard', false) : null;
     var totalScore = (rwScore !== null && mathScore !== null) ? (rwScore + mathScore) : null;
 
-    var totalAttempted = rwAttempted + mathAttempted;
-    var moe = totalAttempted > 0 ? Math.max(20, Math.round(80 / Math.sqrt(Math.max(1, totalAttempted / 30)))) : 60;
-    var secMoe = Math.max(15, Math.round(moe * 0.65));
+    var rwRange = null;
+    var mathRange = null;
+    var totalRange = null;
 
-    var totalRange = totalScore !== null ? [Math.max(240, totalScore - moe), Math.min(1440, totalScore + moe)] : null;
-    var rwRange = rwScore !== null ? [Math.max(120, rwScore - secMoe), Math.min(720, rwScore + secMoe)] : null;
-    var mathRange = mathScore !== null ? [Math.max(120, mathScore - secMoe), Math.min(720, mathScore + secMoe)] : null;
+    if (rwReady) {
+      var rwWilson = calculateWilsonScoreInterval(rwCorrect, rwAttempted, SCALING_ASSUMPTIONS.CONFIDENCE_Z_90);
+      var rwLower = Math.max(SCALING_ASSUMPTIONS.SECTION_FLOOR, scaleSectionRawScore(rwWilson.lower, 'Standard', false));
+      var rwUpper = Math.min(SCALING_ASSUMPTIONS.SECTION_CEILING, scaleSectionRawScore(rwWilson.upper, 'Standard', false));
+      rwRange = [rwLower, rwUpper];
+    }
+
+    if (mathReady) {
+      var mathWilson = calculateWilsonScoreInterval(mathCorrect, mathAttempted, SCALING_ASSUMPTIONS.CONFIDENCE_Z_90);
+      var mathLower = Math.max(SCALING_ASSUMPTIONS.SECTION_FLOOR, scaleSectionRawScore(mathWilson.lower, 'Standard', false));
+      var mathUpper = Math.min(SCALING_ASSUMPTIONS.SECTION_CEILING, scaleSectionRawScore(mathWilson.upper, 'Standard', false));
+      mathRange = [mathLower, mathUpper];
+    }
+
+    if (isReady && rwRange && mathRange && totalScore !== null && rwScore !== null && mathScore !== null) {
+      var rwDeltaLower = Math.max(0, rwScore - rwRange[0]);
+      var rwDeltaUpper = Math.max(0, rwRange[1] - rwScore);
+      var mathDeltaLower = Math.max(0, mathScore - mathRange[0]);
+      var mathDeltaUpper = Math.max(0, mathRange[1] - mathScore);
+
+      var totalDeltaLower = Math.sqrt(rwDeltaLower * rwDeltaLower + mathDeltaLower * mathDeltaLower);
+      var totalDeltaUpper = Math.sqrt(rwDeltaUpper * rwDeltaUpper + mathDeltaUpper * mathDeltaUpper);
+
+      var totalLower = Math.max(SCALING_ASSUMPTIONS.TOTAL_FLOOR, Math.round(totalScore - totalDeltaLower));
+      var totalUpper = Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(totalScore + totalDeltaUpper));
+      totalRange = [totalLower, totalUpper];
+    }
+
+    var totalAttempted = rwAttempted + mathAttempted;
+    var isLowSample = isReady && (rwAttempted < SCALING_ASSUMPTIONS.LOW_SAMPLE_THRESHOLD || mathAttempted < SCALING_ASSUMPTIONS.LOW_SAMPLE_THRESHOLD);
 
     return {
       isReady: isReady,
       rwReady: rwReady,
       mathReady: mathReady,
+      isLowSample: isLowSample,
       rwAttempted: rwAttempted,
       rwCorrect: rwCorrect,
       rwScore: rwScore,
@@ -277,11 +424,13 @@
       totalScore: totalScore,
       totalRange: totalRange,
       totalRangeFormatted: totalRange ? (totalRange[0] + '–' + totalRange[1]) : null,
-      confidenceInterval: isReady ? (totalAttempted >= 60 ? '90% Confidence Interval' : '80% Confidence Interval') : null,
+      confidenceInterval: isReady ? '90% Confidence Interval' : null,
       dataBasis: 'Practice Bank Performance (' + totalAttempted + ' Attempts)',
+      difficultyDisclosure: 'Estimated from practice mix, which is harder than a real test form (~60% Hard items vs standard blueprint).',
       totalAttempted: totalAttempted,
       overallAccuracyPercent: totalAttempted > 0 ? Math.round(((rwCorrect + mathCorrect) / totalAttempted) * 100) : 0,
-      minRequiredPerSection: MIN_PER_SECTION
+      minRequiredPerSection: MIN_PER_SECTION,
+      lowSampleThreshold: SCALING_ASSUMPTIONS.LOW_SAMPLE_THRESHOLD
     };
   }
 
@@ -909,6 +1058,20 @@
       if (srsPool.length > 0) pool = srsPool;
     }
 
+    if (opts.difficulty && opts.difficulty !== 'All') {
+      var diffPool = pool.filter(function (q) { return q.difficulty === opts.difficulty; });
+      if (diffPool.length > 0) pool = diffPool;
+    }
+    if (opts.questionType && opts.questionType !== 'all') {
+      var typePool = pool.filter(function (q) {
+        var qType = q.type || q.question_type || 'multiple_choice';
+        if (opts.questionType === 'mcq') return qType !== 'free_response';
+        if (opts.questionType === 'spr') return qType === 'free_response';
+        return true;
+      });
+      if (typePool.length > 0) pool = typePool;
+    }
+
     // 1. Calculate Skill Accuracy Profile
     var skillStats = {};
     allQuestions.forEach(function (q) {
@@ -994,6 +1157,119 @@
       timeLimitMinutes: Math.round(selected.length * 1.5), // ~1.5 mins per question
       createdAt: Date.now(),
       questions: selected
+    };
+  }
+
+  /**
+   * Computes dynamic reactive stats and focus metrics for the Gap Drill builder.
+   */
+  function calculateGapFocusMetrics(allQuestions, progressMap, srsMap, focusType) {
+    allQuestions = allQuestions || [];
+    progressMap = progressMap || {};
+    srsMap = srsMap || {};
+    focusType = focusType || 'all';
+    var now = Date.now();
+
+    // 1. Calculate Skill Accuracy Profile
+    var skillStats = {};
+    allQuestions.forEach(function (q) {
+      if (!skillStats[q.skill]) {
+        skillStats[q.skill] = { attempted: 0, correct: 0, total: 0, domain: q.domain, test: q.test };
+      }
+      skillStats[q.skill].total++;
+      var p = progressMap[q.id];
+      if (p && p.answered) {
+        skillStats[q.skill].attempted++;
+        if (p.isCorrect) skillStats[q.skill].correct++;
+      }
+    });
+
+    var weakSkills = new Set();
+    var weakSkillsMath = new Set();
+    var weakSkillsRW = new Set();
+    Object.entries(skillStats).forEach(function (entry) {
+      var skill = entry[0];
+      var data = entry[1];
+      if (data.attempted >= 2 && (data.correct / data.attempted) < 0.75) {
+        weakSkills.add(skill);
+        if (data.test === 'Math') weakSkillsMath.add(skill);
+        else if (data.test === 'Reading and Writing') weakSkillsRW.add(skill);
+      }
+    });
+
+    // 2. SRS Due counts
+    var dueCardsAll = 0, dueCardsMath = 0, dueCardsRW = 0, totalSrsCards = 0;
+    allQuestions.forEach(function (q) {
+      var s = srsMap[q.id];
+      if (s && (s.repetitions > 0 || s.interval > 0 || (s.dueAt && s.dueAt <= now))) {
+        totalSrsCards++;
+        if (s.dueAt && s.dueAt <= now) {
+          dueCardsAll++;
+          if (q.test === 'Math') dueCardsMath++;
+          else if (q.test === 'Reading and Writing') dueCardsRW++;
+        }
+      }
+    });
+
+    var matchingPool = allQuestions;
+    var focusShortName = 'Gap Drill';
+    var focusDescription = 'Comprehensive Drill: Prioritizes due SRS reviews, <75% accuracy weaknesses, and unpracticed coverage across all domains.';
+    var statLabel1 = 'Due SRS Cards';
+    var statValue1 = dueCardsAll;
+    var statLabel2 = 'Weak Skills';
+    var statValue2 = weakSkills.size;
+
+    if (focusType === 'math_only') {
+      matchingPool = allQuestions.filter(function (q) { return q.test === 'Math'; });
+      focusShortName = 'Math Drill';
+      focusDescription = 'Math Mastery Focus: Targets due math reviews, weak math skills (<75%), and high-yield math coverage.';
+      statLabel1 = 'Due Math Cards';
+      statValue1 = dueCardsMath;
+      statLabel2 = 'Weak Math Skills';
+      statValue2 = weakSkillsMath.size;
+    } else if (focusType === 'rw_only') {
+      matchingPool = allQuestions.filter(function (q) { return q.test === 'Reading and Writing'; });
+      focusShortName = 'R&W Drill';
+      focusDescription = 'Reading & Writing Focus: Targets due ELA reviews, weak verbal skills (<75%), and vocabulary/grammar gaps.';
+      statLabel1 = 'Due R&W Cards';
+      statValue1 = dueCardsRW;
+      statLabel2 = 'Weak R&W Skills';
+      statValue2 = weakSkillsRW.size;
+    } else if (focusType === 'srs_only') {
+      matchingPool = allQuestions.filter(function (q) {
+        return srsMap[q.id] && srsMap[q.id].dueAt && srsMap[q.id].dueAt <= now;
+      });
+      if (matchingPool.length === 0) matchingPool = allQuestions.filter(function (q) { return srsMap[q.id] && srsMap[q.id].repetitions > 0; });
+      focusShortName = 'SRS Review';
+      focusDescription = 'Spaced Repetition Review: Exclusively tests cards scheduled for memory decay retention by the SM-2 algorithm.';
+      statLabel1 = 'Due SRS Cards';
+      statValue1 = dueCardsAll;
+      statLabel2 = 'Total SRS Cards';
+      statValue2 = totalSrsCards;
+    } else if (focusType === 'weak_only') {
+      matchingPool = allQuestions.filter(function (q) {
+        var p = progressMap[q.id];
+        return weakSkills.has(q.skill) || (p && p.answered && !p.isCorrect);
+      });
+      focusShortName = 'Weakness Drill';
+      focusDescription = 'Weakness Remediation Focus: Targets only questions with <75% accuracy and previously missed items.';
+      statLabel1 = 'Weak Skills (<75%)';
+      statValue1 = weakSkills.size;
+      statLabel2 = 'Missed & Weak Qs';
+      statValue2 = matchingPool.length;
+    }
+
+    return {
+      focusType: focusType,
+      focusShortName: focusShortName,
+      focusDescription: focusDescription,
+      matchingPoolCount: matchingPool.length,
+      statLabel1: statLabel1,
+      statValue1: statValue1,
+      statLabel2: statLabel2,
+      statValue2: statValue2,
+      dueCardsCount: dueCardsAll,
+      weakSkillsCount: weakSkills.size
     };
   }
 
@@ -1357,24 +1633,17 @@
    * Monotonic Guarantee: Score is strictly non-decreasing with raw correct answers across all tracks.
    * Zero raw correct always yields the baseline floor (120).
    * Upper Track scales up to 720; Lower Track is capped at 580 maximum.
+   * Validates track against SCALING_ASSUMPTIONS.ALLOWED_TRACKS; returns null for unrecognized tracks.
    */
   function calculateSectionScaledScore(correct, total, track, isAdaptive) {
-    if (!total || total <= 0 || correct <= 0) return 120;
+    if (typeof total !== 'number' || total <= 0 || typeof correct !== 'number' || correct < 0) {
+      if (typeof total === 'number' && total > 0 && correct === 0) {
+        return scaleSectionRawScore(0, track, isAdaptive);
+      }
+      return null;
+    }
     var rawRatio = Math.max(0, Math.min(1, correct / total));
-
-    if (!isAdaptive || !track || track === 'Standard' || track === 'Baseline') {
-      return Math.min(720, Math.max(120, Math.round(120 + rawRatio * 600)));
-    }
-
-    if (track === 'Hard') {
-      // Upper difficulty track: Floor starts at 120, smoothly scales with difficulty weighting up to 720 (100%)
-      var curved = Math.pow(rawRatio, 0.85);
-      return Math.min(720, Math.max(120, Math.round(120 + curved * 600)));
-    } else {
-      // Lower difficulty track: Capped at 580 maximum
-      var curvedLower = Math.pow(rawRatio, 1.1);
-      return Math.min(580, Math.max(120, Math.round(120 + curvedLower * 460)));
-    }
+    return scaleSectionRawScore(rawRatio, track, isAdaptive);
   }
 
   /**
@@ -1545,18 +1814,23 @@
     });
 
     // Practice-based scaled score projection (requires >=15 questions per section for reliable scaling)
-    var MIN_PER_SECTION = 15;
+    var MIN_PER_SECTION = SCALING_ASSUMPTIONS.MIN_PER_SECTION;
     var rwReady = rwTotal >= MIN_PER_SECTION;
     var mathReady = mathTotal >= MIN_PER_SECTION;
     var isScaledReady = rwReady && mathReady;
 
-    var rwTrack = (exam.routingTracks && exam.routingTracks.rw) ? exam.routingTracks.rw : (exam.isAdaptive ? 'Hard' : 'Standard');
-    var mathTrack = (exam.routingTracks && exam.routingTracks.math) ? exam.routingTracks.math : (exam.isAdaptive ? 'Hard' : 'Standard');
+    var rwTrack = (exam.routingTracks && exam.routingTracks.rw) ? exam.routingTracks.rw : (exam.isAdaptive ? null : 'Standard');
+    var mathTrack = (exam.routingTracks && exam.routingTracks.math) ? exam.routingTracks.math : (exam.isAdaptive ? null : 'Standard');
 
-    var rwScaled = calculateSectionScaledScore(rwCorrect, rwTotal, rwTrack, exam.isAdaptive);
-    var mathScaled = calculateSectionScaledScore(mathCorrect, mathTotal, mathTrack, exam.isAdaptive);
+    var rwScaled = rwReady ? calculateSectionScaledScore(rwCorrect, rwTotal, rwTrack, exam.isAdaptive) : null;
+    var mathScaled = mathReady ? calculateSectionScaledScore(mathCorrect, mathTotal, mathTrack, exam.isAdaptive) : null;
 
-    var totalScaled = rwScaled + mathScaled;
+    var scoreReliable = (rwScaled !== null && mathScaled !== null && (!exam.isAdaptive || (rwTrack !== null && mathTrack !== null)));
+    if (!scoreReliable) {
+      isScaledReady = false;
+    }
+
+    var totalScaled = (isScaledReady && rwScaled !== null && mathScaled !== null) ? (rwScaled + mathScaled) : null;
     var overallAcc = totalQuestionsCount > 0 ? Math.round(((rwCorrect + mathCorrect) / totalQuestionsCount) * 100) : 0;
 
     var allExamQIds = {};
@@ -1569,14 +1843,44 @@
 
     var isMini = (exam.type === 'mini_psat89' || totalQuestionsCount <= 12);
     var isFullExam = (totalQuestionsCount >= 90);
-    var totalMoe = isFullExam ? 30 : (isMini ? 60 : Math.max(25, Math.round(100 / Math.sqrt(Math.max(1, totalQuestionsCount / 20)))));
-    var secMoe = Math.max(15, Math.round(totalMoe * 0.65));
 
-    var totalRange = isScaledReady ? [Math.max(240, totalScaled - totalMoe), Math.min(1440, totalScaled + totalMoe)] : null;
-    var rwRange = rwReady ? [Math.max(120, rwScaled - secMoe), Math.min(720, rwScaled + secMoe)] : null;
-    var mathRange = mathReady ? [Math.max(120, mathScaled - secMoe), Math.min(720, mathScaled + secMoe)] : null;
+    var rwRange = null;
+    var mathRange = null;
+    var totalRange = null;
 
-    var confidenceStr = isFullExam ? '90% Confidence Interval' : (isMini ? '80% Confidence Interval' : '85% Confidence Interval');
+    if (rwReady && rwScaled !== null && rwTrack) {
+      var rwWilson = calculateWilsonScoreInterval(rwCorrect, rwTotal, SCALING_ASSUMPTIONS.CONFIDENCE_Z_90);
+      var rwLower = scaleSectionRawScore(rwWilson.lower, rwTrack, exam.isAdaptive);
+      var rwUpper = scaleSectionRawScore(rwWilson.upper, rwTrack, exam.isAdaptive);
+      if (rwLower !== null && rwUpper !== null) {
+        rwRange = [Math.max(SCALING_ASSUMPTIONS.SECTION_FLOOR, rwLower), Math.min(SCALING_ASSUMPTIONS.SECTION_CEILING, rwUpper)];
+      }
+    }
+
+    if (mathReady && mathScaled !== null && mathTrack) {
+      var mathWilson = calculateWilsonScoreInterval(mathCorrect, mathTotal, SCALING_ASSUMPTIONS.CONFIDENCE_Z_90);
+      var mathLower = scaleSectionRawScore(mathWilson.lower, mathTrack, exam.isAdaptive);
+      var mathUpper = scaleSectionRawScore(mathWilson.upper, mathTrack, exam.isAdaptive);
+      if (mathLower !== null && mathUpper !== null) {
+        mathRange = [Math.max(SCALING_ASSUMPTIONS.SECTION_FLOOR, mathLower), Math.min(SCALING_ASSUMPTIONS.SECTION_CEILING, mathUpper)];
+      }
+    }
+
+    if (isScaledReady && totalScaled !== null && rwRange && mathRange && rwScaled !== null && mathScaled !== null) {
+      var rwDeltaLower = Math.max(0, rwScaled - rwRange[0]);
+      var rwDeltaUpper = Math.max(0, rwRange[1] - rwScaled);
+      var mathDeltaLower = Math.max(0, mathScaled - mathRange[0]);
+      var mathDeltaUpper = Math.max(0, mathRange[1] - mathScaled);
+
+      var totalDeltaLower = Math.sqrt(rwDeltaLower * rwDeltaLower + mathDeltaLower * mathDeltaLower);
+      var totalDeltaUpper = Math.sqrt(rwDeltaUpper * rwDeltaUpper + mathDeltaUpper * mathDeltaUpper);
+
+      var totalLower = Math.max(SCALING_ASSUMPTIONS.TOTAL_FLOOR, Math.round(totalScaled - totalDeltaLower));
+      var totalUpper = Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(totalScaled + totalDeltaUpper));
+      totalRange = [totalLower, totalUpper];
+    }
+
+    var confidenceStr = '90% Confidence Interval';
     var dataBasisStr = isFullExam ? '98-Question Standard PSAT 8/9 Benchmark' : (isMini ? '8-Question Quick Simulation' : (totalQuestionsCount + '-Question Custom Drill'));
     var examCat = isMini ? 'mini_exam' : (exam.isHighYield ? 'high_yield_sprint' : (isFullExam ? 'standard_benchmark' : 'custom_drill'));
 
@@ -1593,20 +1897,21 @@
       totalAttempted: totalExamAttempted,
       overallAccuracyPercent: overallAcc,
       scores: {
+        scoreReliable: scoreReliable,
         isScaledReady: isScaledReady,
         totalScaled: isScaledReady ? totalScaled : null,
-        totalRange: totalRange,
-        totalRangeFormatted: totalRange ? (totalRange[0] + '–' + totalRange[1]) : null,
+        totalRange: isScaledReady ? totalRange : null,
+        totalRangeFormatted: (isScaledReady && totalRange) ? (totalRange[0] + '–' + totalRange[1]) : null,
         confidenceInterval: isScaledReady ? confidenceStr : null,
         dataBasis: dataBasisStr,
         examCategory: examCat,
         blueprintVersion: exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
-        rwScaled: rwReady ? rwScaled : null,
-        rwRange: rwRange,
-        rwRangeFormatted: rwRange ? (rwRange[0] + '–' + rwRange[1]) : null,
-        mathScaled: mathReady ? mathScaled : null,
-        mathRange: mathRange,
-        mathRangeFormatted: mathRange ? (mathRange[0] + '–' + mathRange[1]) : null,
+        rwScaled: (rwReady && rwScaled !== null) ? rwScaled : null,
+        rwRange: (rwReady && rwRange) ? rwRange : null,
+        rwRangeFormatted: (rwReady && rwRange) ? (rwRange[0] + '–' + rwRange[1]) : null,
+        mathScaled: (mathReady && mathScaled !== null) ? mathScaled : null,
+        mathRange: (mathReady && mathRange) ? mathRange : null,
+        mathRangeFormatted: (mathReady && mathRange) ? (mathRange[0] + '–' + mathRange[1]) : null,
         rwCorrect: rwCorrect,
         rwTotal: rwTotal,
         mathCorrect: mathCorrect,
@@ -1743,7 +2048,15 @@
     if (!store) return false;
     var env = getEnvironmentConfig(loc);
     try {
-      return store.getItem(env.storagePrefix + 'psat_sample_data_active') === 'true';
+      var flag = store.getItem(env.storagePrefix + 'psat_sample_data_active') === 'true';
+      if (!flag) return false;
+      var progRaw = store.getItem(env.storagePrefix + 'psat_progress');
+      var prog = progRaw ? JSON.parse(progRaw) : {};
+      if (!prog || Object.keys(prog).length === 0) {
+        try { store.removeItem(env.storagePrefix + 'psat_sample_data_active'); } catch(e) {}
+        return false;
+      }
+      return true;
     } catch (e) {
       return false;
     }
@@ -2441,13 +2754,16 @@
   /**
    * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
    */
-  function pullFromCloud(store, customFetch, studentName, safeSetStorageFn, loc) {
+  function pullFromCloud(store, customFetch, studentName, safeSetStorageFn, loc, forceSync) {
     var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
     var prefix = env.storagePrefix;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
-    if (isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+    if (!forceSync && isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+    if (forceSync && store && store.removeItem) {
+      try { store.removeItem(prefix + 'psat_sample_data_active'); } catch(e) {}
+    }
 
     var setter = safeSetStorageFn || function(key, val) {
       try {
@@ -2534,6 +2850,48 @@
               mergedHistoryCount: mergedHist.length,
               totalAttempts: Object.keys(mergedProg).length
             };
+          } else if (env.isBeta && !result.exists) {
+            // Beta sandbox auto-seed from production default_student if beta cloud profile is empty
+            return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=default_student')
+              .then(function(prodRes) {
+                if (!prodRes || !prodRes.ok) return { success: true, updated: false, empty: true };
+                return prodRes.json().then(function(prodResult) {
+                  if (prodResult && prodResult.exists && prodResult.data) {
+                    var cloud = prodResult.data;
+                    var localProgRaw = getter('psat_progress');
+                    var localHistRaw = getter('psat_exam_history');
+                    var localSessRaw = getter('psat_sessions');
+                    var localSrsRaw = getter('psat_srs');
+
+                    var localProg = JSON.parse(localProgRaw || '{}');
+                    var localHist = JSON.parse(localHistRaw || '[]');
+                    var localSess = JSON.parse(localSessRaw || '{}');
+                    var localSrs = JSON.parse(localSrsRaw || '{}');
+
+                    var mergedProg = mergeProgress(cloud.progress, localProg);
+                    var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
+                    var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
+                    var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
+
+                    setter('psat_progress', mergedProg);
+                    setter('psat_srs', mergedSrs);
+                    setter('psat_sessions', mergedSess);
+                    setter('psat_exam_history', mergedHist);
+
+                    return {
+                      success: true,
+                      updated: true,
+                      seededFromProd: true,
+                      data: cloud,
+                      mergedHistoryCount: mergedHist.length,
+                      totalAttempts: Object.keys(mergedProg).length
+                    };
+                  }
+                  return { success: true, updated: false, empty: true };
+                });
+              }).catch(function() {
+                return { success: true, updated: false, empty: true };
+              });
           }
           return { success: true, updated: false, empty: true };
         });
@@ -2541,8 +2899,481 @@
         return { success: false, error: err.message };
       });
   }
+  /**
+   * Renders high-fidelity, structured step-by-step rationales.
+   * - Normalizes broken OCR line wraps into readable paragraphs.
+   * - Splits Choice A/B/C/D into dedicated answer cards with green highlight for correct choice.
+   * - Compact neutral/rose styling for incorrect traps.
+   * - Detects incomplete extraction (text_complete: false) and displays notice + screenshot-first layout.
+   * - HTML escaping protection against XSS.
+   */
+  function renderRationale(question, options) {
+    options = options || {};
+    var q = question || {};
+    var raw = q.rationale || '';
+    if (!raw.trim()) {
+      return '<div class="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 text-xs text-amber-800 italic">No official explanation provided for this question.</div>';
+    }
+
+    var _esc = function(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+
+    var isIncomplete = (q.text_complete === false || q.formula_complete === false || q.review_status === 'incomplete_ocr' || q.review_status === 'needs_review');
+    var userAns = (options.userSelectedAnswer || options.selectedAnswer || '').trim().toUpperCase();
+    var correctAns = (q.correct_answer || '').trim().toUpperCase();
+
+    // 1. Normalize line wraps inside paragraphs while keeping real paragraph boundaries
+    var normalized = raw.replace(/\r\n/g, '\n').trim();
+    normalized = normalized.replace(/([^\n])\n(?!\n|[•\-\d+\.])/g, '$1 ');
+    var paragraphs = normalized.split(/\n\s*\n/).map(function(p) { return p.trim(); }).filter(Boolean);
+
+    // 2. Build Header
+    var headerHtml = '';
+    if (isIncomplete) {
+      headerHtml = 
+        '<div class="space-y-2.5 pb-2.5 border-b border-amber-200/80">' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider">' +
+            '<div class="flex items-center space-x-2">' +
+              '<i data-lucide="alert-circle" class="w-4 h-4 text-amber-700"></i>' +
+              '<span>Extracted Explanation (Partial Text)</span>' +
+            '</div>' +
+            (q.review_status ? '<span class="px-2 py-0.5 text-[10px] rounded font-bold uppercase ' + (q.review_status === 'verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800') + '">' + _esc(q.review_status) + '</span>' : '') +
+          '</div>' +
+          '<div class="p-3 bg-amber-100/90 border border-amber-300/90 rounded-xl text-xs text-amber-950 flex items-start space-x-2.5 shadow-2xs">' +
+            '<i data-lucide="info" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>' +
+            '<span><strong>Notice:</strong> Some mathematical notation was lost during text extraction. Refer to the official question diagram/image above for complete formula fidelity.</span>' +
+          '</div>' +
+        '</div>';
+    } else {
+      headerHtml = 
+        '<div class="flex flex-wrap items-center justify-between gap-2 text-amber-900 font-bold text-xs uppercase tracking-wider pb-2.5 border-b border-amber-200/80">' +
+          '<div class="flex items-center space-x-2">' +
+            '<i data-lucide="book-open" class="w-4 h-4 text-amber-700"></i>' +
+            '<span>Official Step-by-Step Solution &amp; Trap Rationale</span>' +
+          '</div>' +
+          (q.review_status === 'verified' ? '<span class="px-2 py-0.5 text-[10px] rounded font-bold bg-emerald-100 text-emerald-800 uppercase">Verified Solution</span>' : '') +
+        '</div>';
+    }
+
+    // 3. Screenshot Image for Incomplete Question (if requested)
+    var imageHtml = '';
+    if (options.includeScreenshot && (q.image_url || q.question_image)) {
+      var imgSrc = q.image_url || ('data/' + q.question_image);
+      imageHtml = 
+        '<div class="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center space-y-1.5 cursor-pointer group" onclick="typeof openImageLightbox === \'function\' ? openImageLightbox(\'' + _esc(imgSrc) + '\') : window.open(\'' + _esc(imgSrc) + '\', \'_blank\')">' +
+          '<img src="' + _esc(imgSrc) + '" class="max-h-64 max-w-full object-contain rounded-xl shadow-2xs transition-transform group-hover:scale-[1.01]" alt="Question Diagram">' +
+          '<span class="text-[11px] text-indigo-600 font-semibold flex items-center group-hover:underline">' +
+            '<i data-lucide="zoom-in" class="w-3.5 h-3.5 mr-1"></i> Click screenshot to inspect full size' +
+          '</span>' +
+        '</div>';
+    }
+
+    // 4. Try Choice A/B/C/D parsing for multiple choice
+    var choiceRegex = /\b(Choice\s+([A-D])\b[\s\S]*?)(?=\bChoice\s+[A-D]\b|$)/gi;
+    var firstChoiceMatch = /\bChoice\s+([A-D])\b/i.exec(normalized);
+
+    var bodyHtml = '';
+    if (firstChoiceMatch) {
+      var firstChoiceIdx = firstChoiceMatch.index;
+      var intro = normalized.substring(0, firstChoiceIdx).trim();
+      var choicesText = normalized.substring(firstChoiceIdx);
+
+      var choiceBlocks = [];
+      var cMatch;
+      while ((cMatch = choiceRegex.exec(choicesText)) !== null) {
+        choiceBlocks.push({ letter: cMatch[2].toUpperCase(), text: cMatch[1].trim() });
+      }
+
+      var introHtml = '';
+      if (intro) {
+        introHtml = '<div class="text-sm text-slate-800 leading-relaxed font-serif max-w-3xl pb-1.5">' + _esc(intro) + '</div>';
+      }
+
+      var cardsHtml = choiceBlocks.map(function(c) {
+        var isCorrect = (c.letter === correctAns || /is the best answer|is correct/i.test(c.text));
+        var isStudentChoice = (userAns && c.letter === userAns);
+
+        if (isCorrect) {
+          return '<div class="p-4 sm:p-5 rounded-2xl border border-emerald-300 bg-emerald-50/90 text-emerald-950 shadow-2xs space-y-2">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="px-2.5 py-0.5 bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center shrink-0">' +
+                '<i data-lucide="check" class="w-3.5 h-3.5 mr-1"></i> Choice ' + _esc(c.letter) + ' — Correct Answer ✓' +
+              '</span>' +
+            '</div>' +
+            '<p class="text-sm sm:text-base text-emerald-950 leading-relaxed font-sans max-w-3xl">' + _esc(c.text) + '</p>' +
+          '</div>';
+        } else {
+          return '<div class="p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white/95 text-slate-800 shadow-2xs space-y-1.5">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="px-2 py-0.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-lg border border-slate-200 shrink-0">' +
+                'Choice ' + _esc(c.letter) + ' — Incorrect' +
+              '</span>' +
+              (isStudentChoice ? '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 font-bold text-xs rounded-lg border border-rose-200 shrink-0">Student Selected ❌</span>' : '') +
+            '</div>' +
+            '<p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans max-w-3xl">' + _esc(c.text) + '</p>' +
+          '</div>';
+        }
+      }).join('');
+
+      bodyHtml = introHtml + '<div class="grid grid-cols-1 gap-2.5 pt-1">' + cardsHtml + '</div>';
+    } else {
+      // Free response or regular prose paragraphs
+      bodyHtml = '<div class="space-y-2.5 text-xs sm:text-sm text-amber-950 leading-relaxed font-sans max-w-3xl">' +
+        paragraphs.map(function(p) { return '<p>' + _esc(p) + '</p>'; }).join('') +
+      '</div>';
+    }
+
+    return '<div class="p-5 sm:p-6 rounded-3xl bg-amber-50/80 border border-amber-200 space-y-3.5">' +
+      headerHtml +
+      imageHtml +
+      bodyHtml +
+    '</div>';
+  }
+
+  /**
+   * Scientific Expression Tokenizer & Parser
+   * Deterministic mathematical evaluator supporting:
+   * - Operators: +, -, *, /, %, ^ (power)
+   * - Unary: +, -
+   * - Parentheses: (, )
+   * - Functions: sqrt, sin, cos, tan, asin, acos, atan, log (log10), ln (log_e), abs, reciprocal
+   * - Constants: pi, e
+   * - Memory: ans
+   * - Angle Mode: DEG (default) or RAD
+   */
+  function evaluateScientificExpression(expr, options) {
+    options = options || {};
+    var angleMode = options.angleMode || 'DEG';
+    var ansValue = (typeof options.ans === 'number' && !isNaN(options.ans)) ? options.ans : 0;
+
+    if (!expr || typeof expr !== 'string') {
+      return { result: null, error: 'Empty expression' };
+    }
+
+    var cleanExpr = expr.trim();
+    if (cleanExpr.length > 150) {
+      return { result: null, error: 'Input Too Long' };
+    }
+
+    // Tokenizer
+    var tokens = [];
+    var i = 0;
+    var len = cleanExpr.length;
+
+    // Normalizations for special symbols
+    cleanExpr = cleanExpr
+      .replace(/×/g, '*')
+      .replace(/÷/g, '/')
+      .replace(/−/g, '-')
+      .replace(/π/g, 'pi')
+      .replace(/√/g, 'sqrt')
+      .replace(/sin⁻¹/g, 'asin')
+      .replace(/cos⁻¹/g, 'acos')
+      .replace(/tan⁻¹/g, 'atan');
+
+    len = cleanExpr.length;
+
+    while (i < len) {
+      var ch = cleanExpr[i];
+
+      // Whitespace
+      if (/\s/.test(ch)) {
+        i++;
+        continue;
+      }
+
+      // Numbers: digits and decimal point
+      if (/\d/.test(ch) || (ch === '.' && i + 1 < len && /\d/.test(cleanExpr[i + 1]))) {
+        var numStr = '';
+        while (i < len && (/\d/.test(cleanExpr[i]) || cleanExpr[i] === '.')) {
+          numStr += cleanExpr[i];
+          i++;
+        }
+        var parsedNum = parseFloat(numStr);
+        if (isNaN(parsedNum)) {
+          return { result: null, error: 'Invalid Number' };
+        }
+        tokens.push({ type: 'NUMBER', value: parsedNum });
+        continue;
+      }
+
+      // Operators and Parentheses
+      if ('+-*/%^()'.indexOf(ch) !== -1) {
+        tokens.push({ type: 'OP', value: ch });
+        i++;
+        continue;
+      }
+
+      // Words / Identifiers (functions, constants, memory)
+      if (/[a-zA-Z]/.test(ch)) {
+        var ident = '';
+        while (i < len && /[a-zA-Z0-9_]/.test(cleanExpr[i])) {
+          ident += cleanExpr[i];
+          i++;
+        }
+        var lowerIdent = ident.toLowerCase();
+        if (lowerIdent === 'pi') {
+          tokens.push({ type: 'NUMBER', value: Math.PI });
+        } else if (lowerIdent === 'e') {
+          tokens.push({ type: 'NUMBER', value: Math.E });
+        } else if (lowerIdent === 'ans') {
+          tokens.push({ type: 'NUMBER', value: ansValue });
+        } else if (['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sqrt', 'log', 'ln', 'abs', 'reciprocal'].indexOf(lowerIdent) !== -1) {
+          tokens.push({ type: 'FN', value: lowerIdent });
+        } else {
+          return { result: null, error: 'Unknown function: ' + ident };
+        }
+        continue;
+      }
+
+      return { result: null, error: 'Unexpected character: ' + ch };
+    }
+
+    if (tokens.length === 0) {
+      return { result: null, error: 'Empty expression' };
+    }
+
+    // Parser state
+    var pos = 0;
+    var evalError = null;
+
+    function peek() {
+      return tokens[pos];
+    }
+
+    function consume(expected) {
+      var tok = tokens[pos];
+      if (!tok) {
+        evalError = 'Unexpected end of expression';
+        return null;
+      }
+      if (expected && (tok.value !== expected && tok.type !== expected)) {
+        evalError = 'Expected ' + expected + ' but got ' + (tok.value || tok.type);
+        return null;
+      }
+      pos++;
+      return tok;
+    }
+
+    function parseExpr() {
+      if (evalError) return 0;
+      var left = parseTerm();
+      while (!evalError && pos < tokens.length) {
+        var tok = peek();
+        if (tok && tok.type === 'OP' && (tok.value === '+' || tok.value === '-')) {
+          consume();
+          var right = parseTerm();
+          if (tok.value === '+') left = left + right;
+          else left = left - right;
+        } else {
+          break;
+        }
+      }
+      return left;
+    }
+
+    function parseTerm() {
+      if (evalError) return 0;
+      var left = parsePower();
+      while (!evalError && pos < tokens.length) {
+        var tok = peek();
+        if (tok && tok.type === 'OP' && (tok.value === '*' || tok.value === '/' || tok.value === '%')) {
+          consume();
+          var right = parsePower();
+          if (tok.value === '*') {
+            left = left * right;
+          } else if (tok.value === '/') {
+            if (right === 0) {
+              evalError = 'Cannot divide by 0';
+              return 0;
+            }
+            left = left / right;
+          } else if (tok.value === '%') {
+            if (right === 0) {
+              evalError = 'Cannot divide by 0';
+              return 0;
+            }
+            left = left % right;
+          }
+        } else {
+          break;
+        }
+      }
+      return left;
+    }
+
+    function parsePower() {
+      if (evalError) return 0;
+      var left = parseUnary();
+      if (!evalError && pos < tokens.length) {
+        var tok = peek();
+        if (tok && tok.type === 'OP' && tok.value === '^') {
+          consume();
+          var right = parsePower();
+          if (left < 0 && Math.floor(right) !== right) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          left = Math.pow(left, right);
+        }
+      }
+      return left;
+    }
+
+    function parseUnary() {
+      if (evalError) return 0;
+      var tok = peek();
+      if (tok && tok.type === 'OP' && (tok.value === '+' || tok.value === '-')) {
+        consume();
+        var factor = parseUnary();
+        return (tok.value === '-') ? -factor : factor;
+      }
+      return parseFactor();
+    }
+
+    function parseFactor() {
+      if (evalError) return 0;
+      var tok = peek();
+      if (!tok) {
+        evalError = 'Unexpected end of expression';
+        return 0;
+      }
+
+      if (tok.type === 'NUMBER') {
+        consume();
+        return tok.value;
+      }
+
+      if (tok.type === 'FN') {
+        var fnName = tok.value;
+        consume();
+        var nextTok = peek();
+        var hasParen = (nextTok && nextTok.type === 'OP' && nextTok.value === '(');
+        if (hasParen) {
+          consume('(');
+        }
+        var arg = parseExpr();
+        if (hasParen) {
+          if (!peek() || peek().value !== ')') {
+            evalError = 'Unclosed parentheses';
+            return 0;
+          }
+          consume(')');
+        }
+
+        if (evalError) return 0;
+
+        if (fnName === 'sqrt') {
+          if (arg < 0) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          return Math.sqrt(arg);
+        } else if (fnName === 'log') {
+          if (arg <= 0) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          return Math.log10(arg);
+        } else if (fnName === 'ln') {
+          if (arg <= 0) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          return Math.log(arg);
+        } else if (fnName === 'abs') {
+          return Math.abs(arg);
+        } else if (fnName === 'reciprocal') {
+          if (arg === 0) {
+            evalError = 'Cannot divide by 0';
+            return 0;
+          }
+          return 1 / arg;
+        } else if (fnName === 'sin') {
+          var rad = (angleMode === 'DEG') ? (arg * Math.PI / 180) : arg;
+          var val = Math.sin(rad);
+          return (Math.abs(val) < 1e-15) ? 0 : val;
+        } else if (fnName === 'cos') {
+          if (angleMode === 'DEG' && (Math.abs(arg % 180) === 90 || Math.abs(arg % 360) === 270)) {
+            return 0;
+          }
+          var rad = (angleMode === 'DEG') ? (arg * Math.PI / 180) : arg;
+          var val = Math.cos(rad);
+          return (Math.abs(val) < 1e-15) ? 0 : val;
+        } else if (fnName === 'tan') {
+          if (angleMode === 'DEG') {
+            var norm = Math.abs(arg) % 180;
+            if (norm === 90) {
+              evalError = 'Undefined';
+              return 0;
+            }
+          }
+          var rad = (angleMode === 'DEG') ? (arg * Math.PI / 180) : arg;
+          var val = Math.tan(rad);
+          return (Math.abs(val) < 1e-15) ? 0 : val;
+        } else if (fnName === 'asin') {
+          if (arg < -1 || arg > 1) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          var rad = Math.asin(arg);
+          return (angleMode === 'DEG') ? (rad * 180 / Math.PI) : rad;
+        } else if (fnName === 'acos') {
+          if (arg < -1 || arg > 1) {
+            evalError = 'Domain Error';
+            return 0;
+          }
+          var rad = Math.acos(arg);
+          return (angleMode === 'DEG') ? (rad * 180 / Math.PI) : rad;
+        } else if (fnName === 'atan') {
+          var rad = Math.atan(arg);
+          return (angleMode === 'DEG') ? (rad * 180 / Math.PI) : rad;
+        }
+
+        evalError = 'Unknown function: ' + fnName;
+        return 0;
+      }
+
+      if (tok.type === 'OP' && tok.value === '(') {
+        consume('(');
+        var res = parseExpr();
+        if (!peek() || peek().value !== ')') {
+          evalError = 'Unclosed parentheses';
+          return 0;
+        }
+        consume(')');
+        return res;
+      }
+
+      evalError = 'Syntax Error';
+      return 0;
+    }
+
+    var finalResult = parseExpr();
+
+    if (evalError) {
+      return { result: null, error: evalError };
+    }
+
+    if (pos < tokens.length) {
+      return { result: null, error: 'Syntax Error' };
+    }
+
+    if (typeof finalResult !== 'number' || isNaN(finalResult) || !isFinite(finalResult)) {
+      return { result: null, error: 'Math Error' };
+    }
+
+    var rounded = Math.round(finalResult * 1e12) / 1e12;
+    return { result: rounded, error: null };
+  }
 
   return {
+    evaluateScientificExpression: evaluateScientificExpression,
+    SCALING_ASSUMPTIONS: SCALING_ASSUMPTIONS,
+    scaleSectionRawScore: scaleSectionRawScore,
+    calculateWilsonScoreInterval: calculateWilsonScoreInterval,
     localDateKey: localDateKey,
     parseNumeric: parseNumeric,
     extractAcceptedForms: extractAcceptedForms,
@@ -2591,6 +3422,8 @@
     _prioritizeUnseen: _prioritizeUnseen,
     _assembleModuleByBlueprint: _assembleModuleByBlueprint,
     pushToCloud: pushToCloud,
-    pullFromCloud: pullFromCloud
+    pullFromCloud: pullFromCloud,
+    renderRationale: renderRationale,
+    calculateGapFocusMetrics: calculateGapFocusMetrics
   };
 });

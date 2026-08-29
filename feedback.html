@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Unified Button System -->
+  <link rel="stylesheet" href="styles/buttons.css?v=20260829-3">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -30,11 +32,11 @@
           </div>
         </div>
 
-        <div class="flex items-center space-x-4">
-          <a href="index.html" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center">
+        <div class="flex items-center space-x-3">
+          <a href="index.html" class="btn btn-sm btn-secondary">
             <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student Practice
           </a>
-          <a href="parent.html" class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg transition-colors flex items-center">
+          <a href="parent.html" class="btn btn-sm btn-secondary">
             <i data-lucide="shield-check" class="w-4 h-4 mr-1.5"></i> Parent Portal
           </a>
         </div>
@@ -55,10 +57,10 @@
         <p class="text-xs text-slate-300">All submissions are saved locally and can be exported with 1-click as structured Markdown or JSON to share directly with the AI assistant.</p>
       </div>
       <div class="flex space-x-3">
-        <button onclick="exportFeedbackMarkdown()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs rounded-xl transition-all shadow-sm flex items-center">
+        <button onclick="exportFeedbackMarkdown()" class="btn btn-md btn-primary">
           <i data-lucide="copy" class="w-4 h-4 mr-1.5"></i> Copy Markdown Report
         </button>
-        <button onclick="downloadFeedbackJSON()" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl transition-all flex items-center">
+        <button onclick="downloadFeedbackJSON()" class="btn btn-md btn-secondary">
           <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Download JSON
         </button>
       </div>
@@ -132,7 +134,7 @@
 
         <div class="flex items-center justify-between pt-2">
           <span id="form-msg" class="text-xs font-semibold text-emerald-600"></span>
-          <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md transition-colors flex items-center">
+          <button type="submit" class="btn btn-lg btn-primary">
             <i data-lucide="check" class="w-4 h-4 mr-1.5"></i> Save Feedback Entry
           </button>
         </div>
@@ -146,7 +148,7 @@
         <h3 class="text-base font-bold text-slate-900 flex items-center">
           <i data-lucide="list" class="w-5 h-5 mr-2 text-indigo-600"></i> Logged Feedback Entries (<span id="feedback-count">0</span>)
         </h3>
-        <button onclick="clearAllFeedback()" class="text-xs text-slate-400 hover:text-rose-600 font-semibold transition-colors">
+        <button onclick="clearAllFeedback()" class="btn btn-sm btn-ghost text-rose-600 hover:bg-rose-50">
           Clear All Logs
         </button>
       </div>
@@ -177,7 +179,7 @@
         <h3 class="text-base font-bold text-slate-900 flex items-center">
           <i data-lucide="file-text" class="w-5 h-5 mr-2 text-indigo-600"></i> Formatted Markdown Export Preview
         </h3>
-        <button onclick="exportFeedbackMarkdown()" class="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg transition-colors flex items-center">
+        <button onclick="exportFeedbackMarkdown()" class="btn btn-sm btn-secondary">
           <i data-lucide="copy" class="w-3.5 h-3.5 mr-1.5"></i> Copy to Clipboard
         </button>
       </div>
@@ -271,9 +273,8 @@
           </td>
           <td class="px-4 py-3 text-xs text-slate-600">${escapeHtml(fb.tester)}</td>
           <td class="px-4 py-3 text-xs">${sevBadge}</td>
-          <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(fb.timestamp)}</td>
           <td class="px-4 py-3 text-right">
-            <button onclick="deleteEntry('${fb.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition-colors">
+            <button onclick="deleteEntry('${fb.id}')" class="btn btn-sm btn-icon btn-ghost text-slate-400 hover:text-rose-600" title="Delete entry">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </td>

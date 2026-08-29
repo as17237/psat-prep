@@ -1,3 +1,53 @@
+## [Promotion] — 2026-08-29T11:57:47Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T11:53:49Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T11:50:14Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T11:46:05Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T11:22:17Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29 (Version: 20260829-4)
+* **Features & Reliability Fixes:**
+  - **Built-in Scientific Calculator (`MATH-01`)**: Added standalone floating scientific calculator with safe deterministic recursive-descent math parser supporting DEG/RAD, trig/inverse-trig, logs/ln, powers/roots, $\pi$, $e$, Ans memory, and error handling.
+  - **Reference Sheet Algebra & High-Frequency Tab Fix (`UI-04`)**: Fixed tab pane IDs (`tab-content-ref-official`, `tab-content-ref-advanced`) across student and parent portals. Added full WAI-ARIA tablist/tab/tabpanel markup, arrow key navigation, and enriched supplemental Algebra formulas.
+  - **Defensible Scaled Score & Precision Confidence Model (`SCORE-02`)**: Scientifically derived 90% Wilson score confidence interval summed in quadrature, unified practice & exam scaling curve, minimum attempt sample size floor, and strict track allow-listing.
+  - **UI Simplifications & Unified Button System (`UI-03`)**: Cleaned 16 clutter items, stripped non-standard hover effects, and unified interactive components in `styles/buttons.css`.
+  - **Durable Automated Test Suites**: Added `tests/test_math_tools_and_reference.js`, `tests/test_scaled_score.js`, `tests/test_ui_simplifications.js`, and `tests/test_buttons_and_interactions.js`.
+* **Verified Suites:** SM-2 SRS, Scaled Score & Confidence Interval, Math Tools & Reference Sheet Interactions, UI Simplifications, Button Integrity, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T11:15:47Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T10:57:46Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
+## [Promotion] — 2026-08-29T10:52:45Z (Commit: 9cd69c4)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
 ## [Promotion] — 2026-08-29T02:11:32Z (Commit: f85d403)
 * **Branch:** `main`
 * **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.

@@ -12,6 +12,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Desmos Graphing Calculator API (Official Standard Key) -->
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <!-- Unified Button System -->
+  <link rel="stylesheet" href="styles/buttons.css?v=20260829-6">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -23,24 +25,8 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-  <!-- Beta Sandbox Environment Top Banner -->
-  <div id="beta-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-xs flex flex-wrap items-center justify-between shadow-md border-b border-amber-600 z-50">
-    <div class="flex items-center space-x-2">
-      <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-wider">🧪 Beta Sandbox</span>
-      <span class="text-slate-950">Isolated Test Environment &bull; Profile: <code class="bg-black/10 px-1 py-0.5 rounded text-slate-950 font-mono">beta_default_student</code> (Live Student Data Protected)</span>
-    </div>
-    <div class="flex items-center space-x-2 pt-1 sm:pt-0">
-      <button onclick="cloneProdDataToBeta()" class="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="copy" class="w-3.5 h-3.5 mr-1"></i> Copy Prod Data to Beta
-      </button>
-      <button onclick="resetBetaSandbox()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1"></i> Reset Beta
-      </button>
-    </div>
-  </div>
-
   <!-- Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center space-x-3 shrink-0">
@@ -49,7 +35,7 @@
           </div>
           <div class="flex flex-col justify-center">
             <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight tracking-tight">PSAT Prep Mastery</h1>
-            <p class="text-[11px] text-slate-500 font-medium leading-normal whitespace-nowrap">3,059 Official Questions &bull; SM-2 SRS Engine</p>
+            <p class="text-[11px] text-slate-500 font-medium leading-normal whitespace-nowrap">Official PSAT 8/9 Practice &amp; Diagnostics</p>
           </div>
         </div>
 
@@ -64,40 +50,19 @@
           <button onclick="switchTab('analytics')" id="tab-analytics" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
             <i data-lucide="bar-chart-3" class="w-4 h-4 mr-1.5"></i> Analytics
           </button>
-          <button onclick="switchTab('bank')" id="tab-bank" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
-            <i data-lucide="database" class="w-4 h-4 mr-1.5"></i> Question Bank
-          </button>
         </nav>
 
-        <!-- Live Score Summary, Math Tools & Parent Portal Link -->
+        <!-- Sync, Feedback & Parent Portal Actions -->
         <div class="flex items-center space-x-2.5">
-          <!-- Quick Math Tools -->
-          <div class="hidden md:flex items-center space-x-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200">
-            <button onclick="toggleDesmosCalculator()" class="px-2.5 py-1 hover:bg-white text-slate-700 hover:text-emerald-700 text-xs font-bold rounded-lg transition-all flex items-center shadow-xs" title="Open Desmos Graphing Calculator (Alt+C)">
-              <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i> Desmos
-            </button>
-            <button onclick="toggleReferenceSheet()" class="px-2.5 py-1 hover:bg-white text-slate-700 hover:text-indigo-700 text-xs font-bold rounded-lg transition-all flex items-center shadow-xs" title="Open PSAT 8/9 Math Reference Sheet (Alt+R)">
-              <i data-lucide="compass" class="w-3.5 h-3.5 mr-1 text-indigo-600"></i> Reference
-            </button>
-          </div>
-
-          <div class="hidden lg:flex items-center space-x-3 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold">
-            <div class="text-slate-600">Attempted: <span id="hdr-attempted" class="text-indigo-600 font-bold">0/3059</span></div>
-            <div class="w-px h-3 bg-slate-300"></div>
-            <div class="text-slate-600">Accuracy: <span id="hdr-accuracy" class="text-emerald-600 font-bold">0%</span></div>
-          </div>
-          <button id="hdr-cloud-badge" onclick="manualTriggerCloudSync()" class="hidden sm:flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg border border-slate-200 transition-colors" title="Click to synchronize with Azure Cosmos DB">
-            <i data-lucide="cloud" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Cosmos DB: Connecting...
+          <button onclick="manualTriggerCloudSync(true)" id="btn-cloud-sync" title="Sync latest student progress from Cosmos DB" class="btn btn-sm btn-primary">
+            <i data-lucide="cloud-download" class="w-4 h-4 mr-1"></i> <span id="cloud-sync-btn-text">Sync Cosmos DB</span>
           </button>
-          <a href="feedback.html" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
+          <a href="feedback.html" class="btn btn-sm btn-secondary">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1"></i> Feedback
           </a>
-          <a href="parent.html" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors flex items-center">
+          <a href="parent.html" class="btn btn-sm btn-secondary">
             <i data-lucide="shield-check" class="w-4 h-4 mr-1"></i> Parent Portal
           </a>
-          <button onclick="resetAllProgress()" title="Reset practice data" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
-            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-          </button>
         </div>
       </div>
     </div>
@@ -112,7 +77,7 @@
         <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0"></i>
         <span class="text-xs font-semibold">Local storage quota is full. Some recent progress could not be saved. You can export your audit data or clear older test history.</span>
       </div>
-      <button onclick="document.getElementById('storage-quota-warning').classList.add('hidden')" class="p-1 text-rose-600 hover:text-rose-900">
+      <button onclick="document.getElementById('storage-quota-warning').classList.add('hidden')" class="btn btn-sm btn-icon btn-ghost text-rose-600">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
@@ -129,7 +94,7 @@
         </div>
       </div>
       <div class="flex items-center space-x-2 shrink-0">
-        <button onclick="restoreRealStudentData()" class="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all">
+        <button onclick="restoreRealStudentData()" class="btn btn-sm btn-secondary">
           Restore My Real Data &rarr;
         </button>
       </div>
@@ -174,25 +139,17 @@
           </div>
         </div>
 
-        <!-- Tools & View Mode Switcher -->
+        <!-- Math Tools -->
         <div class="flex flex-wrap items-center gap-2.5">
-          <!-- Math Tool Buttons -->
-          <button onclick="toggleDesmosCalculator()" class="px-3 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 text-xs font-bold rounded-lg border border-slate-200 transition-colors flex items-center shadow-xs" title="Open Desmos Graphing Calculator">
-            <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i> Calculator
+          <button onclick="toggleDesmosCalculator()" class="btn btn-sm btn-secondary" title="Open Desmos Graphing Calculator">
+            <i data-lucide="line-chart" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i> Desmos Graphing
           </button>
-          <button onclick="toggleReferenceSheet()" class="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-800 text-xs font-bold rounded-lg border border-slate-200 transition-colors flex items-center shadow-xs" title="Open PSAT 8/9 Math Reference Sheet">
+          <button onclick="toggleScientificCalculator()" class="btn btn-sm btn-secondary" title="Open Built-in Scientific Calculator">
+            <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-indigo-600"></i> Scientific Calc
+          </button>
+          <button onclick="toggleReferenceSheet()" class="btn btn-sm btn-secondary" title="Open PSAT 8/9 Math Reference Sheet">
             <i data-lucide="compass" class="w-3.5 h-3.5 mr-1.5 text-indigo-600"></i> Reference Sheet
           </button>
-
-          <!-- View Mode Switcher -->
-          <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-            <button id="btn-view-card" onclick="setViewMode('card')" class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all flex items-center">
-              <i data-lucide="image" class="w-3.5 h-3.5 mr-1.5"></i> Visual Card
-            </button>
-            <button id="btn-view-text" onclick="setViewMode('text')" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center" title="Text Mode">
-              <i data-lucide="file-text" class="w-3.5 h-3.5 mr-1.5"></i> Text Mode
-            </button>
-          </div>
         </div>
       </div>
 
@@ -207,17 +164,17 @@
             <div class="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <div class="flex items-center space-x-3">
                 <span id="q-index-badge" class="px-2.5 py-1 bg-indigo-100 text-indigo-800 text-xs font-bold rounded-md">Q1 of 3059</span>
-                <span id="q-id-badge" class="text-xs font-mono text-slate-500">ID: —</span>
+                <span id="q-id-badge" class="hidden text-xs font-mono text-slate-500">ID: —</span>
                 <span id="q-diff-badge" class="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">—</span>
               </div>
 
               <div class="flex items-center space-x-2">
                 <span id="q-domain-badge" class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md border border-slate-200">—</span>
                 <span id="q-skill-badge" class="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md border border-slate-200">—</span>
-                <button id="btn-flag" onclick="toggleFlagCurrentQuestion()" class="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors ml-2" title="Bookmark / Flag question">
+                <button id="btn-flag" onclick="toggleFlagCurrentQuestion()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Bookmark / Flag question">
                   <i data-lucide="bookmark" class="w-4 h-4"></i>
                 </button>
-                <button onclick="reportCurrentQuestionIssue()" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors" title="Report issue with this question">
+                <button onclick="reportCurrentQuestionIssue()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Report issue with this question">
                   <i data-lucide="flag" class="w-4 h-4"></i>
                 </button>
               </div>
@@ -226,20 +183,9 @@
             <!-- Question Body -->
             <div class="p-6 space-y-6 flex-1">
               
-              <!-- Text Mode Info Callout (when formulas require card view) -->
-              <div id="text-mode-warning" class="hidden p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center space-x-2">
-                <i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>
-                <span>Note: This question contains mathematical formulas rendered as vector graphics. Switch to <strong>Visual Official Card</strong> view for 100% diagram fidelity.</span>
-              </div>
-
               <!-- 1. Visual Image View (100% accurate rendering of official formulas and charts) -->
               <div id="q-visual-container" class="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner flex justify-center p-2 min-h-[300px]">
                 <img id="q-image" src="" alt="PSAT Question Card" class="max-w-full h-auto object-contain rounded-lg">
-              </div>
-
-              <!-- 2. Text Passage / Prompt View -->
-              <div id="q-text-container" class="hidden space-y-4 text-slate-800 leading-relaxed">
-                <div id="q-text-body" class="whitespace-pre-line text-base font-normal bg-slate-50 p-5 rounded-xl border border-slate-200"></div>
               </div>
 
               <!-- Interactive Input & Options Block -->
@@ -260,7 +206,7 @@
                 <div id="free-response-container" class="hidden space-y-3">
                   <div class="flex items-center space-x-3 max-w-md">
                     <input type="text" id="free-response-input" onkeydown="if(event.key === 'Enter') submitFreeResponse();" placeholder="Enter answer (e.g. 2, 40, 3/4, 2.5)" class="flex-1 px-4 py-2.5 text-base border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:ring-2 focus:ring-indigo-200 font-mono">
-                    <button onclick="submitFreeResponse()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-sm transition-colors">
+                    <button onclick="submitFreeResponse()" class="btn btn-md btn-primary">
                       Submit
                     </button>
                   </div>
@@ -279,17 +225,11 @@
                 </div>
               </div>
 
-              <!-- Source Contradiction Notice (for College Board editorial discrepancies) -->
-              <div id="mismatch-notice" class="hidden p-3 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs">
-                <i data-lucide="info" class="w-4 h-4 inline mr-1 text-indigo-600"></i>
-                <strong>Official Source Note:</strong> The official answer key for this question is followed for scoring; the College Board rationale text contains an editorial typographical reference to another choice.
-              </div>
-
               <!-- Collapsible Rationale Card -->
               <div id="rationale-container" class="hidden border border-indigo-100 bg-indigo-50/50 rounded-xl overflow-hidden transition-all">
                 <button onclick="toggleRationale()" class="w-full px-5 py-3.5 bg-indigo-100/60 hover:bg-indigo-100 text-indigo-950 font-semibold text-sm flex items-center justify-between transition-colors">
                   <span class="flex items-center">
-                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 text-indigo-600"></i> Step-by-Step Explanation & Rationale
+                    <i data-lucide="help-circle" class="w-4 h-4 mr-2 text-indigo-600"></i> Step-by-Step Explanation &amp; Rationale
                   </span>
                   <i id="rationale-arrow" data-lucide="chevron-down" class="w-4 h-4 text-indigo-600 transition-transform"></i>
                 </button>
@@ -310,15 +250,11 @@
 
             <!-- Bottom Navigation Bar -->
             <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between">
-              <button onclick="prevQuestion()" id="btn-prev" class="px-4 py-2 text-sm font-semibold rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors flex items-center disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onclick="prevQuestion()" id="btn-prev" class="btn btn-md btn-secondary">
                 <i data-lucide="chevron-left" class="w-4 h-4 mr-1"></i> Previous
               </button>
 
-              <div class="text-xs font-semibold text-slate-500">
-                Shortcuts: <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">A</kbd> <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">B</kbd> <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">C</kbd> <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">D</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">&larr;</kbd> <kbd class="px-1.5 py-0.5 bg-slate-200 rounded text-slate-700 font-mono">&rarr;</kbd>
-              </div>
-
-              <button onclick="nextQuestion()" id="btn-next" class="px-5 py-2 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-colors flex items-center disabled:opacity-40 disabled:cursor-not-allowed">
+              <button onclick="nextQuestion()" id="btn-next" class="btn btn-md btn-primary">
                 Next <i data-lucide="chevron-right" class="w-4 h-4 ml-1"></i>
               </button>
             </div>
@@ -336,9 +272,9 @@
 
             <!-- Palette Pagination controls -->
             <div class="flex items-center justify-between text-xs text-slate-600 border-t border-slate-100 pt-3">
-              <button onclick="prevPalettePage()" id="btn-pal-prev" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">&larr; Prev 40</button>
+              <button onclick="prevPalettePage()" id="btn-pal-prev" class="btn btn-sm btn-secondary">&larr; Prev 40</button>
               <span id="pal-page-indicator" class="font-semibold text-slate-700">1 - 40</span>
-              <button onclick="nextPalettePage()" id="btn-pal-next" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">Next 40 &rarr;</button>
+              <button onclick="nextPalettePage()" id="btn-pal-next" class="btn btn-sm btn-secondary">Next 40 &rarr;</button>
             </div>
 
             <!-- Question Grid Buttons -->
@@ -356,7 +292,7 @@
             <h4 id="side-skill-name" class="font-bold text-base leading-tight">—</h4>
             <p id="side-skill-desc" class="text-xs text-slate-300 leading-normal">Practice questions to build skill mastery.</p>
             <div class="pt-2">
-              <button onclick="switchTab('analytics')" class="w-full py-2 bg-white/10 hover:bg-white/20 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center">
+              <button onclick="switchTab('analytics')" class="btn btn-sm btn-secondary btn-block">
                 View Full Mastery Report <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 ml-1"></i>
               </button>
             </div>
@@ -372,6 +308,24 @@
     <!-- ============================================================ -->
     <div id="view-analytics" class="hidden space-y-8">
       
+      <!-- Analytics Header Bar with One-Click Cloud Sync -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Student Learning & Skill Analytics</h2>
+            <p class="text-xs text-slate-500">Live performance analytics synchronized with Azure Cosmos DB student records</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="manualTriggerCloudSync(true)" class="btn btn-sm btn-primary">
+            <i data-lucide="cloud-download" class="w-4 h-4 mr-1.5"></i> Sync from Cosmos DB
+          </button>
+        </div>
+      </div>
+
       <!-- Top Metrics Row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
@@ -470,7 +424,7 @@
           <h3 class="text-base font-bold text-slate-900 flex items-center">
             <i data-lucide="layers" class="w-4 h-4 mr-2 text-indigo-600"></i> Domain Performance Breakdown
           </h3>
-          <div class="h-64 flex items-center justify-center">
+          <div class="h-64 relative w-full">
             <canvas id="domainChart"></canvas>
           </div>
         </div>
@@ -480,7 +434,7 @@
           <h3 class="text-base font-bold text-slate-900 flex items-center">
             <i data-lucide="gauge" class="w-4 h-4 mr-2 text-indigo-600"></i> Accuracy by Difficulty Level
           </h3>
-          <div class="h-64 flex items-center justify-center">
+          <div class="h-64 relative w-full">
             <canvas id="difficultyChart"></canvas>
           </div>
         </div>
@@ -507,8 +461,8 @@
         <div class="flex items-center justify-between text-xs text-slate-600">
           <span id="bank-page-info">Showing 1-25 of 3059</span>
           <div class="flex space-x-2">
-            <button onclick="prevBankPage()" id="btn-bank-prev" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-semibold">&larr; Previous</button>
-            <button onclick="nextBankPage()" id="btn-bank-next" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-semibold">Next &rarr;</button>
+            <button onclick="prevBankPage()" id="btn-bank-prev" class="btn btn-sm btn-secondary">&larr; Previous</button>
+            <button onclick="nextBankPage()" id="btn-bank-next" class="btn btn-sm btn-secondary">Next &rarr;</button>
           </div>
         </div>
 
@@ -556,43 +510,36 @@
             </div>
           </div>
           <div class="flex items-center space-x-2.5 shrink-0">
-            <button onclick="discardActiveExamState()" class="px-3.5 py-2 bg-slate-900/10 hover:bg-slate-900/20 text-slate-950 font-bold text-xs rounded-xl transition-all">
+            <button onclick="discardActiveExamState()" class="btn btn-sm btn-secondary">
               Discard
             </button>
-            <button onclick="resumeActiveExamState()" class="px-5 py-2 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="resumeActiveExamState()" class="btn btn-sm btn-primary">
               Resume Test &rarr;
             </button>
           </div>
         </div>
 
         <!-- Mini PSAT 8/9 Quick Simulation Card (10 min End-to-End Test) -->
-        <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border-2 border-indigo-500/30 relative overflow-hidden space-y-6">
+        <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-500/30 relative overflow-hidden space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-600/50 flex items-center">
-              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Recommended For Quick Testing & UAT
+              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1.5 text-amber-400"></i> Quick Practice Simulation
             </span>
-            <span class="text-xs font-mono text-slate-300">8 Questions &bull; ~10 Minutes &bull; 240–1440 Scale</span>
+            <span class="text-xs font-mono text-slate-300">8 Questions &bull; 10 Minutes &bull; 240–1440 Scale</span>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
             <div class="lg:col-span-2 space-y-2">
-              <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight">Mini PSAT 8/9 Quick Simulation</h2>
+              <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight">Mini PSAT 8/9 Quick Exam</h2>
               <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Test the complete official PSAT 8/9 testing experience in just 10 minutes: <strong>Reading & Writing (4 Qs)</strong> &rarr; <strong>Scheduled Break</strong> &rarr; <strong>Math with Desmos & Formula Sheet (4 Qs: 3 MCQ + 1 Grid-In)</strong> &rarr; <strong>Diagnostic Score Report & Instant Parent Portal Analytics</strong>.
+                Fast diagnostic simulation with 4 Reading &amp; Writing and 4 Math questions under official timed conditions.
               </p>
-              <div class="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-300">
-                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Locked Modules</span>
-                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Desmos Calculator</span>
-                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Math Reference Sheet</span>
-                <span class="flex items-center"><i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400 mr-1"></i> Full Question Review</span>
-              </div>
             </div>
 
-            <div class="flex flex-col space-y-3 justify-center items-start lg:items-end">
-              <button onclick="startMiniExam()" class="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center">
-                <i data-lucide="play" class="w-5 h-5 mr-2"></i> Start 10-Min Mini Exam
+            <div class="flex justify-start lg:justify-end">
+              <button onclick="startMiniExam()" class="btn btn-lg btn-primary">
+                <i data-lucide="play" class="w-5 h-5 mr-2"></i> Start Mini Exam (10 min)
               </button>
-              <span class="text-[11px] text-slate-400 text-center lg:text-right">Generates real score report & parent analytics</span>
             </div>
           </div>
         </div>
@@ -601,15 +548,15 @@
         <div class="bg-gradient-to-r from-emerald-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden space-y-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-900/60 px-3 py-1 rounded-full border border-emerald-700">
-              Official Full-Length Bluebook Format
+              Official Full-Length Format
             </span>
-            <span class="text-xs font-mono text-slate-300">Total Scale: 240–1440 Composite</span>
+            <span class="text-xs font-mono text-slate-300">98 Questions &bull; 2h 14m &bull; 240–1440 Scale</span>
           </div>
 
           <div>
             <h2 class="text-2xl sm:text-3xl font-black text-white leading-tight">Standard PSAT 8/9 Full-Length Exam</h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-3xl mt-2 leading-relaxed">
-              Experience the authentic digital PSAT 8/9 exam format under strict timed conditions. Questions are partitioned into 4 locked modules with an official 10-minute break.
+              Authentic full exam simulation partitioned into 4 timed modules with a 10-minute break.
             </p>
           </div>
 
@@ -619,7 +566,7 @@
               <span class="text-lg font-bold text-white">2h 14m (134 min)</span>
             </div>
             <div class="bg-white/10 p-3.5 rounded-2xl border border-white/10">
-              <span class="text-xs text-slate-400 font-semibold block">Reading & Writing</span>
+              <span class="text-xs text-slate-400 font-semibold block">Reading &amp; Writing</span>
               <span class="text-lg font-bold text-white">54 Qs (Two 32m mods)</span>
             </div>
             <div class="bg-white/10 p-3.5 rounded-2xl border border-white/10">
@@ -632,12 +579,8 @@
             </div>
           </div>
 
-          <div class="flex flex-wrap items-center justify-between pt-4 border-t border-white/10 gap-4">
-            <div class="text-xs text-slate-300 flex items-center space-x-2">
-              <i data-lucide="lock" class="w-4 h-4 text-emerald-400"></i>
-              <span>Locked module progression &bull; No instant answers until final score report.</span>
-            </div>
-            <button onclick="startStandardExam()" class="px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-emerald-900/40 transition-all flex items-center">
+          <div class="flex items-center justify-end pt-4 border-t border-white/10">
+            <button onclick="startStandardExam()" class="btn btn-lg btn-success">
               <i data-lucide="play" class="w-5 h-5 mr-2"></i> Start Full PSAT 8/9 Exam
             </button>
           </div>
@@ -659,7 +602,7 @@
             </div>
             <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-500">20 Qs &bull; ~30 min</span>
-              <button onclick="startGapDrillFromLobby()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all flex items-center">
+              <button onclick="startGapDrillFromLobby()" class="btn btn-md btn-primary">
                 <i data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i> Start Drill
               </button>
             </div>
@@ -678,7 +621,7 @@
             </div>
             <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-500">54 Qs &bull; 64 min</span>
-              <button onclick="startSectionTest('Reading and Writing')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center">
+              <button onclick="startSectionTest('Reading and Writing')" class="btn btn-md btn-secondary">
                 <i data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i> Start Section
               </button>
             </div>
@@ -697,7 +640,7 @@
             </div>
             <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span class="text-xs font-semibold text-slate-500">44 Qs &bull; 70 min</span>
-              <button onclick="startSectionTest('Math')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center">
+              <button onclick="startSectionTest('Math')" class="btn btn-md btn-secondary">
                 <i data-lucide="play" class="w-3.5 h-3.5 mr-1.5"></i> Start Section
               </button>
             </div>
@@ -742,10 +685,13 @@
           <!-- Timer & Tools & Controls -->
           <div class="flex flex-wrap items-center gap-3">
             <!-- Bluebook Tools -->
-            <button onclick="toggleDesmosCalculator()" id="btn-exam-calc" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center shadow-sm" title="Open Desmos Graphing Calculator">
-              <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-emerald-400"></i> Calculator
+            <button onclick="toggleDesmosCalculator()" id="btn-exam-calc" class="btn btn-sm btn-secondary" title="Open Desmos Graphing Calculator">
+              <i data-lucide="line-chart" class="w-3.5 h-3.5 mr-1.5 text-emerald-400"></i> Desmos Graphing
             </button>
-            <button onclick="toggleReferenceSheet()" id="btn-exam-ref" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center shadow-sm" title="Open PSAT 8/9 Math Reference Sheet">
+            <button onclick="toggleScientificCalculator()" id="btn-exam-sci-calc" class="btn btn-sm btn-secondary" title="Open Built-in Scientific Calculator">
+              <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-indigo-400"></i> Scientific Calc
+            </button>
+            <button onclick="toggleReferenceSheet()" id="btn-exam-ref" class="btn btn-sm btn-secondary" title="Open PSAT 8/9 Math Reference Sheet">
               <i data-lucide="compass" class="w-3.5 h-3.5 mr-1.5 text-indigo-400"></i> Reference
             </button>
 
@@ -760,7 +706,7 @@
               <i data-lucide="bookmark" class="w-3.5 h-3.5 mr-1 text-amber-400"></i> Mark for Review
             </label>
 
-            <button onclick="showModuleReviewScreen()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center">
+            <button onclick="showModuleReviewScreen()" class="btn btn-sm btn-primary">
               <i data-lucide="grid" class="w-3.5 h-3.5 mr-1.5"></i> Review Page
             </button>
           </div>
@@ -776,8 +722,8 @@
               <span id="exam-q-domain" class="text-xs text-slate-500 font-medium">—</span>
             </div>
             <div class="flex items-center space-x-2">
-              <button onclick="setExamViewMode('card')" id="btn-exam-card" class="px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all">Official Card</button>
-              <button onclick="setExamViewMode('text')" id="btn-exam-text" class="px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all">Text Mode</button>
+              <button onclick="setExamViewMode('card')" id="btn-exam-card" class="btn btn-sm btn-primary is-active">Official Card</button>
+              <button onclick="setExamViewMode('text')" id="btn-exam-text" class="btn btn-sm btn-ghost text-slate-600">Text Mode</button>
             </div>
           </div>
 
@@ -791,10 +737,10 @@
                 <!-- Zoom Toolbar -->
                 <div class="flex items-center space-x-2 bg-slate-100 px-3 py-1 rounded-xl text-xs font-semibold text-slate-600 self-end mr-2">
                   <span class="text-[11px] text-slate-400 uppercase tracking-wider mr-1">Image Size:</span>
-                  <button type="button" onclick="adjustExamZoom(-15)" class="p-1 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Zoom Out">-</button>
+                  <button type="button" onclick="adjustExamZoom(-15)" class="btn btn-sm btn-icon btn-secondary" title="Zoom Out">-</button>
                   <span id="exam-zoom-label" class="font-mono text-xs text-indigo-700 font-bold min-w-[42px] text-center">100%</span>
-                  <button type="button" onclick="adjustExamZoom(15)" class="p-1 hover:bg-slate-200 rounded text-slate-700 font-bold" title="Zoom In">+</button>
-                  <button type="button" onclick="resetExamZoom()" class="p-1 hover:bg-slate-200 rounded text-slate-500 text-[10px]" title="Reset Zoom">↺</button>
+                  <button type="button" onclick="adjustExamZoom(15)" class="btn btn-sm btn-icon btn-secondary" title="Zoom In">+</button>
+                  <button type="button" onclick="resetExamZoom()" class="btn btn-sm btn-icon btn-secondary" title="Reset Zoom">↺</button>
                 </div>
 
                 <div class="w-full flex justify-center overflow-x-auto p-2">
@@ -831,7 +777,7 @@
 
           <!-- Exam Footer Navigation -->
           <div class="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
-            <button onclick="prevExamQuestion()" id="btn-exam-prev" class="px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center">
+            <button onclick="prevExamQuestion()" id="btn-exam-prev" class="btn btn-md btn-secondary">
               &larr; Back
             </button>
 
@@ -840,7 +786,7 @@
               <!-- Dynamically populated -->
             </div>
 
-            <button onclick="nextExamQuestion()" id="btn-exam-next" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="nextExamQuestion()" id="btn-exam-next" class="btn btn-md btn-primary">
               Next &rarr;
             </button>
           </div>
@@ -870,10 +816,10 @@
           </div>
 
           <div class="flex items-center justify-between pt-6 border-t border-slate-100">
-            <button onclick="returnToActiveExamQuestion()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center">
+            <button onclick="returnToActiveExamQuestion()" class="btn btn-md btn-secondary">
               &larr; Return to Questions
             </button>
-            <button onclick="submitCurrentExamModule()" id="btn-submit-module" class="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="submitCurrentExamModule()" id="btn-submit-module" class="btn btn-lg btn-success">
               Submit Module & Continue &rarr;
             </button>
           </div>
@@ -902,7 +848,7 @@
           </div>
 
           <div class="pt-4">
-            <button onclick="resumeExamAfterBreak()" class="px-8 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-sm rounded-2xl shadow-lg transition-all flex items-center mx-auto">
+            <button onclick="resumeExamAfterBreak()" class="btn btn-lg btn-success">
               Resume Exam Early &rarr; Start Section 2: Math
             </button>
           </div>
@@ -952,13 +898,13 @@
 
             <!-- Action Buttons -->
             <div class="flex flex-col space-y-3">
-              <button onclick="saveExamResultsToHistory()" id="btn-save-exam" class="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center">
+              <button onclick="saveExamResultsToHistory()" id="btn-save-exam" class="btn btn-md btn-success">
                 <i data-lucide="check" class="w-4 h-4 mr-1.5"></i> Save to Practice & SRS History
               </button>
-              <button onclick="window.print()" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl transition-all flex items-center justify-center">
+              <button onclick="window.print()" class="btn btn-md btn-secondary">
                 <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Score Report
               </button>
-              <button onclick="switchTab('exam')" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs rounded-xl transition-all flex items-center justify-center">
+              <button onclick="switchTab('exam')" class="btn btn-md btn-secondary">
                 Take Another Practice Exam &rarr;
               </button>
             </div>
@@ -984,7 +930,7 @@
             </div>
 
             <div class="shrink-0">
-              <button onclick="launchPostExamRecoveryDrill()" class="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm rounded-2xl shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center">
+              <button onclick="launchPostExamRecoveryDrill()" class="btn btn-lg btn-primary">
                 <i data-lucide="play" class="w-4 h-4 mr-2 text-slate-950"></i> Launch 10-Question Recovery Drill &rarr;
               </button>
             </div>
@@ -1004,9 +950,9 @@
               <p class="text-xs text-slate-500 font-medium">Inspect all questions, correct answers, step-by-step rationales, and response times.</p>
             </div>
             <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-              <button onclick="filterReportQuestions('all')" id="rf-all" class="px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm">All (<span id="rf-all-cnt">98</span>)</button>
-              <button onclick="filterReportQuestions('incorrect')" id="rf-inc" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Incorrect (<span id="rf-inc-cnt">0</span>)</button>
-              <button onclick="filterReportQuestions('correct')" id="rf-cor" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Correct (<span id="rf-cor-cnt">0</span>)</button>
+              <button onclick="filterReportQuestions('all')" id="rf-all" class="btn btn-sm btn-primary is-active">All (<span id="rf-all-cnt">98</span>)</button>
+              <button onclick="filterReportQuestions('incorrect')" id="rf-inc" class="btn btn-sm btn-secondary">Incorrect (<span id="rf-inc-cnt">0</span>)</button>
+              <button onclick="filterReportQuestions('correct')" id="rf-cor" class="btn btn-sm btn-secondary">Correct (<span id="rf-cor-cnt">0</span>)</button>
             </div>
           </div>
 
@@ -1023,9 +969,9 @@
   </main>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=20260828-2"></script>
+  <script src="srs.js?v=20260829-6"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=20260828-2"></script>
+  <script src="data/questions_data.js?v=20260829-6"></script>
 
   <!-- App Core Script -->
   <script>
@@ -1208,14 +1154,16 @@
       }
     }
 
-    function manualTriggerCloudSync() {
+    function manualTriggerCloudSync(isManual = false) {
+      const btnText = document.getElementById('cloud-sync-btn-text');
+      if (btnText) btnText.innerText = 'Syncing...';
       const el = document.getElementById('hdr-cloud-badge');
       if (el) {
         el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
         lucide.createIcons();
       }
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-        PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(pullRes => {
+        return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(pullRes => {
           if (pullRes && pullRes.success) {
             progress = safeGetStorage('psat_progress', {});
             srsState = safeGetStorage('psat_srs', {});
@@ -1223,24 +1171,41 @@
             updateHeaderStats();
             renderPalette();
             renderExamLobbyHistory();
-            if (typeof PSAT_ENGINE.pushToCloud === 'function') {
-              return PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
+            if (!document.getElementById('view-analytics').classList.contains('hidden')) {
+              renderAnalytics();
             }
-          }
-          return pullRes;
-        }).then(pushRes => {
-          if (pushRes && pushRes.success) {
+            if (typeof PSAT_ENGINE.pushToCloud === 'function') {
+              PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
+            }
+            if (btnText) btnText.innerText = 'Sync';
             localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
             localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
             updateSyncStatusBadge();
-            alert(`✓ Successfully synchronized with Azure Cosmos DB profile (${APP_ENV.studentName})!`);
+            if (isManual) {
+              if (pullRes.updated) {
+                alert(`✓ Successfully synced student progress from Cosmos DB (${APP_ENV.studentName})!\n${pullRes.totalAttempts || Object.keys(progress).length} total attempts loaded across all domains.`);
+              } else if (pullRes.empty) {
+                alert(`Cosmos DB is connected, but no student test attempts exist yet for ${APP_ENV.studentName}.`);
+              } else {
+                alert('✓ Cosmos DB is up to date — all attempts are synchronized.');
+              }
+            }
           } else {
+            if (btnText) btnText.innerText = 'Sync';
             updateSyncStatusBadge();
-            alert('Sync notice: Could not connect to Cosmos DB. Changes remain safely cached locally.');
+            if (isManual) {
+              const errMsg = (pullRes && pullRes.error) ? pullRes.error : 'Could not connect to Cosmos DB server';
+              alert(`Sync notice: ${errMsg}. Practice data remains safely stored in local cache.`);
+            }
           }
+          lucide.createIcons();
+          return pullRes;
         }).catch(err => {
           console.warn('Manual cloud sync failed:', err);
+          if (btnText) btnText.innerText = 'Sync';
           updateSyncStatusBadge();
+          if (isManual) alert('Sync notice: Could not reach Cosmos DB sync endpoint.');
+          lucide.createIcons();
         });
       }
     }
@@ -1353,18 +1318,23 @@
         const viewEl = document.getElementById(`view-${t}`);
         const tabEl = document.getElementById(`tab-${t}`);
         if (viewEl) viewEl.classList.add('hidden');
-        if (tabEl) tabEl.className = 'text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors';
+        if (tabEl) tabEl.className = 'tab-link';
       });
 
       const activeView = document.getElementById(`view-${tab}`);
       const activeTab = document.getElementById(`tab-${tab}`);
       if (activeView) activeView.classList.remove('hidden');
-      if (activeTab) activeTab.className = 'tab-active inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors';
+      if (activeTab) activeTab.className = 'tab-link tab-active is-active';
 
       if (tab === 'exam') {
         renderExamLobbyHistory();
       } else if (tab === 'analytics') {
+        progress = safeGetStorage('psat_progress', {});
+        srsState = safeGetStorage('psat_srs', {});
         renderAnalytics();
+        if (Object.keys(progress).length === 0 && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+          manualTriggerCloudSync(false);
+        }
       } else if (tab === 'bank') {
         renderBankTable();
       }
@@ -1385,13 +1355,13 @@
       const textContainer = document.getElementById('q-text-container');
 
       if (mode === 'card') {
-        btnCard.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all flex items-center';
-        btnText.className = 'px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center';
+        btnCard.className = 'btn btn-sm btn-primary is-active';
+        btnText.className = 'btn btn-sm btn-ghost text-slate-600';
         visualContainer.classList.remove('hidden');
         textContainer.classList.add('hidden');
       } else {
-        btnText.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all flex items-center';
-        btnCard.className = 'px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all flex items-center';
+        btnText.className = 'btn btn-sm btn-primary is-active';
+        btnCard.className = 'btn btn-sm btn-ghost text-slate-600';
         visualContainer.classList.add('hidden');
         textContainer.classList.remove('hidden');
       }
@@ -1589,7 +1559,11 @@
         }
 
         rationaleContainer.classList.remove('hidden');
-        rationaleBody.innerText = q.rationale || 'No rationale available.';
+        if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.renderRationale) {
+          rationaleBody.innerHTML = PSAT_ENGINE.renderRationale(q, { userSelectedAnswer: qProg.selectedAnswer });
+        } else {
+          rationaleBody.innerText = q.rationale || 'No rationale available.';
+        }
       } else {
         feedbackBanner.classList.add('hidden');
         rationaleContainer.classList.add('hidden');
@@ -1798,6 +1772,7 @@
     }
 
     function updateHeaderStats() {
+      progress = safeGetStorage('psat_progress', {});
       const total = questions.length;
       let attempted = 0;
       let correct = 0;
@@ -1840,6 +1815,9 @@
 
     // ================= Analytics Rendering =================
     function renderAnalytics() {
+      progress = safeGetStorage('psat_progress', {});
+      srsState = safeGetStorage('psat_srs', {});
+      sessionsState = safeGetStorage('psat_sessions', {});
       updateHeaderStats();
       const skillStats = {};
       const domainStats = {};
@@ -1932,6 +1910,10 @@
     }
 
     function renderCharts(domainStats, diffStats) {
+      if (typeof Chart === 'undefined') {
+        console.warn('Chart.js library not loaded; charts omitted.');
+        return;
+      }
       const dLabels = Object.keys(domainStats);
       const dAccuracies = dLabels.map(k => {
         const d = domainStats[k];
@@ -2054,7 +2036,7 @@
         // Safe DOM event binding for Practice button
         const actionTd = tr.querySelector(`#action-cell-${i}`);
         const practiceBtn = document.createElement('button');
-        practiceBtn.className = 'px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition-colors';
+        practiceBtn.className = 'btn btn-sm btn-primary';
         practiceBtn.textContent = 'Practice';
         practiceBtn.onclick = () => jumpToQuestion(q.id);
         actionTd.appendChild(practiceBtn);
@@ -2386,13 +2368,13 @@
       if (mode === 'card') {
         visualEl.classList.remove('hidden');
         textEl.classList.add('hidden');
-        btnCard.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all';
-        btnText.className = 'px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all';
+        btnCard.className = 'btn btn-sm btn-primary is-active';
+        btnText.className = 'btn btn-sm btn-ghost text-slate-600';
       } else {
         visualEl.classList.add('hidden');
         textEl.classList.remove('hidden');
-        btnText.className = 'px-3 py-1 text-xs font-semibold rounded-md bg-white text-indigo-700 shadow-sm transition-all';
-        btnCard.className = 'px-3 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition-all';
+        btnText.className = 'btn btn-sm btn-primary is-active';
+        btnCard.className = 'btn btn-sm btn-ghost text-slate-600';
       }
     }
 
@@ -2550,7 +2532,8 @@
             const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
             if (ok) m1Correct++;
           });
-          const isUpper = (m1Correct / mod.questions.length) >= 0.58; // >= 16/27
+          const routingThreshold = (PSAT_ENGINE.SCALING_ASSUMPTIONS && PSAT_ENGINE.SCALING_ASSUMPTIONS.ROUTING_THRESHOLD) || 0.58;
+          const isUpper = (m1Correct / mod.questions.length) >= routingThreshold; // >= 16/27
           activeExam.routingTracks = activeExam.routingTracks || {};
           activeExam.routingTracks.rw = isUpper ? 'Hard' : 'Easy';
           activeExam.modules[1].questions = isUpper ? activeExam.adaptivePools.rwM2Hard : activeExam.adaptivePools.rwM2Easy;
@@ -2565,7 +2548,8 @@
             const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
             if (ok) mathM1Correct++;
           });
-          const isUpper = (mathM1Correct / mod.questions.length) >= 0.58; // >= 13/22
+          const routingThreshold = (PSAT_ENGINE.SCALING_ASSUMPTIONS && PSAT_ENGINE.SCALING_ASSUMPTIONS.ROUTING_THRESHOLD) || 0.58;
+          const isUpper = (mathM1Correct / mod.questions.length) >= routingThreshold; // >= 13/22
           activeExam.routingTracks = activeExam.routingTracks || {};
           activeExam.routingTracks.math = isUpper ? 'Hard' : 'Easy';
           activeExam.modules[3].questions = isUpper ? activeExam.adaptivePools.mathM2Hard : activeExam.adaptivePools.mathM2Easy;
@@ -2812,7 +2796,7 @@
       const btn = document.getElementById('btn-save-exam');
       if (btn) {
         btn.innerText = '✓ Saved to Practice & Exam History';
-        btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default flex items-center justify-center';
+        btn.className = 'btn btn-md btn-success is-done cursor-default';
         btn.disabled = true;
       }
 
@@ -2882,7 +2866,7 @@
               <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Score</span>
               <span class="text-2xl font-black text-indigo-900">${h.scores?.totalScaled || '—'}<span class="text-xs font-normal text-slate-400">/1440</span></span>
             </div>
-            <button onclick="viewExamReportFromHistory('${h.examId}')" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
+            <button onclick="viewExamReportFromHistory('${h.examId}')" class="btn btn-sm btn-primary">
               <i data-lucide="file-search" class="w-3.5 h-3.5 mr-1.5"></i> Review Test &rarr;
             </button>
           </div>
@@ -3199,7 +3183,12 @@
               <span>View Official Step-by-Step Rationale</span>
               <i data-lucide="chevron-down" class="w-4 h-4"></i>
             </summary>
-            <div class="pt-2 text-slate-800 leading-relaxed">${esc(q.rationale)}</div>
+            <div class="pt-2 text-slate-800 leading-relaxed">
+              ${(typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.renderRationale) ?
+                PSAT_ENGINE.renderRationale(q, { userSelectedAnswer: q.userAnswer }) :
+                esc(q.rationale)
+              }
+            </div>
           </details>
         `;
         container.appendChild(div);
@@ -3238,7 +3227,7 @@
       const btn = document.getElementById('btn-save-exam');
       if (btn) {
         btn.innerText = '✓ Saved to Practice & Exam History';
-        btn.className = 'px-5 py-2.5 bg-slate-100 text-emerald-700 font-bold text-xs rounded-xl shadow-sm cursor-default flex items-center justify-center';
+        btn.className = 'btn btn-md btn-success is-done cursor-default';
         btn.disabled = true;
       }
     }
@@ -3325,6 +3314,102 @@
       lucide.createIcons();
     }
 
+    // SCIENTIFIC CALCULATOR STATE & CONTROLLER
+    // =======================================
+    let sciCalcState = {
+      expression: '',
+      result: 0,
+      ans: 0,
+      angleMode: 'DEG',
+      hasEvaluated: false
+    };
+
+    function toggleScientificCalculator(forceState) {
+      const modal = document.getElementById('scientific-calculator-window');
+      if (!modal) return;
+      const shouldOpen = (typeof forceState === 'boolean') ? forceState : modal.classList.contains('hidden');
+
+      if (shouldOpen) {
+        modal.classList.remove('hidden');
+        updateSciCalcDisplay();
+      } else {
+        modal.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    function toggleScientificAngleMode() {
+      sciCalcState.angleMode = (sciCalcState.angleMode === 'DEG') ? 'RAD' : 'DEG';
+      const btn = document.getElementById('btn-sci-angle-mode');
+      const badge = document.getElementById('sci-mode-badge');
+      if (btn) btn.innerText = sciCalcState.angleMode;
+      if (badge) badge.innerText = sciCalcState.angleMode;
+      if (sciCalcState.expression) {
+        sciCalcEvaluate();
+      }
+    }
+
+    function sciCalcInput(str) {
+      if (sciCalcState.hasEvaluated && /[0-9.]/.test(str)) {
+        sciCalcState.expression = '';
+      }
+      sciCalcState.hasEvaluated = false;
+      sciCalcState.expression += str;
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcClear() {
+      sciCalcState.expression = '';
+      sciCalcState.result = 0;
+      sciCalcState.hasEvaluated = false;
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcBackspace() {
+      if (sciCalcState.expression.length > 0) {
+        sciCalcState.expression = sciCalcState.expression.slice(0, -1);
+      }
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcEvaluate() {
+      if (!sciCalcState.expression) return;
+      const res = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.evaluateScientificExpression) ?
+        PSAT_ENGINE.evaluateScientificExpression(sciCalcState.expression, {
+          angleMode: sciCalcState.angleMode,
+          ans: sciCalcState.ans
+        }) :
+        { result: null, error: 'Engine unavailable' };
+
+      const resultEl = document.getElementById('sci-calc-result');
+      if (res.error) {
+        if (resultEl) {
+          resultEl.innerText = res.error;
+          resultEl.className = 'font-mono text-base font-bold text-rose-400 overflow-x-auto whitespace-nowrap min-h-[32px]';
+        }
+      } else {
+        sciCalcState.result = res.result;
+        sciCalcState.ans = res.result;
+        sciCalcState.hasEvaluated = true;
+        if (resultEl) {
+          resultEl.innerText = String(res.result);
+          resultEl.className = 'font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight';
+        }
+      }
+    }
+
+    function updateSciCalcDisplay() {
+      const exprEl = document.getElementById('sci-calc-expr');
+      const resultEl = document.getElementById('sci-calc-result');
+      if (exprEl) {
+        exprEl.innerText = sciCalcState.expression || '';
+      }
+      if (resultEl && !sciCalcState.hasEvaluated) {
+        resultEl.innerText = sciCalcState.result !== undefined ? String(sciCalcState.result) : '0';
+        resultEl.className = 'font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight';
+      }
+    }
+
     function toggleReferenceSheet(forceState) {
       const modal = document.getElementById('formula-sheet-modal');
       if (!modal) return;
@@ -3339,21 +3424,30 @@
     }
 
     function setFormulaTab(tab) {
-      const tabOfficial = document.getElementById('tab-content-ref-official');
-      const tabAdvanced = document.getElementById('tab-content-ref-advanced');
       const btnOfficial = document.getElementById('btn-tab-ref-official');
       const btnAdvanced = document.getElementById('btn-tab-ref-advanced');
+      const paneOfficial = document.getElementById('tab-content-ref-official');
+      const paneAdvanced = document.getElementById('tab-content-ref-advanced');
+      if (!btnOfficial || !btnAdvanced || !paneOfficial || !paneAdvanced) return;
 
       if (tab === 'official') {
-        if (tabOfficial) tabOfficial.classList.remove('hidden');
-        if (tabAdvanced) tabAdvanced.classList.add('hidden');
-        if (btnOfficial) btnOfficial.className = 'px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all';
-        if (btnAdvanced) btnAdvanced.className = 'px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+        btnOfficial.className = 'btn btn-sm btn-primary is-active';
+        btnAdvanced.className = 'btn btn-sm btn-ghost text-slate-300';
+        btnOfficial.setAttribute('aria-selected', 'true');
+        btnAdvanced.setAttribute('aria-selected', 'false');
+        btnOfficial.tabIndex = 0;
+        btnAdvanced.tabIndex = -1;
+        paneOfficial.classList.remove('hidden');
+        paneAdvanced.classList.add('hidden');
       } else {
-        if (tabOfficial) tabOfficial.classList.add('hidden');
-        if (tabAdvanced) tabAdvanced.classList.remove('hidden');
-        if (btnAdvanced) btnAdvanced.className = 'px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all';
-        if (btnOfficial) btnOfficial.className = 'px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+        btnAdvanced.className = 'btn btn-sm btn-primary is-active';
+        btnOfficial.className = 'btn btn-sm btn-ghost text-slate-300';
+        btnOfficial.setAttribute('aria-selected', 'false');
+        btnAdvanced.setAttribute('aria-selected', 'true');
+        btnOfficial.tabIndex = -1;
+        btnAdvanced.tabIndex = 0;
+        paneAdvanced.classList.remove('hidden');
+        paneOfficial.classList.add('hidden');
       }
     }
 
@@ -3426,22 +3520,79 @@
       const desmosHandle = document.getElementById('desmos-drag-handle');
       if (desmosWin && desmosHandle) makeDraggable(desmosWin, desmosHandle);
 
+      const sciWin = document.getElementById('scientific-calculator-window');
+      const sciHandle = document.getElementById('scientific-drag-handle');
+      if (sciWin && sciHandle) {
+        makeDraggable(sciWin, sciHandle);
+        sciWin.addEventListener('keydown', (e) => {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if (e.key >= '0' && e.key <= '9') {
+            sciCalcInput(e.key);
+          } else if (e.key === '.' || e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/' || e.key === '(' || e.key === ')' || e.key === '^' || e.key === '%') {
+            sciCalcInput(e.key);
+          } else if (e.key === 'Enter' || e.key === '=') {
+            e.preventDefault();
+            sciCalcEvaluate();
+          } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            sciCalcBackspace();
+          } else if (e.key === 'c' || e.key === 'C') {
+            sciCalcClear();
+          }
+        });
+      }
+
       const refWin = document.getElementById('formula-sheet-modal');
       const refHandle = document.getElementById('formula-drag-handle');
       if (refWin && refHandle) makeDraggable(refWin, refHandle);
 
-      // Keyboard shortcuts: Alt+C (Calculator), Alt+R (Reference Sheet), Esc (Close tool)
+      // Reference tab keyboard navigation (Left/Right, Home, End)
+      const tablist = document.querySelector('#formula-sheet-modal [role="tablist"]');
+      if (tablist) {
+        tablist.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const isOfficialActive = document.getElementById('btn-tab-ref-official').getAttribute('aria-selected') === 'true';
+            if (isOfficialActive) {
+              setFormulaTab('advanced');
+              const adv = document.getElementById('btn-tab-ref-advanced');
+              if (adv) adv.focus();
+            } else {
+              setFormulaTab('official');
+              const off = document.getElementById('btn-tab-ref-official');
+              if (off) off.focus();
+            }
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            setFormulaTab('official');
+            const off = document.getElementById('btn-tab-ref-official');
+            if (off) off.focus();
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            setFormulaTab('advanced');
+            const adv = document.getElementById('btn-tab-ref-advanced');
+            if (adv) adv.focus();
+          }
+        });
+      }
+
+      // Keyboard shortcuts: Alt+C/G (Desmos), Alt+S (Scientific), Alt+R (Reference Sheet), Esc (Close tools)
       document.addEventListener('keydown', (e) => {
-        if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+        if (e.altKey && (e.key === 'c' || e.key === 'C' || e.key === 'g' || e.key === 'G')) {
           e.preventDefault();
           toggleDesmosCalculator();
+        } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          toggleScientificCalculator();
         } else if (e.altKey && (e.key === 'r' || e.key === 'R')) {
           e.preventDefault();
           toggleReferenceSheet();
         } else if (e.key === 'Escape') {
           const d = document.getElementById('desmos-floating-window');
+          const s = document.getElementById('scientific-calculator-window');
           const r = document.getElementById('formula-sheet-modal');
           if (d && !d.classList.contains('hidden')) d.classList.add('hidden');
+          if (s && !s.classList.contains('hidden')) s.classList.add('hidden');
           if (r && !r.classList.contains('hidden')) r.classList.add('hidden');
         }
       });
@@ -3502,13 +3653,14 @@
       if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
         PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
           if (res && res.success) {
-            if (res.updated) {
-              progress = safeGetStorage('psat_progress', {});
-              srsState = safeGetStorage('psat_srs', {});
-              sessionsState = safeGetStorage('psat_sessions', {});
-              updateHeaderStats();
-              renderPalette();
-              renderExamLobbyHistory();
+            progress = safeGetStorage('psat_progress', {});
+            srsState = safeGetStorage('psat_srs', {});
+            sessionsState = safeGetStorage('psat_sessions', {});
+            updateHeaderStats();
+            renderPalette();
+            renderExamLobbyHistory();
+            if (!document.getElementById('view-analytics').classList.contains('hidden')) {
+              renderAnalytics();
             }
             localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
             localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
@@ -3541,10 +3693,10 @@
         </div>
       </div>
       <div class="flex items-center space-x-1.5">
-        <button onclick="toggleDesmosSize()" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors" title="Toggle Size (Standard / Expanded)">
+        <button onclick="toggleDesmosSize()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Toggle Size (Standard / Expanded)">
           <i id="desmos-size-icon" data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
         </button>
-        <button onclick="toggleDesmosCalculator(false)" class="p-1 hover:bg-rose-900/60 hover:text-rose-300 rounded text-slate-400 transition-colors" title="Close Calculator (Esc)">
+        <button onclick="toggleDesmosCalculator(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close Calculator (Esc)">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -3561,7 +3713,91 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- FLOATING TOOL 2: OFFICIAL PSAT 8/9 MATH REFERENCE SHEET     -->
+  <!-- FLOATING TOOL 2: BUILT-IN SCIENTIFIC CALCULATOR              -->
+  <!-- ============================================================ -->
+  <div id="scientific-calculator-window" class="hidden fixed z-50 bg-white rounded-2xl shadow-2xl border-2 border-slate-700/30 overflow-hidden flex flex-col w-[94vw] sm:w-[380px] md:w-[420px] max-h-[92vh] transition-all select-none" style="top: 85px; right: 30px;">
+    <!-- Drag Handle Header -->
+    <div id="scientific-drag-handle" class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between cursor-move border-b border-slate-800 shrink-0">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-6 h-6 rounded-md bg-indigo-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+          fx
+        </div>
+        <span class="text-xs font-bold text-white flex items-center">
+          Scientific Calculator
+          <span id="sci-mode-badge" class="ml-2 px-1.5 py-0.2 text-[10px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/50 rounded">DEG</span>
+        </span>
+      </div>
+      <div class="flex items-center space-x-1">
+        <button onclick="toggleScientificAngleMode()" id="btn-sci-angle-mode" class="btn btn-sm btn-ghost text-[11px] font-bold text-indigo-300 hover:text-white px-2 py-0.5" title="Toggle DEG / RAD angle mode">
+          DEG
+        </button>
+        <button onclick="toggleScientificCalculator(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400 hover:text-white" title="Close Calculator (Esc)" aria-label="Close Scientific Calculator">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Display Screen -->
+    <div class="bg-slate-950 p-4 border-b border-slate-800 flex flex-col justify-end text-right min-h-[90px] shrink-0">
+      <div id="sci-calc-expr" class="font-mono text-xs text-slate-400 overflow-x-auto whitespace-nowrap min-h-[18px]" aria-label="Current expression"></div>
+      <div id="sci-calc-result" class="font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight" aria-live="polite" aria-label="Calculation result">0</div>
+    </div>
+
+    <!-- Keypad Grid -->
+    <div class="p-3 bg-slate-900 grid grid-cols-5 gap-1.5 text-xs font-semibold overflow-y-auto">
+      <!-- Row 1: Sci Functions Top -->
+      <button type="button" onclick="sciCalcInput('sin(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Sine">sin</button>
+      <button type="button" onclick="sciCalcInput('cos(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Cosine">cos</button>
+      <button type="button" onclick="sciCalcInput('tan(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Tangent">tan</button>
+      <button type="button" onclick="sciCalcInput('pi')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Pi constant">&pi;</button>
+      <button type="button" onclick="sciCalcInput('e')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Euler constant">e</button>
+
+      <!-- Row 2: Sci Functions Inverse & Logs -->
+      <button type="button" onclick="sciCalcInput('asin(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arcsine">sin⁻¹</button>
+      <button type="button" onclick="sciCalcInput('acos(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arccosine">cos⁻¹</button>
+      <button type="button" onclick="sciCalcInput('atan(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arctangent">tan⁻¹</button>
+      <button type="button" onclick="sciCalcInput('log(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Logarithm base 10">log</button>
+      <button type="button" onclick="sciCalcInput('ln(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Natural logarithm">ln</button>
+
+      <!-- Row 3: Powers, Roots, Parens -->
+      <button type="button" onclick="sciCalcInput('^')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Power">xʸ</button>
+      <button type="button" onclick="sciCalcInput('sqrt(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Square root">&radic;</button>
+      <button type="button" onclick="sciCalcInput('^2')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Square">x²</button>
+      <button type="button" onclick="sciCalcInput('(')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Open parenthesis">(</button>
+      <button type="button" onclick="sciCalcInput(')')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Close parenthesis">)</button>
+
+      <!-- Row 4: Numbers 7, 8, 9 & Clear/Delete -->
+      <button type="button" onclick="sciCalcInput('7')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">7</button>
+      <button type="button" onclick="sciCalcInput('8')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">8</button>
+      <button type="button" onclick="sciCalcInput('9')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">9</button>
+      <button type="button" onclick="sciCalcBackspace()" class="p-3 rounded-lg bg-amber-900/40 text-amber-300 border border-amber-800/40 hover:bg-amber-800/60 active:scale-95 transition-all text-center font-bold" aria-label="Backspace">DEL</button>
+      <button type="button" onclick="sciCalcClear()" class="p-3 rounded-lg bg-rose-900/40 text-rose-300 border border-rose-800/40 hover:bg-rose-800/60 active:scale-95 transition-all text-center font-bold" aria-label="Clear All">AC</button>
+
+      <!-- Row 5: Numbers 4, 5, 6 & Mult/Div -->
+      <button type="button" onclick="sciCalcInput('4')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">4</button>
+      <button type="button" onclick="sciCalcInput('5')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">5</button>
+      <button type="button" onclick="sciCalcInput('6')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">6</button>
+      <button type="button" onclick="sciCalcInput('*')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Multiply">&times;</button>
+      <button type="button" onclick="sciCalcInput('/')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Divide">&divide;</button>
+
+      <!-- Row 6: Numbers 1, 2, 3 & Add/Sub -->
+      <button type="button" onclick="sciCalcInput('1')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">1</button>
+      <button type="button" onclick="sciCalcInput('2')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">2</button>
+      <button type="button" onclick="sciCalcInput('3')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">3</button>
+      <button type="button" onclick="sciCalcInput('+')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Plus">+</button>
+      <button type="button" onclick="sciCalcInput('-')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Minus">&minus;</button>
+
+      <!-- Row 7: 0, Dot, Ans, Percent, Equals -->
+      <button type="button" onclick="sciCalcInput('0')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">0</button>
+      <button type="button" onclick="sciCalcInput('.')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">.</button>
+      <button type="button" onclick="sciCalcInput('Ans')" class="p-3 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center font-bold" aria-label="Previous Answer">Ans</button>
+      <button type="button" onclick="sciCalcInput('%')" class="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center font-bold" aria-label="Modulo / Percent">%</button>
+      <button type="button" onclick="sciCalcEvaluate()" class="p-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 transition-all text-center text-sm font-black shadow-md shadow-indigo-600/30" aria-label="Calculate Equals">=</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- FLOATING TOOL 3: OFFICIAL PSAT 8/9 MATH REFERENCE SHEET     -->
   <!-- ============================================================ -->
   <div id="formula-sheet-modal" class="hidden fixed z-50 bg-white rounded-2xl shadow-2xl border-2 border-slate-700/30 overflow-hidden flex flex-col w-[94vw] sm:w-[680px] md:w-[760px] max-h-[85vh] transition-all" style="top: 75px; right: 35px;">
     <!-- Titlebar & Drag Handle -->
@@ -3579,11 +3815,11 @@
       </div>
       <div class="flex items-center space-x-2">
         <!-- Tabs in header -->
-        <div class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
-          <button onclick="setFormulaTab('official')" id="btn-tab-ref-official" class="px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all">Official Reference</button>
-          <button onclick="setFormulaTab('advanced')" id="btn-tab-ref-advanced" class="px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all">Algebra & High-Frequency</button>
+        <div role="tablist" aria-label="Reference Sheet Tabs" class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+          <button role="tab" id="btn-tab-ref-official" aria-selected="true" aria-controls="tab-content-ref-official" tabindex="0" onclick="setFormulaTab('official')" class="btn btn-sm btn-primary is-active">Official Reference</button>
+          <button role="tab" id="btn-tab-ref-advanced" aria-selected="false" aria-controls="tab-content-ref-advanced" tabindex="-1" onclick="setFormulaTab('advanced')" class="btn btn-sm btn-ghost text-slate-300">Algebra & High-Frequency</button>
         </div>
-        <button onclick="toggleReferenceSheet(false)" class="p-1 hover:bg-rose-900/60 hover:text-rose-300 rounded text-slate-400 transition-colors" title="Close Reference Sheet (Esc)">
+        <button onclick="toggleReferenceSheet(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close Reference Sheet (Esc)" aria-label="Close Reference Sheet">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -3593,7 +3829,7 @@
     <div class="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar bg-slate-50/50 space-y-4">
       
       <!-- Tab A: Official College Board Reference Sheet -->
-      <div id="tab-content-ref-official" class="space-y-4">
+      <div role="tabpanel" id="tab-content-ref-official" aria-labelledby="btn-tab-ref-official" tabindex="0" class="space-y-4">
         
         <div class="p-3 bg-indigo-50/80 border border-indigo-100 rounded-xl flex items-start space-x-2 text-xs text-indigo-950">
           <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
@@ -3801,13 +4037,21 @@
 
       </div>
 
-      <!-- Tab B: Essential Algebra & High-Frequency Formulas -->
-      <div id="tab-content-ref-advanced" class="hidden space-y-4">
+      <!-- Tab B: Supplemental Algebra & High-Frequency Formulas -->
+      <div role="tabpanel" id="tab-content-ref-advanced" aria-labelledby="btn-tab-ref-advanced" tabindex="0" class="hidden space-y-4">
         
-        <!-- Linear Equations -->
+        <!-- Supplemental Study Notice Banner -->
+        <div class="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start space-x-2.5 text-xs text-amber-950">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+          <div>
+            <strong>Supplemental Study Reference:</strong> These high-frequency formulas and rules are not provided on the official Bluebook exam sheet. Master and memorize these concepts before test day.
+          </div>
+        </div>
+
+        <!-- 1. Linear Equations & Slope -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="trending-up" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Linear Functions & Slope
+            <i data-lucide="trending-up" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Linear Functions &amp; Systems
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
@@ -3815,62 +4059,117 @@
               <span class="font-mono font-bold text-indigo-700">m = (y<sub>2</sub> - y<sub>1</sub>) / (x<sub>2</sub> - x<sub>1</sub>)</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Slope-Intercept Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y = mx + b</span> <span class="text-[10px] text-slate-500">(m=slope, b=y-int)</span>
+              <span class="text-slate-500 font-medium block">Slope-Intercept &amp; Point-Slope:</span>
+              <span class="font-mono font-bold text-indigo-700">y = mx + b</span> &bull; <span class="font-mono font-bold text-indigo-700">y - y<sub>1</sub> = m(x - x<sub>1</sub>)</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Point-Slope Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y - y<sub>1</sub> = m(x - x<sub>1</sub>)</span>
+              <span class="text-slate-500 font-medium block">Parallel &amp; Perpendicular Lines:</span>
+              <span class="font-mono text-indigo-700 font-semibold">Parallel: m<sub>1</sub> = m<sub>2</sub> &bull; Perp: m<sub>1</sub> &times; m<sub>2</sub> = -1</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Parallel & Perpendicular:</span>
-              <span class="font-mono font-bold text-indigo-700">Parallel: m<sub>1</sub> = m<sub>2</sub> &bull; Perp: m<sub>1</sub> &times; m<sub>2</sub> = -1</span>
+              <span class="text-slate-500 font-medium block">System Solutions (Ax + By = C):</span>
+              <span class="font-mono text-indigo-700 font-semibold">1 Sol: diff slopes &bull; No Sol: same slope, diff y-int &bull; &infin; Sol: identical</span>
             </div>
           </div>
         </div>
 
-        <!-- Quadratics & Parabolas -->
+        <!-- 2. Quadratics & Parabolas -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="target" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Quadratic Functions & Parabolas
+            <i data-lucide="target" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Quadratic Functions &amp; Parabolas
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Quadratic Formula:</span>
+              <span class="text-slate-500 font-medium block">Quadratic Formula &amp; Vertex:</span>
               <span class="font-mono font-bold text-indigo-700">x = (-b &plusmn; &radic;(b<sup>2</sup> - 4ac)) / (2a)</span>
-            </div>
-            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Parabola Vertex:</span>
-              <span class="font-mono font-bold text-indigo-700">x<sub>vertex</sub> = -b / (2a)</span>
-            </div>
-            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Vertex Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y = a(x - h)<sup>2</sup> + k</span> <span class="text-[10px] text-slate-500">(Vertex at (h, k))</span>
+              <div class="text-[11px] text-slate-600 mt-1">Vertex x = -b / (2a) &bull; y = a(x - h)<sup>2</sup> + k</div>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
               <span class="text-slate-500 font-medium block">Discriminant (b<sup>2</sup> - 4ac):</span>
-              <span class="font-mono text-indigo-700 font-semibold">&gt;0: 2 real &bull; =0: 1 real &bull; &lt;0: 0 real</span>
+              <div class="font-mono text-indigo-700 font-semibold mt-0.5">&gt; 0: 2 real roots &bull; = 0: 1 real root &bull; &lt; 0: 0 real roots</div>
+              <div class="text-[11px] text-slate-500 mt-1">Sum of roots = -b/a &bull; Product of roots = c/a</div>
             </div>
           </div>
         </div>
 
-        <!-- Exponents, Radicals & Percents -->
+        <!-- 3. Exponents, Radicals & Growth -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="percent" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Exponents, Growth & Percents
+            <i data-lucide="zap" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Exponents, Radicals &amp; Growth Models
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Percent Change:</span>
-              <span class="font-mono font-bold text-indigo-700">((New - Old) / Old) &times; 100%</span>
+              <span class="text-slate-500 font-medium block">Exponent Rules:</span>
+              <span class="font-mono font-bold text-indigo-700">x<sup>a</sup>&times;x<sup>b</sup> = x<sup>a+b</sup> &bull; (x<sup>a</sup>)<sup>b</sup> = x<sup>ab</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">x<sup>-a</sup> = 1/x<sup>a</sup> &bull; x<sup>0</sup> = 1</div>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Exponential Model:</span>
+              <span class="text-slate-500 font-medium block">Fractional Powers:</span>
+              <span class="font-mono font-bold text-indigo-700">x<sup>a/b</sup> = <sup>b</sup>&radic;(x<sup>a</sup>) = (<sup>b</sup>&radic;x)<sup>a</sup></span>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Exponential Growth &amp; Decay:</span>
               <span class="font-mono font-bold text-indigo-700">y = a(1 &plusmn; r)<sup>t</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">a=initial, r=rate, t=time</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Ratios, Percentages & Percent Change -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="percent" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Ratios, Proportions &amp; Percent Change
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Percent Change:</span>
+              <span class="font-mono font-bold text-indigo-700">% Change = ((New - Old) / Old) &times; 100%</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Fractional Power:</span>
-              <span class="font-mono font-bold text-indigo-700">x<sup>a/b</sup> = <sup>b</sup>&radic;(x<sup>a</sup>)</span>
+              <span class="text-slate-500 font-medium block">Percent Multiplier:</span>
+              <span class="font-mono font-bold text-indigo-700">Increase: (1 + r) &bull; Decrease: (1 - r)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Coordinate Geometry & Circles -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="compass" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Coordinate Geometry &amp; Circle Equations
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Distance &amp; Midpoint:</span>
+              <span class="font-mono font-bold text-indigo-700">d = &radic;((x<sub>2</sub> - x<sub>1</sub>)<sup>2</sup> + (y<sub>2</sub> - y<sub>1</sub>)<sup>2</sup>)</span>
+              <div class="text-[11px] text-slate-500 mt-1">Midpoint: ((x<sub>1</sub>+x<sub>2</sub>)/2, (y<sub>1</sub>+y<sub>2</sub>)/2)</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Standard Circle Equation:</span>
+              <span class="font-mono font-bold text-indigo-700">(x - h)<sup>2</sup> + (y - k)<sup>2</sup> = r<sup>2</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">Center at (h, k), Radius = r</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Data, Statistics & Probability -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Statistics &amp; Probability
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Mean &amp; Median:</span>
+              <span class="font-mono font-bold text-indigo-700">Mean = (&sum; x) / n</span>
+              <div class="text-[11px] text-slate-500 mt-1">Median: Middle ranked value</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Range &amp; Std Dev:</span>
+              <span class="font-mono font-bold text-indigo-700">Range = Max - Min</span>
+              <div class="text-[11px] text-slate-500 mt-1">Standard Dev: Spread around mean</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Basic Probability:</span>
+              <span class="font-mono font-bold text-indigo-700">P(E) = Favorable / Total</span>
             </div>
           </div>
         </div>
@@ -3885,7 +4184,7 @@
         <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500"></i>
         <span>Shortcut: <kbd class="px-1 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Alt+R</kbd> &bull; Drag title bar to move</span>
       </div>
-      <button onclick="toggleReferenceSheet(false)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg text-xs transition-colors">
+      <button onclick="toggleReferenceSheet(false)" class="btn btn-sm btn-secondary">
         Close
       </button>
     </div>

@@ -16,6 +16,8 @@
     };
   </script>
   <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <!-- Unified Button System -->
+  <link rel="stylesheet" href="styles/buttons.css?v=20260829-6">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -28,53 +30,31 @@
 </head>
 <body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col antialiased">
 
-  <!-- Beta Sandbox Environment Top Banner -->
-  <div id="beta-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-xs flex flex-wrap items-center justify-between shadow-md border-b border-amber-600 z-50">
-    <div class="flex items-center space-x-2">
-      <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-wider">🧪 Beta Sandbox</span>
-      <span class="text-slate-950">Isolated Test Environment &bull; Profile: <code class="bg-black/10 px-1 py-0.5 rounded text-slate-950 font-mono">beta_default_student</code> (Live Student Data Protected)</span>
-    </div>
-    <div class="flex items-center space-x-2 pt-1 sm:pt-0">
-      <button onclick="cloneProdDataToBeta()" class="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="copy" class="w-3.5 h-3.5 mr-1"></i> Copy Prod Data to Beta
-      </button>
-      <button onclick="resetBetaSandbox()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1"></i> Reset Beta
-      </button>
-    </div>
-  </div>
-
   <!-- Top Navigation Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between py-2.5 md:py-0 md:h-16 gap-2">
+      <div class="flex items-center justify-between h-16">
         <div class="flex items-center space-x-3 min-w-0">
-          <a href="parent.html" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center shrink-0" title="Back to Parent Portal">
-            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+          <a href="parent.html" class="btn btn-sm btn-icon btn-secondary" title="Back to Parent Portal">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
           </a>
           <div class="flex items-center space-x-2.5 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-100 shrink-0">
               <i data-lucide="alert-triangle" class="w-5 h-5 text-white"></i>
             </div>
             <div class="min-w-0">
-              <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">Student Trouble Spots &amp; Error Diagnostic Center</h1>
-              <p class="text-[11px] text-slate-500 font-medium hidden sm:block truncate">In-depth question review, high-resolution diagrams, and official College Board rationales</p>
+              <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight truncate">Review Mistakes</h1>
+              <p class="text-[11px] text-slate-500 font-medium hidden sm:block truncate">Analyze, tag, and drill missed questions to close skill gaps</p>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center space-x-2 shrink-0 overflow-x-auto py-1">
-          <button onclick="syncMistakesFromCloud(true)" id="btn-mistakes-cloud-sync" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200 whitespace-nowrap shrink-0" title="Fetch latest test results and attempts from Azure Cosmos DB">
-            <i data-lucide="cloud" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i> <span id="mistakes-sync-status-text">Cosmos DB Sync</span>
-          </button>
-          <button onclick="launchMistakesDrill()" id="btn-top-drill-missed" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center whitespace-nowrap shrink-0">
-            <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Drill All Missed (<span id="top-drill-count">0</span>)
-          </button>
-          <a href="parent.html" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center whitespace-nowrap shrink-0">
-            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden lg:inline">Parent</span> Dashboard
+        <div class="flex items-center space-x-2.5 shrink-0">
+          <a href="parent.html" class="btn btn-sm btn-secondary">
+            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden sm:inline">Parent</span> Dashboard
           </a>
-          <a href="index.html" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center whitespace-nowrap shrink-0">
-            <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden lg:inline">Student</span> App
+          <a href="index.html" class="btn btn-sm btn-secondary">
+            <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden sm:inline">Student</span> App
           </a>
         </div>
       </div>
@@ -92,13 +72,13 @@
             <span class="px-3 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full">Error Diagnostic Hub</span>
             <span id="stat-total-missed-badge" class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg">0 Questions Missed</span>
           </div>
-          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">Longitudinal Question Mistake Analysis</h2>
+          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">Question Mistake Log</h2>
           <p class="text-xs text-slate-500 max-w-2xl leading-relaxed">
-            Every question the student has answered incorrectly across practice modules and standard exam sessions is logged here. Review full-sized diagram images, student choices, and College Board step-by-step explanations.
+            Every question answered incorrectly across practice modules and standard exam sessions is logged here. Review full diagrams, student choices, and step-by-step explanations.
           </p>
           <div class="pt-2">
-            <button onclick="launchMistakesDrill()" id="btn-summary-drill-missed" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-100 transition-all inline-flex items-center whitespace-nowrap">
-              <i data-lucide="play-circle" class="w-4 h-4 mr-2"></i> Launch Targeted Drill (<span id="summary-drill-count">0</span> Missed Questions) &rarr;
+            <button onclick="launchMistakesDrill()" id="btn-summary-drill-missed" class="btn btn-lg btn-danger">
+              <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Launch Targeted Drill (<span id="summary-drill-count">0</span> Missed Questions) &rarr;
             </button>
           </div>
         </div>
@@ -124,20 +104,20 @@
         </div>
       </div>
 
-      <!-- Adaptive Root-Cause Error Coaching Actions -->
-      <div class="pt-3 border-t border-slate-100 space-y-2">
+      <!-- Adaptive Root-Cause Error Coaching Actions (Shown when history is available) -->
+      <div id="adaptive-coaching-box" class="hidden pt-3 border-t border-slate-100 space-y-2">
         <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block">Adaptive Error Coaching Drills:</span>
         <div class="flex flex-wrap items-center gap-2">
-          <button onclick="launchTagCoaching('concept_gap')" class="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+          <button onclick="launchTagCoaching('concept_gap')" class="btn btn-sm btn-secondary">
             <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5 text-rose-600"></i> Concept Mastery Drill
           </button>
-          <button onclick="launchTagCoaching('time_pressure')" class="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+          <button onclick="launchTagCoaching('time_pressure')" class="btn btn-sm btn-secondary">
             <i data-lucide="clock" class="w-3.5 h-3.5 mr-1.5 text-indigo-600"></i> 45s Pacing Speed Round
           </button>
-          <button onclick="launchTagCoaching('misread')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+          <button onclick="launchTagCoaching('misread')" class="btn btn-sm btn-secondary">
             <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mr-1.5 text-amber-600"></i> Trap &amp; Prompt Dissection
           </button>
-          <button onclick="launchTagCoaching('calc_error')" class="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold transition-all flex items-center shadow-2xs">
+          <button onclick="launchTagCoaching('calc_error')" class="btn btn-sm btn-secondary">
             <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1.5 text-blue-600"></i> Calculation &amp; Desmos Verification
           </button>
         </div>
@@ -156,16 +136,16 @@
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
       <!-- Subject Tabs -->
       <div class="flex flex-wrap items-center gap-2">
-        <button onclick="setSubjectTab('all')" id="tab-all" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all">
+        <button onclick="setSubjectTab('all')" id="tab-all" class="btn btn-sm btn-primary is-active">
           All Mistakes (<span id="t-all">0</span>)
         </button>
-        <button onclick="setSubjectTab('math')" id="tab-math" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+        <button onclick="setSubjectTab('math')" id="tab-math" class="btn btn-sm btn-secondary">
           Math (<span id="t-math">0</span>)
         </button>
-        <button onclick="setSubjectTab('rw')" id="tab-rw" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+        <button onclick="setSubjectTab('rw')" id="tab-rw" class="btn btn-sm btn-secondary">
           Reading &amp; Writing (<span id="t-rw">0</span>)
         </button>
-        <button onclick="setSubjectTab('recurring')" id="tab-rec" class="px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+        <button onclick="setSubjectTab('recurring')" id="tab-rec" class="btn btn-sm btn-secondary">
           Recurring 2×+ (<span id="t-rec">0</span>)
         </button>
       </div>
@@ -216,9 +196,10 @@
     PSAT Prep Mastery &bull; Student Trouble Spots &amp; Mistake Diagnostic Portal &bull; PSAT 8/9
   </footer>
 
-  <!-- Scripts -->
-  <script src="srs.js?v=20260828-2"></script>
-  <script src="data/questions_data.js?v=20260828-2"></script>
+  <!-- Load SRS & Core Logic Engine -->
+  <script src="srs.js?v=20260829-6"></script>
+  <!-- Load Extracted Questions Data -->
+  <script src="data/questions_data.js?v=20260829-6"></script>
 
   <script>
     function esc(s) {
@@ -438,6 +419,12 @@
       document.getElementById('t-rw').innerText = rwCount;
       document.getElementById('t-rec').innerText = recCount;
 
+      const coachBox = document.getElementById('adaptive-coaching-box');
+      if (coachBox) {
+        if (totalCount >= 3) coachBox.classList.remove('hidden');
+        else coachBox.classList.add('hidden');
+      }
+
       renderDomainFilterChips();
     }
 
@@ -456,7 +443,7 @@
 
       const allBtn = document.createElement('button');
       const isAll = (currentDomainFilter === 'all');
-      allBtn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isAll ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`;
+      allBtn.className = 'btn btn-sm ' + (isAll ? 'btn-primary is-active' : 'btn-secondary');
       allBtn.innerText = `All Domains (${allMistakesList.length})`;
       allBtn.onclick = () => { currentDomainFilter = 'all'; currentPage = 1; renderDomainFilterChips(); renderMistakesFeed(); };
       container.appendChild(allBtn);
@@ -465,7 +452,7 @@
         const count = domainCounts[dom];
         const isActive = (currentDomainFilter === dom);
         const btn = document.createElement('button');
-        btn.className = `px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isActive ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}`;
+        btn.className = 'btn btn-sm ' + (isActive ? 'btn-primary is-active' : 'btn-secondary');
         btn.innerText = `${dom} (${count})`;
         btn.onclick = () => { currentDomainFilter = dom; currentPage = 1; renderDomainFilterChips(); renderMistakesFeed(); };
         container.appendChild(btn);
@@ -478,9 +465,7 @@
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
         const active = (t === tab || (t === 'rec' && tab === 'recurring'));
-        btn.className = active ? 
-          'px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs transition-all' : 
-          'px-4 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all';
+        btn.className = 'btn btn-sm ' + (active ? 'btn-primary is-active' : 'btn-secondary');
       });
       currentPage = 1;
       renderMistakesFeed();
@@ -734,7 +719,7 @@
                 const isActive = (t.errorTag === tg.id || (progress[t.questionId] && progress[t.questionId].errorTag === tg.id));
                 return `
                   <button type="button" onclick="setMistakeErrorTag('${esc(t.questionId)}', '${tg.id}')"
-                    class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+                    class="btn btn-sm ${isActive ? 'btn-danger is-active' : 'btn-secondary'}">
                     ${tg.label}
                   </button>
                 `;
@@ -742,16 +727,19 @@
             </div>
           </div>
 
-          <!-- Official Step-by-Step Rationale -->
-          <div class="p-6 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2.5">
-            <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
-              <i data-lucide="book-open" class="w-4 h-4 text-amber-700"></i>
-              <span>Official College Board Step-by-Step Solution &amp; Trap Rationale</span>
-            </div>
-            <div class="text-xs sm:text-sm text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
-              ${esc(q.rationale || 'No official explanation provided for this question.')}
-            </div>
-          </div>
+          <!-- Structured Step-by-Step Rationale & Trap Analysis -->
+          ${(typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.renderRationale) ?
+            PSAT_ENGINE.renderRationale(q, { userSelectedAnswer: t.lastUserAnswer }) :
+            `<div class="p-6 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2.5">
+              <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs uppercase tracking-wider">
+                <i data-lucide="book-open" class="w-4 h-4 text-amber-700"></i>
+                <span>Official College Board Step-by-Step Solution &amp; Trap Rationale</span>
+              </div>
+              <div class="text-xs sm:text-sm text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
+                ${esc(q.rationale || 'No official explanation provided for this question.')}
+              </div>
+            </div>`
+          }
         `;
 
         container.appendChild(card);
@@ -853,7 +841,7 @@
           const isActive = (tagId === tg.id);
           return `
             <button type="button" onclick="setMistakeErrorTag('${qid}', '${tg.id}')"
-              class="px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${isActive ? 'bg-rose-600 border-rose-600 text-white shadow-xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'}">
+              class="btn btn-sm ${isActive ? 'btn-danger is-active' : 'btn-secondary'}">
               ${tg.label}
             </button>
           `;

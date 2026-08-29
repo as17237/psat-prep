@@ -10,6 +10,8 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Desmos Graphing Calculator API -->
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
+  <!-- Unified Button System -->
+  <link rel="stylesheet" href="styles/buttons.css?v=20260829-6">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     body { font-family: 'Inter', sans-serif; }
@@ -18,24 +20,8 @@
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
-  <!-- Beta Sandbox Environment Top Banner -->
-  <div id="beta-sandbox-banner" class="hidden bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-xs flex flex-wrap items-center justify-between shadow-md border-b border-amber-600 z-50">
-    <div class="flex items-center space-x-2">
-      <span class="bg-slate-950 text-amber-400 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-wider">🧪 Beta Sandbox</span>
-      <span class="text-slate-950">Isolated Test Environment &bull; Profile: <code class="bg-black/10 px-1 py-0.5 rounded text-slate-950 font-mono">beta_default_student</code> (Live Student Data Protected)</span>
-    </div>
-    <div class="flex items-center space-x-2 pt-1 sm:pt-0">
-      <button onclick="cloneProdDataToBeta()" class="px-2.5 py-1 bg-slate-950 hover:bg-slate-900 text-amber-300 rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="copy" class="w-3.5 h-3.5 mr-1"></i> Copy Prod Data to Beta
-      </button>
-      <button onclick="resetBetaSandbox()" class="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-[11px] font-bold transition-all shadow-xs flex items-center">
-        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 mr-1"></i> Reset Beta
-      </button>
-    </div>
-  </div>
-
   <!-- Parent Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center space-x-3 shrink-0">
@@ -44,45 +30,49 @@
           </div>
           <div class="flex flex-col justify-center">
             <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Parent Oversight Portal</h1>
-            <p class="text-[11px] text-slate-500 font-medium leading-normal whitespace-nowrap">PSAT 8/9 Empirical Practice Analytics & Score Forecast</p>
+            <p class="text-[11px] text-slate-500 font-medium leading-normal whitespace-nowrap">PSAT 8/9 Empirical Practice Analytics &amp; Score Forecast</p>
           </div>
         </div>
 
         <div class="flex items-center space-x-2.5">
-          <button onclick="toggleDesmosCalculator()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200" title="Open Desmos Graphing Calculator">
-            <i data-lucide="calculator" class="w-4 h-4 mr-1.5 text-emerald-600"></i> Desmos Calculator
-          </button>
-          <button onclick="toggleReferenceSheet()" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center border border-indigo-200" title="Open Official PSAT 8/9 Math Reference Sheet">
-            <i data-lucide="compass" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Formula Sheet
-          </button>
-          <a href="mistakes.html" class="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-rose-200" title="Open dedicated full-screen question error analysis and mistake review portal">
+          <a href="mistakes.html" class="btn btn-sm btn-danger" title="Open dedicated full-screen question error analysis and mistake review portal">
             <i data-lucide="alert-triangle" class="w-4 h-4 mr-1.5 text-rose-600"></i> Trouble Spots
           </a>
-          <a href="feedback.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+          <a href="feedback.html" class="btn btn-sm btn-secondary">
             <i data-lucide="message-square-plus" class="w-4 h-4 mr-1.5"></i> Feedback
           </a>
-          <button onclick="syncParentFromCloud(true)" id="btn-cloud-sync" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200" title="Fetch latest test results and attempts from Azure Cosmos DB">
-            <i data-lucide="cloud" class="w-4 h-4 mr-1.5 text-emerald-600"></i> <span id="cloud-sync-status-text">Cosmos DB Sync</span>
-          </button>
-          <button id="btn-load-sample-data" onclick="loadSampleDiagnosticSession()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-amber-200" title="Instantly load sample practice and completed exam data to preview all dashboard analytics">
-            <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-amber-600"></i> Load Sample Data
-          </button>
-          <button onclick="downloadCloudBackup()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center border border-indigo-200" title="Export complete longitudinal snapshot of all questions, answers, and tests from Cosmos DB">
-            <i data-lucide="hard-drive-download" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Cloud Backup
-          </button>
-          <button onclick="exportAuditTrail()" class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center" title="Download complete audit log of attempts and testing">
-            <i data-lucide="download" class="w-4 h-4 mr-1.5"></i> Export Audit Data
-          </button>
-          <label class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-xl transition-colors flex items-center cursor-pointer" title="Import audit JSON file from student's device">
-            <i data-lucide="upload" class="w-4 h-4 mr-1.5"></i> Import Student Data
-            <input type="file" accept=".json" onchange="importAuditTrail(event)" class="hidden">
-          </label>
-          <a href="index.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
+          <a href="index.html" class="btn btn-sm btn-secondary">
             <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student App
           </a>
-          <button onclick="window.print()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
-            <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Report
-          </button>
+
+          <!-- Data & Settings Dropdown Menu (Consolidated Admin & Debug Operations) -->
+          <details class="relative">
+            <summary class="btn btn-sm btn-secondary list-none cursor-pointer">
+              <i data-lucide="settings" class="w-4 h-4 mr-1.5 text-slate-600"></i> Data &amp; Settings
+            </summary>
+            <div class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 space-y-1 text-xs font-semibold">
+              <button onclick="syncParentFromCloud(true)" id="btn-cloud-sync" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-emerald-700">
+                <i data-lucide="cloud" class="w-4 h-4 mr-2 text-emerald-600"></i> <span id="cloud-sync-status-text">Cosmos DB Sync</span>
+              </button>
+              <button id="btn-load-sample-data" onclick="loadSampleDiagnosticSession()" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-slate-700">
+                <i data-lucide="sparkles" class="w-4 h-4 mr-2 text-amber-600"></i> Load Sample Data
+              </button>
+              <button onclick="downloadCloudBackup()" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-slate-700">
+                <i data-lucide="hard-drive-download" class="w-4 h-4 mr-2 text-indigo-600"></i> Cloud Backup
+              </button>
+              <button onclick="exportAuditTrail()" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-slate-700">
+                <i data-lucide="download" class="w-4 h-4 mr-2 text-slate-600"></i> Export Audit Data
+              </button>
+              <label class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-slate-700 cursor-pointer">
+                <i data-lucide="upload" class="w-4 h-4 mr-2 text-slate-600"></i> Import Student Data
+                <input type="file" accept=".json" onchange="importAuditTrail(event)" class="hidden">
+              </label>
+              <div class="border-t border-slate-100 my-1"></div>
+              <button onclick="window.print()" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-slate-700">
+                <i data-lucide="printer" class="w-4 h-4 mr-2 text-slate-600"></i> Print Report
+              </button>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -103,7 +93,7 @@
         </div>
       </div>
       <div class="flex items-center space-x-2 shrink-0">
-        <button onclick="restoreRealStudentData()" class="px-5 py-2.5 bg-slate-950 hover:bg-slate-800 text-amber-400 font-black text-xs rounded-xl shadow-md transition-all">
+        <button onclick="restoreRealStudentData()" class="btn btn-sm btn-secondary">
           Restore My Real Data &rarr;
         </button>
       </div>
@@ -148,7 +138,7 @@
               <h3 id="hero-srs-due" class="text-2xl font-bold text-white">0 Questions</h3>
               <p id="hero-srs-subtext" class="text-xs text-slate-300">Due for review today</p>
             </div>
-            <a href="index.html" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md">
+            <a href="index.html" class="btn btn-sm btn-success">
               Start Practice
             </a>
           </div>
@@ -248,10 +238,10 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <button onclick="launchMistakesDrill()" id="btn-drill-mistakes" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-100 transition-all flex items-center whitespace-nowrap">
+          <button onclick="launchMistakesDrill()" id="btn-drill-mistakes" class="btn btn-md btn-danger whitespace-nowrap shrink-0">
             <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Drill All Missed (<span id="btn-drill-count">0</span>)
           </button>
-          <a href="mistakes.html" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center whitespace-nowrap">
+          <a href="mistakes.html" class="btn btn-md btn-secondary whitespace-nowrap shrink-0">
             <i data-lucide="external-link" class="w-4 h-4 mr-1.5 text-amber-400"></i> Open Mistake Review Center &rarr;
           </a>
         </div>
@@ -297,26 +287,24 @@
     </div>
 
     <!-- Custom Test & Adaptive Spaced Repetition Drill Builder -->
+    <!-- Custom Test & Adaptive Spaced Repetition Drill Builder -->
     <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
         <div>
           <h3 class="text-lg font-bold text-slate-900 flex items-center">
-            <i data-lucide="sliders" class="w-5 h-5 mr-2 text-indigo-600"></i> Test & Adaptive Drill Builder
+            <i data-lucide="sliders" class="w-5 h-5 mr-2 text-indigo-600"></i> Practice & Exam Simulator Builder
           </h3>
-          <p class="text-xs text-slate-500 font-medium">Generate standard PSAT 8/9 exams, custom filtered drills, or adaptive spaced repetition tests targeting student learning gaps.</p>
+          <p class="text-xs text-slate-500 font-medium">Launch smart gap-targeted practice drills or official timed PSAT 8/9 simulations.</p>
         </div>
         <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-          <button onclick="switchBuilderTab('mini')" id="btab-mini" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center">
+          <button onclick="switchBuilderTab('gap')" id="btab-gap" class="btn btn-sm btn-primary is-active">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-indigo-500"></i> Practice Drill
+          </button>
+          <button onclick="switchBuilderTab('mini')" id="btab-mini" class="btn btn-sm btn-ghost">
             <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-500"></i> Mini Exam (10m)
           </button>
-          <button onclick="switchBuilderTab('gap')" id="btab-gap" class="px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 mr-1 text-indigo-500"></i> Gap Drill (SRS)
-          </button>
-          <button onclick="switchBuilderTab('custom')" id="btab-custom" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center">
-            <i data-lucide="filter" class="w-3.5 h-3.5 mr-1"></i> Custom Filtered
-          </button>
-          <button onclick="switchBuilderTab('psat89')" id="btab-psat89" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center">
-            <i data-lucide="award" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i> Standard PSAT 8/9
+          <button onclick="switchBuilderTab('psat89')" id="btab-psat89" class="btn btn-sm btn-ghost">
+            <i data-lucide="award" class="w-3.5 h-3.5 mr-1 text-emerald-600"></i> Full PSAT 8/9
           </button>
         </div>
       </div>
@@ -340,12 +328,12 @@
           </div>
           <div class="flex items-center space-x-4 shrink-0 bg-white p-3 rounded-xl border border-slate-200">
             <div class="text-center">
-              <span class="text-xs text-slate-500 block">Due SRS Cards</span>
+              <span id="gap-stat-label-1" class="text-xs text-slate-500 block">Due SRS Cards</span>
               <span id="gap-due-srs" class="text-base font-bold text-amber-600">0</span>
             </div>
             <div class="w-px h-8 bg-slate-200"></div>
             <div class="text-center">
-              <span class="text-xs text-slate-500 block">Weak Skills</span>
+              <span id="gap-stat-label-2" class="text-xs text-slate-500 block">Weak Skills</span>
               <span id="gap-weak-skills" class="text-base font-bold text-rose-600">0</span>
             </div>
           </div>
@@ -355,176 +343,81 @@
           <div class="space-y-2">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Number of Questions</label>
             <div class="grid grid-cols-4 gap-2">
-              <button type="button" onclick="setGapCount(10)" id="gap-c-10" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">10 Qs</button>
-              <button type="button" onclick="setGapCount(20)" id="gap-c-20" class="py-2 text-xs font-bold rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-600 transition-colors">20 Qs</button>
-              <button type="button" onclick="setGapCount(30)" id="gap-c-30" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">30 Qs</button>
-              <button type="button" onclick="setGapCount(50)" id="gap-c-50" class="py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">50 Qs</button>
+              <button type="button" onclick="setGapCount(10)" id="gap-c-10" class="btn btn-md btn-secondary">10 Qs</button>
+              <button type="button" onclick="setGapCount(20)" id="gap-c-20" class="btn btn-md btn-primary is-active">20 Qs</button>
+              <button type="button" onclick="setGapCount(30)" id="gap-c-30" class="btn btn-md btn-secondary">30 Qs</button>
+              <button type="button" onclick="setGapCount(50)" id="gap-c-50" class="btn btn-md btn-secondary">50 Qs</button>
             </div>
           </div>
 
           <div class="space-y-2">
             <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Target Focus Area</label>
-            <select id="gap-focus-type" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
+            <select id="gap-focus-type" onchange="updateGapTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
               <option value="all">⚡ Comprehensive Gap Drill (SRS Due + Weaknesses + New)</option>
               <option value="srs_only">⏰ Spaced Repetition Due Cards Only</option>
               <option value="weak_only">⚠️ Low Accuracy Skills Only (&lt;75%)</option>
               <option value="math_only">🧮 Math Mastery Focus</option>
-              <option value="rw_only">📖 Reading & Writing Mastery Focus</option>
+              <option value="rw_only">📖 Reading &amp; Writing Mastery Focus</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Optional Filter Controls Dropdown -->
+        <details class="group text-xs border border-slate-200 rounded-xl bg-slate-50/60 p-3">
+          <summary class="cursor-pointer font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-between">
+            <span class="flex items-center space-x-1.5">
+              <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span>Optional Filters (Difficulty &amp; Question Format)</span>
+            </span>
+            <span class="text-[11px] text-indigo-600 font-medium group-open:hidden">Customize &darr;</span>
+          </summary>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 mt-2 border-t border-slate-200">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-600 uppercase">Difficulty</label>
+              <select id="gap-diff-filter" onchange="updateGapTestCalculations()" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800">
+                <option value="All">All Difficulties (Adaptive)</option>
+                <option value="Hard">Hard Questions Only</option>
+                <option value="Medium">Medium Questions Only</option>
+                <option value="Easy">Easy Questions Only</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-600 uppercase">Question Format</label>
+              <select id="gap-type-filter" onchange="updateGapTestCalculations()" class="w-full text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800">
+                <option value="all">All Formats (Multiple Choice &amp; Free Response)</option>
+                <option value="mcq">Multiple Choice Only</option>
+                <option value="spr">Student-Produced Response (SPR Free-Response)</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <!-- Dynamic Focus Area Summary Banner -->
+        <div id="gap-focus-summary-box" class="p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="flex items-center space-x-2">
+              <i id="gap-focus-icon" data-lucide="target" class="w-4 h-4 text-indigo-600 shrink-0"></i>
+              <span id="gap-focus-desc" class="font-medium">Comprehensive Drill: Prioritizes due SRS reviews, &lt;75% accuracy weaknesses, and unpracticed coverage across all domains.</span>
+            </div>
+            <span id="gap-focus-pool-badge" class="font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center">3,059 in Pool</span>
+          </div>
+          <!-- Dynamic Matching Domains Breakdown Chips -->
+          <div class="pt-2 border-t border-indigo-100/60 flex flex-wrap items-center gap-1.5" id="gap-focus-domain-chips">
+            <!-- Dynamically populated -->
           </div>
         </div>
 
         <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
           <span class="text-xs text-slate-500">Estimated duration: <span id="gap-est-time" class="font-bold text-slate-800">30 minutes</span> (~1.5 min/question)</span>
           <div class="flex items-center space-x-3">
-            <button onclick="copyShareableTestLink('gap')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+            <button onclick="copyShareableTestLink('gap')" class="btn btn-md btn-secondary">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
             </button>
-            <button onclick="launchGapDrill()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
-              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Gap Drill in Student App
+            <button onclick="launchGapDrill()" id="btn-launch-gap" class="btn btn-lg btn-primary">
+              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Gap Drill (20 Qs) in Student App
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Tab 2: Custom Filtered Test Builder (Multi-Select ELA & Math) -->
-      <div id="bview-custom" class="space-y-6">
-        
-        <!-- Top Filter Bar: Preset Buttons & Quick Toggles -->
-        <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="text-xs font-bold text-slate-700 uppercase tracking-wider mr-2">Quick Presets:</span>
-            <button type="button" onclick="setPresetDomains('all')" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 text-xs font-semibold rounded-xl border border-slate-200 shadow-xs transition-all">All Sections (ELA + Math)</button>
-            <button type="button" onclick="setPresetDomains('ela')" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl border border-indigo-200 transition-all flex items-center">
-              <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1"></i> ELA Only
-            </button>
-            <button type="button" onclick="setPresetDomains('math')" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl border border-emerald-200 transition-all flex items-center">
-              <i data-lucide="calculator" class="w-3.5 h-3.5 mr-1"></i> Math Only
-            </button>
-            <button type="button" onclick="setPresetDomains('clear')" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 text-xs font-medium rounded-xl border border-slate-200 transition-all">Clear All</button>
-          </div>
-
-          <div class="flex items-center space-x-3 text-xs font-semibold">
-            <span id="cust-matching-summary" class="text-indigo-700 font-bold bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">Matching: 3,059 Questions</span>
-          </div>
-        </div>
-
-        <!-- Multi-Select Domain & Skill Section Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          <!-- Reading & Writing (ELA) Column -->
-          <div class="bg-indigo-50/40 rounded-2xl border border-indigo-200 p-5 space-y-4">
-            <div class="flex items-center justify-between border-b border-indigo-200/80 pb-3">
-              <div class="flex items-center space-x-2">
-                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                  <i data-lucide="book" class="w-4 h-4"></i>
-                </span>
-                <div>
-                  <h4 class="text-sm font-bold text-slate-900">Reading & Writing (ELA) Domains</h4>
-                  <span class="text-[11px] text-slate-500 font-medium">1,554 Questions Available</span>
-                </div>
-              </div>
-              <button type="button" onclick="toggleSectionSkills('Reading and Writing')" id="toggle-btn-rw" class="text-xs text-indigo-700 hover:underline font-semibold">Deselect ELA</button>
-            </div>
-
-            <!-- ELA Domains Container -->
-            <div id="container-ela-domains" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-              <!-- Dynamically populated -->
-            </div>
-          </div>
-
-          <!-- Math Column -->
-          <div class="bg-emerald-50/40 rounded-2xl border border-emerald-200 p-5 space-y-4">
-            <div class="flex items-center justify-between border-b border-emerald-200/80 pb-3">
-              <div class="flex items-center space-x-2">
-                <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
-                  <i data-lucide="calculator" class="w-4 h-4"></i>
-                </span>
-                <div>
-                  <h4 class="text-sm font-bold text-slate-900">Math Domains</h4>
-                  <span class="text-[11px] text-slate-500 font-medium">1,505 Questions Available</span>
-                </div>
-              </div>
-              <button type="button" onclick="toggleSectionSkills('Math')" id="toggle-btn-math" class="text-xs text-emerald-700 hover:underline font-semibold">Deselect Math</button>
-            </div>
-
-            <!-- Math Domains Container -->
-            <div id="container-math-domains" class="space-y-4 max-h-[420px] overflow-y-auto pr-1">
-              <!-- Dynamically populated -->
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Test Parameters & Controls -->
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 p-5 bg-white rounded-2xl border border-slate-200 shadow-xs">
-          <!-- Difficulty -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Difficulty</label>
-            <select id="cust-diff" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
-              <option value="All">All Difficulties (Mixed)</option>
-              <option value="Hard">Hard Questions Only (High-Yield)</option>
-              <option value="Medium">Medium Questions Only</option>
-              <option value="Easy">Easy Questions Only</option>
-            </select>
-          </div>
-
-          <!-- Format -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Format</label>
-            <select id="cust-qtype" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
-              <option value="all">All Formats (MCQ & Grid-In)</option>
-              <option value="mcq">Multiple Choice Only</option>
-              <option value="spr">Free-Response (Math SPR) Only</option>
-            </select>
-          </div>
-
-          <!-- Count -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Question Count</label>
-            <input type="number" id="cust-count" value="20" min="5" max="98" onchange="updateCustomTestCalculations()" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500">
-          </div>
-
-          <!-- Time Limit -->
-          <div class="space-y-1.5">
-            <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Time Limit</label>
-            <div class="flex items-center space-x-2">
-              <input type="number" id="cust-time" value="30" min="5" max="180" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-medium text-slate-800">
-              <label class="flex items-center text-xs font-semibold text-slate-600 whitespace-nowrap">
-                <input type="checkbox" id="cust-untimed" onchange="document.getElementById('cust-time').disabled = this.checked;" class="rounded text-indigo-600 mr-1"> Untimed
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- Adaptive Weakness Weighting Option -->
-        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
-          <div class="space-y-0.5">
-            <label for="cust-adaptive-toggle" class="text-xs font-bold text-slate-900 flex items-center cursor-pointer">
-              <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Adaptive Weakness Priority Weighting
-            </label>
-            <p class="text-[11px] text-slate-500">
-              Prioritizes questions from the student's personal mistake history, overdue SM-2 memory retention cards, and low-accuracy skills.
-            </p>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer shrink-0">
-            <input type="checkbox" id="cust-adaptive-toggle" checked class="sr-only peer">
-            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-          </label>
-        </div>
-
-        <div class="flex flex-wrap items-center justify-between pt-2 gap-3">
-          <span id="cust-selected-summary" class="text-xs text-slate-600 font-medium">Selected: 8 Domains, 24 Skills</span>
-          <div class="flex items-center space-x-3">
-            <button onclick="copyShareableTestLink('custom')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
-              <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
-            </button>
-            <button onclick="launchCustomTest()" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
-              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Custom Test in Student App
-            </button>
-          </div>
-        </div>
-
       </div>
 
       <!-- Tab 3: Full-Length PSAT 8/9 Standard Exam -->
@@ -576,31 +469,15 @@
               <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
             </label>
           </div>
-
-          <!-- 7-Week High-Yield Sprint Mode Option -->
-          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-2">
-            <div class="space-y-0.5">
-              <label for="std-highyield-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
-                <i data-lucide="flame" class="w-4 h-4 mr-1.5 text-rose-400"></i> ⚡ 7-Week High-Yield Sprint Mode (Mid-October Target)
-              </label>
-              <p class="text-[11px] text-slate-300">
-                Prioritizes High-Weight College Board domains (Algebra, Advanced Math, Command of Evidence) and Medium/Hard gateway questions.
-              </p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="std-highyield-toggle" checked class="sr-only peer">
-              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
-            </label>
-          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2">
           <span class="text-xs text-slate-500">Strict exam conditions: Module answers are locked upon submission.</span>
           <div class="flex items-center space-x-3">
-            <button onclick="copyShareableTestLink('psat89')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+            <button onclick="copyShareableTestLink('psat89')" class="btn btn-md btn-secondary">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
             </button>
-            <button onclick="launchStandardExamFromParent()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center">
+            <button onclick="launchStandardExamFromParent()" class="btn btn-lg btn-success">
               <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Full PSAT 8/9 Exam
             </button>
           </div>
@@ -612,23 +489,23 @@
         <div class="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 text-white p-6 rounded-2xl shadow-md space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <span class="text-xs font-bold uppercase tracking-wider text-amber-300 bg-amber-950/80 px-3 py-1 rounded-full border border-amber-600/50 flex items-center">
-              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-400"></i> Recommended For Rapid Testing &amp; Parent Review
+              <i data-lucide="zap" class="w-3.5 h-3.5 mr-1 text-amber-400"></i> Quick Simulation (8 Questions)
             </span>
-            <span class="text-xs font-mono text-slate-300">8 Questions &bull; ~10 Minutes &bull; 240–1440 Scale</span>
+            <span class="text-xs font-mono text-slate-300">8 Questions &bull; 10 Minutes &bull; 240–1440 Scale</span>
           </div>
 
-          <h4 class="text-xl font-bold">Mini PSAT 8/9 Quick Simulation (8 Questions)</h4>
+          <h4 class="text-xl font-bold">Mini PSAT 8/9 Quick Simulation</h4>
           <p class="text-xs text-slate-300 max-w-3xl leading-relaxed">
-            Experience the complete authentic PSAT 8/9 testing flow in 10 minutes: <strong>Reading &amp; Writing (4 Qs)</strong> &rarr; <strong>Scheduled Break</strong> &rarr; <strong>Math with Desmos &amp; Formula Sheet (4 Qs: 3 MCQ + 1 Grid-In)</strong> &rarr; <strong>Full Score Diagnostics &amp; Instant Analytics in Parent Portal</strong>.
+            Fast diagnostic with 4 Reading & Writing and 4 Math questions under official timed conditions.
           </p>
 
           <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
             <div class="bg-white/10 p-3 rounded-xl">
               <span class="text-xs text-slate-400 block font-semibold">Total Duration</span>
-              <span class="text-base font-bold text-white">~10 Minutes</span>
+              <span class="text-base font-bold text-white">10 Minutes</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
-              <span class="text-xs text-slate-400 block font-semibold">Reading &amp; Writing</span>
+              <span class="text-xs text-slate-400 block font-semibold">Reading & Writing</span>
               <span class="text-base font-bold text-white">4 Qs (5 mins)</span>
             </div>
             <div class="bg-white/10 p-3 rounded-xl">
@@ -656,32 +533,16 @@
               <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
             </label>
           </div>
-
-          <!-- 7-Week High-Yield Sprint Mode Option (Mini) -->
-          <div class="p-4 bg-white/10 rounded-xl border border-white/10 flex items-center justify-between gap-4 mt-2">
-            <div class="space-y-0.5">
-              <label for="mini-highyield-toggle" class="text-xs sm:text-sm font-bold text-white flex items-center cursor-pointer">
-                <i data-lucide="flame" class="w-4 h-4 mr-1.5 text-rose-400"></i> ⚡ 7-Week High-Yield Sprint Mode (Mid-October Target)
-              </label>
-              <p class="text-[11px] text-slate-300">
-                Draws from High-Yield domains and gateway Upper-Track questions.
-              </p>
-            </div>
-            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-              <input type="checkbox" id="mini-highyield-toggle" checked class="sr-only peer">
-              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-500"></div>
-            </label>
-          </div>
         </div>
 
         <div class="flex items-center justify-between pt-2">
-          <span class="text-xs text-slate-500">Includes locked module progression, question review matrix, Desmos, and instant score report.</span>
+          <span class="text-xs text-slate-500">Includes timed modules, Desmos calculator, and score diagnostics.</span>
           <div class="flex items-center space-x-3">
-            <button onclick="copyShareableTestLink('mini_psat89')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center">
+            <button onclick="copyShareableTestLink('mini_psat89')" class="btn btn-md btn-secondary">
               <i data-lucide="link" class="w-4 h-4 mr-1.5"></i> Copy Shareable Link
             </button>
-            <button onclick="launchMiniExamFromParent()" class="px-6 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-md transition-all flex items-center">
-              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch 10-Min Mini Exam &rarr;
+            <button onclick="launchMiniExamFromParent()" class="btn btn-lg btn-primary">
+              <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch Mini Exam
             </button>
           </div>
         </div>
@@ -689,30 +550,21 @@
 
     </div>
 
-    <!-- Actionable Coaching Recommendations -->
-    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="text-base font-bold text-slate-900 flex items-center">
-          <i data-lucide="compass" class="w-4 h-4 mr-2 text-indigo-600"></i> Practice Recommendations
-        </h3>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-        <div class="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
-          <span class="text-xs font-bold text-amber-800 uppercase tracking-wider">Spaced Repetition</span>
-          <h4 class="text-sm font-bold text-slate-900">Review Due Cards</h4>
-          <p class="text-xs text-slate-600">Clear the daily SRS queue in Practice Mode to prevent retention decay on difficult concepts.</p>
+    <!-- Actionable Coaching Recommendation -->
+    <div id="parent-top-recommendation-box" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-start space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+          <i data-lucide="compass" class="w-5 h-5"></i>
         </div>
-        <div class="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
-          <span class="text-xs font-bold text-indigo-800 uppercase tracking-wider">Hard Question Blitz</span>
-          <h4 class="text-sm font-bold text-slate-900">Target Hard Difficulties</h4>
-          <p class="text-xs text-slate-600">Over 60% of the question bank consists of Hard-level questions. Focusing on Hard items accelerates score growth.</p>
-        </div>
-        <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2">
-          <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider">Official Rationales</span>
-          <h4 class="text-sm font-bold text-slate-900">Review Every Mistake</h4>
-          <p class="text-xs text-slate-600">Always inspect the step-by-step rationale for missed questions to identify logical trap patterns.</p>
+        <div class="space-y-1">
+          <span class="text-xs font-bold text-indigo-800 uppercase tracking-wider">Top Recommended Action</span>
+          <h4 id="parent-rec-title" class="text-sm font-bold text-slate-900">Clear Spaced Repetition Due Queue</h4>
+          <p id="parent-rec-desc" class="text-xs text-slate-600">Review due cards in Practice Mode to prevent memory decay on difficult concepts before attempting full tests.</p>
         </div>
       </div>
+      <a href="index.html?mode=practice&filter=due" id="parent-rec-cta" class="btn btn-md btn-primary whitespace-nowrap self-start sm:self-center">
+        Start Practice &rarr;
+      </a>
     </div>
 
   </main>
@@ -722,9 +574,9 @@
   </footer>
 
   <!-- Load SRS & Core Logic Engine -->
-  <script src="srs.js?v=20260828-2"></script>
+  <script src="srs.js?v=20260829-6"></script>
   <!-- Load Extracted Questions Data -->
-  <script src="data/questions_data.js?v=20260828-2"></script>
+  <script src="data/questions_data.js?v=20260829-6"></script>
   
   <script>
     function esc(s) {
@@ -1021,8 +873,10 @@
       const scoreData = PSAT_ENGINE.calculateScaledScore(questions, progress);
       if (scoreData.isReady) {
         document.getElementById('hero-scaled-score').innerText = scoreData.totalScore;
-        const totalRangeStr = scoreData.totalRangeFormatted ? ` (Range: ${scoreData.totalRangeFormatted}, ${scoreData.confidenceInterval || '90% Confidence'})` : '';
-        document.getElementById('hero-score-subtext').innerText = `Estimated from ${scoreData.rwAttempted} Reading/Writing and ${scoreData.mathAttempted} Math questions${totalRangeStr}. (RW: ${scoreData.rwScore}, Math: ${scoreData.mathScore})`;
+        const totalRangeStr = scoreData.totalRangeFormatted ? ` (Likely Range: ${scoreData.totalRangeFormatted}, ${scoreData.confidenceInterval || '90% Confidence'})` : '';
+        const sampleNote = scoreData.isLowSample ? ' • Wide range due to sample size (<30 attempts per section).' : '';
+        const difficultyNote = ' Estimated from your practice mix, which is harder than a real test form (~60% Hard).';
+        document.getElementById('hero-score-subtext').innerText = `Estimated from ${scoreData.rwAttempted} Reading/Writing and ${scoreData.mathAttempted} Math questions${totalRangeStr}.${sampleNote}${difficultyNote} (RW: ${scoreData.rwScore}, Math: ${scoreData.mathScore})`;
       } else {
         document.getElementById('hero-scaled-score').innerText = '—';
         document.getElementById('hero-score-subtext').innerText = `Needs at least ${scoreData.minRequiredPerSection} questions attempted per section (current: ${scoreData.rwAttempted} RW, ${scoreData.mathAttempted} Math).`;
@@ -1082,6 +936,37 @@
 
       // Render Completed Exams List
       renderParentExamHistory();
+
+      // Update Gap Test Builder metrics & focus calculations
+      updateGapTestCalculations();
+
+      // Dynamic Top Recommendation
+      const recTitle = document.getElementById('parent-rec-title');
+      const recDesc = document.getElementById('parent-rec-desc');
+      const recCta = document.getElementById('parent-rec-cta');
+      if (recTitle && recDesc && recCta) {
+        if (dueCardsCount > 0) {
+          recTitle.innerText = `Review ${dueCardsCount} Due Spaced Repetition Card${dueCardsCount === 1 ? '' : 's'}`;
+          recDesc.innerText = 'Memory retention decay is active for these questions. Clearing due cards prevents learning loss.';
+          recCta.innerText = 'Clear Due Cards →';
+          recCta.href = 'index.html?mode=practice&filter=due';
+        } else if (weakSkillsCount > 0) {
+          recTitle.innerText = `Target ${weakSkillsCount} Weak Learning Skill${weakSkillsCount === 1 ? '' : 's'}`;
+          recDesc.innerText = 'The student has sub-75% accuracy in key skills. Launch a targeted gap drill to build mastery.';
+          recCta.innerText = 'Launch Weakness Drill →';
+          recCta.href = '#bview-gap';
+        } else if (attemptedCount < 50) {
+          recTitle.innerText = 'Take a Quick Mini PSAT 8/9 Diagnostic';
+          recDesc.innerText = 'Complete an 8-question timed simulation to calibrate the student\'s scaled score prediction.';
+          recCta.innerText = 'Start Mini Exam →';
+          recCta.href = 'index.html?mode=mini_psat89';
+        } else {
+          recTitle.innerText = 'Simulate Full-Length Official Exam';
+          recDesc.innerText = 'Great progress! Take a full standard PSAT 8/9 simulation to test test-taking stamina and timing.';
+          recCta.innerText = 'Start Full Exam →';
+          recCta.href = 'index.html?mode=psat89';
+        }
+      }
     }
 
     function renderParentExamHistory() {
@@ -1183,7 +1068,7 @@
             <div class="text-left lg:text-right">
               ${scoreBlock}
             </div>
-            <button onclick="openParentExamReview('${h.examId}')" class="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center">
+            <button onclick="openParentExamReview('${h.examId}')" class="btn btn-sm btn-primary">
               <i data-lucide="file-search" class="w-4 h-4 mr-1.5"></i> Inspect Full Test Review &rarr;
             </button>
           </div>
@@ -1250,7 +1135,7 @@
       // All Domains chip
       const allLink = document.createElement('a');
       allLink.href = 'mistakes.html';
-      allLink.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-xs hover:bg-slate-800 transition-all flex items-center';
+      allLink.className = 'btn btn-sm btn-primary is-active';
       allLink.innerHTML = `<i data-lucide="layers" class="w-3.5 h-3.5 mr-1.5"></i> All Missed (${allTroubleList.length})`;
       chipsContainer.appendChild(allLink);
 
@@ -1258,7 +1143,7 @@
         const count = domainCounts[dom];
         const link = document.createElement('a');
         link.href = `mistakes.html`;
-        link.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 shadow-xs transition-all flex items-center';
+        link.className = 'btn btn-sm btn-secondary';
         link.innerHTML = `<span>${esc(dom)}</span>&nbsp;<span class="text-rose-600 font-bold">(${count})</span>`;
         chipsContainer.appendChild(link);
       });
@@ -1266,6 +1151,8 @@
       // Populate Root-Cause Error Tags & Longitudinal Trends
       const tagContainer = document.getElementById('trouble-tag-chips');
       if (tagContainer && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.aggregateErrorTags && PSAT_ENGINE.ERROR_TAGS) {
+        const progress = safeGetStorage('psat_progress', {});
+        const examHistory = safeGetStorage('psat_exam_history', []);
         const tagSummary = PSAT_ENGINE.aggregateErrorTags(allTroubleList);
         const trends = typeof PSAT_ENGINE.calculateErrorTagTrends === 'function' ? PSAT_ENGINE.calculateErrorTagTrends(progress, examHistory) : null;
         tagContainer.innerHTML = '';
@@ -1416,14 +1303,17 @@
         ${imageHtml}
         ${optionsHtml}
 
-        <div class="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
-          <h5 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="book-open" class="w-4 h-4 mr-1.5 text-amber-700"></i> Official Step-by-Step Rationale &amp; Solution
-          </h5>
-          <div class="text-xs text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
-            ${esc(q.rationale || 'No official explanation provided for this question.')}
-          </div>
-        </div>
+        ${(typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.renderRationale) ?
+          PSAT_ENGINE.renderRationale(q, { userSelectedAnswer: t.lastUserAnswer }) :
+          `<div class="p-5 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
+            <h5 class="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center">
+              <i data-lucide="book-open" class="w-4 h-4 mr-1.5 text-amber-700"></i> Official Step-by-Step Rationale &amp; Solution
+            </h5>
+            <div class="text-xs text-amber-950 leading-relaxed font-sans whitespace-pre-wrap">
+              ${esc(q.rationale || 'No official explanation provided for this question.')}
+            </div>
+          </div>`
+        }
       `;
 
       document.getElementById('parent-mistake-detail-modal').classList.remove('hidden');
@@ -1613,7 +1503,12 @@
               <span>View Official Step-by-Step Rationale</span>
               <i data-lucide="chevron-down" class="w-4 h-4"></i>
             </summary>
-            <div class="pt-2 text-slate-800 leading-relaxed">${esc(q.rationale)}</div>
+            <div class="pt-2 text-slate-800 leading-relaxed">
+              ${(typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.renderRationale) ?
+                PSAT_ENGINE.renderRationale(q, { userSelectedAnswer: q.userAnswer }) :
+                esc(q.rationale)
+              }
+            </div>
           </details>
         `;
         container.appendChild(div);
@@ -1623,225 +1518,147 @@
     }
 
     function switchBuilderTab(tab) {
-      document.getElementById('bview-mini').classList.add('hidden');
-      document.getElementById('bview-gap').classList.add('hidden');
-      document.getElementById('bview-custom').classList.add('hidden');
-      document.getElementById('bview-psat89').classList.add('hidden');
+      ['mini', 'gap', 'psat89'].forEach(t => {
+        const view = document.getElementById('bview-' + t);
+        const tabEl = document.getElementById('btab-' + t);
+        if (view) view.classList.toggle('hidden', t !== tab);
+        if (tabEl) tabEl.className = 'btn btn-sm ' + (t === tab ? 'btn-primary is-active' : 'btn-ghost');
+      });
+      lucide.createIcons();
+    }
 
-      document.getElementById('btab-mini').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
-      document.getElementById('btab-gap').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
-      document.getElementById('btab-custom').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
-      document.getElementById('btab-psat89').className = 'px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center';
+    function updateGapTestCalculations() {
+      const questions = window.QUESTIONS_DATA || [];
+      const progress = safeGetStorage('psat_progress', {});
+      const srsState = safeGetStorage('psat_srs', {});
+      const focusSelect = document.getElementById('gap-focus-type');
+      const focusType = focusSelect ? focusSelect.value : 'all';
 
-      if (tab === 'mini') {
-        document.getElementById('bview-mini').classList.remove('hidden');
-        document.getElementById('btab-mini').className = 'px-3 py-1.5 rounded-lg bg-white text-amber-600 shadow-sm transition-all flex items-center';
-      } else if (tab === 'gap') {
-        document.getElementById('bview-gap').classList.remove('hidden');
-        document.getElementById('btab-gap').className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center';
-      } else if (tab === 'custom') {
-        document.getElementById('bview-custom').classList.remove('hidden');
-        document.getElementById('btab-custom').className = 'px-3 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all flex items-center';
-        if (selectedSkillsSet.size === 0) {
-          initCustomDomainSkills();
+      const metrics = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.calculateGapFocusMetrics) ?
+        PSAT_ENGINE.calculateGapFocusMetrics(questions, progress, srsState, focusType) :
+        {
+          statLabel1: 'Due SRS Cards',
+          statValue1: Object.values(srsState).filter(c => c.dueAt <= Date.now()).length,
+          statLabel2: 'Weak Skills',
+          statValue2: 0,
+          matchingPoolCount: questions.length,
+          focusDescription: 'Comprehensive Gap Drill across all question domains.',
+          focusShortName: 'Gap Drill'
+        };
+
+      if (document.getElementById('gap-stat-label-1')) document.getElementById('gap-stat-label-1').innerText = metrics.statLabel1;
+      if (document.getElementById('gap-due-srs')) document.getElementById('gap-due-srs').innerText = metrics.statValue1;
+      if (document.getElementById('gap-stat-label-2')) document.getElementById('gap-stat-label-2').innerText = metrics.statLabel2;
+      if (document.getElementById('gap-weak-skills')) document.getElementById('gap-weak-skills').innerText = metrics.statValue2;
+
+      if (document.getElementById('gap-focus-desc')) document.getElementById('gap-focus-desc').innerText = metrics.focusDescription;
+      if (document.getElementById('gap-focus-pool-badge')) document.getElementById('gap-focus-pool-badge').innerText = `${metrics.matchingPoolCount.toLocaleString()} in Pool`;
+      if (document.getElementById('gap-est-time')) document.getElementById('gap-est-time').innerText = `${Math.round(currentGapCount * 1.5)} minutes`;
+
+      const summaryBox = document.getElementById('gap-focus-summary-box');
+      const focusIcon = document.getElementById('gap-focus-icon');
+      const poolBadge = document.getElementById('gap-focus-pool-badge');
+
+      if (summaryBox && focusIcon && poolBadge) {
+        if (focusType === 'math_only') {
+          summaryBox.className = 'p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-3 text-xs text-emerald-950 transition-all';
+          focusIcon.setAttribute('data-lucide', 'calculator');
+          focusIcon.className = 'w-4 h-4 text-emerald-600 shrink-0';
+          poolBadge.className = 'font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0 text-center';
+        } else if (focusType === 'rw_only') {
+          summaryBox.className = 'p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
+          focusIcon.setAttribute('data-lucide', 'book-open');
+          focusIcon.className = 'w-4 h-4 text-indigo-600 shrink-0';
+          poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
+        } else if (focusType === 'srs_only') {
+          summaryBox.className = 'p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col gap-3 text-xs text-amber-950 transition-all';
+          focusIcon.setAttribute('data-lucide', 'clock');
+          focusIcon.className = 'w-4 h-4 text-amber-600 shrink-0';
+          poolBadge.className = 'font-bold text-amber-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shrink-0 text-center';
+        } else if (focusType === 'weak_only') {
+          summaryBox.className = 'p-4 bg-rose-50 border border-rose-200 rounded-xl flex flex-col gap-3 text-xs text-rose-950 transition-all';
+          focusIcon.setAttribute('data-lucide', 'alert-triangle');
+          focusIcon.className = 'w-4 h-4 text-rose-600 shrink-0';
+          poolBadge.className = 'font-bold text-rose-700 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shrink-0 text-center';
         } else {
-          updateCustomTestCalculations();
+          summaryBox.className = 'p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
+          focusIcon.setAttribute('data-lucide', 'target');
+          focusIcon.className = 'w-4 h-4 text-indigo-600 shrink-0';
+          poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
         }
-      } else if (tab === 'psat89') {
-        document.getElementById('bview-psat89').classList.remove('hidden');
-        document.getElementById('btab-psat89').className = 'px-3 py-1.5 rounded-lg bg-white text-emerald-600 shadow-sm transition-all flex items-center';
       }
-      lucide.createIcons();
-    }
 
-    function initCustomDomainSkills() {
-      const questions = window.QUESTIONS_DATA || [];
-      domainToSkillsMap = {};
-      skillToDomainMap = {};
-      skillToSectionMap = {};
-      skillQuestionCountMap = {};
-      selectedSkillsSet.clear();
+      // Domain Breakdown Chips
+      const chipsContainer = document.getElementById('gap-focus-domain-chips');
+      if (chipsContainer) {
+        chipsContainer.innerHTML = '';
+        const matchingQuestions = (focusType === 'math_only') ? questions.filter(q => q.test === 'Math') :
+          (focusType === 'rw_only') ? questions.filter(q => q.test === 'Reading and Writing') :
+          (focusType === 'srs_only') ? questions.filter(q => srsState[q.id] && (srsState[q.id].repetitions > 0 || (srsState[q.id].dueAt && srsState[q.id].dueAt <= Date.now()))) :
+          (focusType === 'weak_only') ? questions.filter(q => (progress[q.id] && progress[q.id].answered && !progress[q.id].isCorrect)) : questions;
 
-      questions.forEach(q => {
-        if (!domainToSkillsMap[q.domain]) {
-          domainToSkillsMap[q.domain] = { section: q.test, skills: new Set(), totalQuestions: 0 };
+        const domainCounts = {};
+        matchingQuestions.forEach(q => {
+          const dom = q.domain || (q.test === 'Math' ? 'Math' : 'Reading & Writing');
+          domainCounts[dom] = (domainCounts[dom] || 0) + 1;
+        });
+
+        Object.entries(domainCounts).forEach(([dom, count]) => {
+          const chip = document.createElement('span');
+          chip.className = 'px-2 py-0.5 rounded-md bg-white/80 border border-current/20 text-[11px] font-semibold flex items-center';
+          chip.innerText = `${dom} (${count.toLocaleString()})`;
+          chipsContainer.appendChild(chip);
+        });
+      }
+
+      const launchBtn = document.getElementById('btn-launch-gap');
+      if (launchBtn) {
+        launchBtn.innerHTML = `<i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Launch ${metrics.focusShortName} (${currentGapCount} Qs) in Student App`;
+      }
+
+      // Also update the bottom top recommendation banner to match target focus
+      const recTitle = document.getElementById('parent-rec-title');
+      const recDesc = document.getElementById('parent-rec-desc');
+      const recCta = document.getElementById('parent-rec-cta');
+      if (recTitle && recDesc && recCta) {
+        if (focusType === 'math_only') {
+          recTitle.innerText = `Target Math Focus Drill (${currentGapCount} Qs)`;
+          recDesc.innerText = `Focuses on ${metrics.statValue2} weak Math skills and ${metrics.statValue1} due cards across Algebra, Advanced Math, Problem Solving, and Geometry.`;
+          recCta.innerText = 'Launch Math Drill →';
+          recCta.href = `index.html?mode=gap_drill&count=${currentGapCount}&focus=math_only`;
+        } else if (focusType === 'rw_only') {
+          recTitle.innerText = `Target Reading & Writing Focus Drill (${currentGapCount} Qs)`;
+          recDesc.innerText = `Focuses on ${metrics.statValue2} weak R&W skills and ${metrics.statValue1} due cards across Information & Ideas, Craft & Structure, and Grammar.`;
+          recCta.innerText = 'Launch R&W Drill →';
+          recCta.href = `index.html?mode=gap_drill&count=${currentGapCount}&focus=rw_only`;
+        } else if (focusType === 'srs_only') {
+          recTitle.innerText = `Clear Spaced Repetition Due Queue (${metrics.statValue1} Cards)`;
+          recDesc.innerText = 'Clear overdue SM-2 spaced repetition review cards to prevent memory decay on difficult concepts.';
+          recCta.innerText = 'Clear Due Cards →';
+          recCta.href = `index.html?mode=gap_drill&count=${currentGapCount}&focus=srs_only`;
+        } else if (focusType === 'weak_only') {
+          recTitle.innerText = `Remediate Weak Skills & Error Patterns (${metrics.statValue1} Skills)`;
+          recDesc.innerText = 'Target skills with <75% accuracy and previously missed items to turn weaknesses into strengths.';
+          recCta.innerText = 'Remediate Weaknesses →';
+          recCta.href = `index.html?mode=gap_drill&count=${currentGapCount}&focus=weak_only`;
+        } else {
+          recTitle.innerText = `Comprehensive Diagnostic Gap Drill (${currentGapCount} Qs)`;
+          recDesc.innerText = 'Balanced practice module combining spaced repetition due cards, weak skills remediation, and unpracticed coverage.';
+          recCta.innerText = 'Start Gap Drill →';
+          recCta.href = `index.html?mode=gap_drill&count=${currentGapCount}&focus=all`;
         }
-        domainToSkillsMap[q.domain].skills.add(q.skill);
-        domainToSkillsMap[q.domain].totalQuestions++;
-        skillToDomainMap[q.skill] = q.domain;
-        skillToSectionMap[q.skill] = q.test;
-        skillQuestionCountMap[q.skill] = (skillQuestionCountMap[q.skill] || 0) + 1;
-        selectedSkillsSet.add(q.skill);
-      });
-
-      renderCustomDomainSkillCheckboxes();
-      updateCustomTestCalculations();
-    }
-
-    function renderCustomDomainSkillCheckboxes() {
-      const elaContainer = document.getElementById('container-ela-domains');
-      const mathContainer = document.getElementById('container-math-domains');
-      if (!elaContainer || !mathContainer) return;
-
-      elaContainer.innerHTML = '';
-      mathContainer.innerHTML = '';
-
-      Object.entries(domainToSkillsMap).forEach(([domain, info]) => {
-        const isELA = (info.section === 'Reading and Writing');
-        const targetContainer = isELA ? elaContainer : mathContainer;
-        const skillsArr = Array.from(info.skills).sort();
-
-        const domainCard = document.createElement('div');
-        domainCard.className = 'bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3';
-
-        const domainCheckboxId = `chk-dom-${domain.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        const allSkillsSelected = skillsArr.every(s => selectedSkillsSet.has(s));
-
-        domainCard.innerHTML = `
-          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-            <label class="flex items-center space-x-2.5 cursor-pointer">
-              <input type="checkbox" id="${domainCheckboxId}" ${allSkillsSelected ? 'checked' : ''} onchange="toggleDomainGroup('${esc(domain)}', this.checked)" class="rounded text-${isELA ? 'indigo' : 'emerald'}-600 focus:ring-${isELA ? 'indigo' : 'emerald'}-500">
-              <span class="font-bold text-xs text-slate-900">${esc(domain)}</span>
-            </label>
-            <span class="text-[11px] font-semibold text-slate-500">${info.totalQuestions} Qs</span>
-          </div>
-          <div class="grid grid-cols-1 gap-1.5 pt-1 pl-5">
-            ${skillsArr.map(skill => {
-              const skillChkId = `chk-sk-${skill.replace(/[^a-zA-Z0-9]/g, '_')}`;
-              const isChecked = selectedSkillsSet.has(skill);
-              const qCount = skillQuestionCountMap[skill] || 0;
-              return `
-                <label class="flex items-center justify-between text-xs text-slate-700 hover:text-slate-900 cursor-pointer py-0.5">
-                  <span class="flex items-center space-x-2">
-                    <input type="checkbox" id="${skillChkId}" data-skill="${esc(skill)}" data-domain="${esc(domain)}" ${isChecked ? 'checked' : ''} onchange="toggleSkillItem('${esc(skill)}', this.checked)" class="rounded text-${isELA ? 'indigo' : 'emerald'}-600 focus:ring-${isELA ? 'indigo' : 'emerald'}-500">
-                    <span class="font-medium">${esc(skill)}</span>
-                  </span>
-                  <span class="text-[10px] text-slate-400 font-mono">${qCount} Qs</span>
-                </label>
-              `;
-            }).join('')}
-          </div>
-        `;
-
-        targetContainer.appendChild(domainCard);
-      });
+      }
 
       lucide.createIcons();
-    }
-
-    function toggleDomainGroup(domain, isChecked) {
-      const info = domainToSkillsMap[domain];
-      if (!info) return;
-
-      info.skills.forEach(skill => {
-        if (isChecked) selectedSkillsSet.add(skill);
-        else selectedSkillsSet.delete(skill);
-
-        const chk = document.querySelector(`input[data-skill="${skill}"]`);
-        if (chk) chk.checked = isChecked;
-      });
-
-      updateCustomTestCalculations();
-    }
-
-    function toggleSkillItem(skill, isChecked) {
-      if (isChecked) selectedSkillsSet.add(skill);
-      else selectedSkillsSet.delete(skill);
-
-      const domain = skillToDomainMap[skill];
-      if (domain && domainToSkillsMap[domain]) {
-        const allSkills = Array.from(domainToSkillsMap[domain].skills);
-        const domainChk = document.getElementById(`chk-dom-${domain.replace(/[^a-zA-Z0-9]/g, '_')}`);
-        if (domainChk) {
-          domainChk.checked = allSkills.every(s => selectedSkillsSet.has(s));
-        }
-      }
-
-      updateCustomTestCalculations();
-    }
-
-    function toggleSectionSkills(section) {
-      const isELA = (section === 'Reading and Writing');
-      let sectionSkills = [];
-      Object.entries(skillToSectionMap).forEach(([skill, sec]) => {
-        if (sec === section) sectionSkills.push(skill);
-      });
-
-      const anySelected = sectionSkills.some(s => selectedSkillsSet.has(s));
-      const newState = !anySelected;
-
-      sectionSkills.forEach(s => {
-        if (newState) selectedSkillsSet.add(s);
-        else selectedSkillsSet.delete(s);
-      });
-
-      renderCustomDomainSkillCheckboxes();
-      updateCustomTestCalculations();
-
-      const btn = document.getElementById(isELA ? 'toggle-btn-rw' : 'toggle-btn-math');
-      if (btn) btn.innerText = newState ? `Deselect ${isELA ? 'ELA' : 'Math'}` : `Select ${isELA ? 'ELA' : 'Math'}`;
-    }
-
-    function setPresetDomains(preset) {
-      if (preset === 'all') {
-        Object.keys(skillToDomainMap).forEach(s => selectedSkillsSet.add(s));
-      } else if (preset === 'ela') {
-        selectedSkillsSet.clear();
-        Object.entries(skillToSectionMap).forEach(([s, sec]) => {
-          if (sec === 'Reading and Writing') selectedSkillsSet.add(s);
-        });
-      } else if (preset === 'math') {
-        selectedSkillsSet.clear();
-        Object.entries(skillToSectionMap).forEach(([s, sec]) => {
-          if (sec === 'Math') selectedSkillsSet.add(s);
-        });
-      } else if (preset === 'clear') {
-        selectedSkillsSet.clear();
-      }
-
-      renderCustomDomainSkillCheckboxes();
-      updateCustomTestCalculations();
-    }
-
-    function updateCustomTestCalculations() {
-      const questions = window.QUESTIONS_DATA || [];
-      const diffVal = document.getElementById('cust-diff').value;
-      const qtypeVal = document.getElementById('cust-qtype').value;
-
-      let matchingCount = 0;
-      let matchingELA = 0;
-      let matchingMath = 0;
-
-      questions.forEach(q => {
-        if (!selectedSkillsSet.has(q.skill)) return;
-        if (diffVal !== 'All' && q.difficulty !== diffVal) return;
-        const qType = q.type || q.question_type || 'multiple_choice';
-        if (qtypeVal === 'mcq' && qType === 'free_response') return;
-        if (qtypeVal === 'spr' && qType !== 'free_response') return;
-
-        matchingCount++;
-        if (q.test === 'Reading and Writing') matchingELA++;
-        else matchingMath++;
-      });
-
-      const selectedDomainsCount = new Set(Array.from(selectedSkillsSet).map(s => skillToDomainMap[s])).size;
-      const selectedSkillsCount = selectedSkillsSet.size;
-
-      document.getElementById('cust-matching-summary').innerText = `Matching: ${matchingCount.toLocaleString()} Questions (${matchingELA} ELA, ${matchingMath} Math)`;
-      document.getElementById('cust-selected-summary').innerText = `Selected: ${selectedDomainsCount} Domains, ${selectedSkillsCount} Skills (${matchingCount.toLocaleString()} Matching in Bank)`;
     }
 
     function setGapCount(c) {
       currentGapCount = c;
       [10, 20, 30, 50].forEach(n => {
         const btn = document.getElementById(`gap-c-${n}`);
-        if (n === c) {
-          btn.className = 'py-2 text-xs font-bold rounded-lg border-2 border-indigo-600 bg-indigo-50 text-indigo-600 transition-colors';
-        } else {
-          btn.className = 'py-2 text-xs font-bold rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-colors';
-        }
+        if (btn) btn.className = 'btn btn-md ' + (n === c ? 'btn-primary is-active' : 'btn-secondary');
       });
-      document.getElementById('gap-est-time').innerText = `${Math.round(c * 1.5)} minutes`;
+      updateGapTestCalculations();
     }
 
     function launchGapDrill() {
@@ -1849,44 +1666,21 @@
       const progress = safeGetStorage('psat_progress', {});
       const srsState = safeGetStorage('psat_srs', {});
       const focusType = document.getElementById('gap-focus-type').value;
+      const diffFilter = document.getElementById('gap-diff-filter') ? document.getElementById('gap-diff-filter').value : 'All';
+      const typeFilter = document.getElementById('gap-type-filter') ? document.getElementById('gap-type-filter').value : 'all';
 
-      const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: currentGapCount, focus: focusType });
+      const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, {
+        count: currentGapCount,
+        focus: focusType,
+        difficulty: diffFilter,
+        questionType: typeFilter
+      });
       sessionStorage.setItem('psat_active_custom_test', JSON.stringify(drill));
       window.location.href = 'index.html?mode=custom';
     }
 
     function launchCustomTest() {
-      const questions = window.QUESTIONS_DATA || [];
-      if (selectedSkillsSet.size === 0) {
-        alert('Please select at least one skill or domain to generate a custom test.');
-        return;
-      }
-
-      const diffVal = document.getElementById('cust-diff').value;
-      const qtypeVal = document.getElementById('cust-qtype').value;
-      const countVal = parseInt(document.getElementById('cust-count').value, 10) || 20;
-      const timeVal = parseInt(document.getElementById('cust-time').value, 10) || 30;
-      const isUntimed = document.getElementById('cust-untimed').checked;
-
-      const progress = safeGetStorage('psat_progress', {});
-      const filters = {
-        skills: Array.from(selectedSkillsSet),
-        difficulties: diffVal === 'All' ? null : [diffVal],
-        questionType: qtypeVal,
-        count: countVal,
-        timeLimitMinutes: timeVal,
-        isUntimed: isUntimed,
-        progressMap: progress
-      };
-
-      const customTest = PSAT_ENGINE.generateCustomTest(questions, filters);
-      if (customTest.questions.length === 0) {
-        alert('No questions match the selected filters. Please broaden your selection.');
-        return;
-      }
-
-      sessionStorage.setItem('psat_active_custom_test', JSON.stringify(customTest));
-      window.location.href = 'index.html?mode=custom';
+      launchGapDrill();
     }
 
     function launchStandardExamFromParent() {
@@ -2211,6 +2005,102 @@
       lucide.createIcons();
     }
 
+    // SCIENTIFIC CALCULATOR STATE & CONTROLLER
+    // =======================================
+    let sciCalcState = {
+      expression: '',
+      result: 0,
+      ans: 0,
+      angleMode: 'DEG',
+      hasEvaluated: false
+    };
+
+    function toggleScientificCalculator(forceState) {
+      const modal = document.getElementById('scientific-calculator-window');
+      if (!modal) return;
+      const shouldOpen = (typeof forceState === 'boolean') ? forceState : modal.classList.contains('hidden');
+
+      if (shouldOpen) {
+        modal.classList.remove('hidden');
+        updateSciCalcDisplay();
+      } else {
+        modal.classList.add('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    function toggleScientificAngleMode() {
+      sciCalcState.angleMode = (sciCalcState.angleMode === 'DEG') ? 'RAD' : 'DEG';
+      const btn = document.getElementById('btn-sci-angle-mode');
+      const badge = document.getElementById('sci-mode-badge');
+      if (btn) btn.innerText = sciCalcState.angleMode;
+      if (badge) badge.innerText = sciCalcState.angleMode;
+      if (sciCalcState.expression) {
+        sciCalcEvaluate();
+      }
+    }
+
+    function sciCalcInput(str) {
+      if (sciCalcState.hasEvaluated && /[0-9.]/.test(str)) {
+        sciCalcState.expression = '';
+      }
+      sciCalcState.hasEvaluated = false;
+      sciCalcState.expression += str;
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcClear() {
+      sciCalcState.expression = '';
+      sciCalcState.result = 0;
+      sciCalcState.hasEvaluated = false;
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcBackspace() {
+      if (sciCalcState.expression.length > 0) {
+        sciCalcState.expression = sciCalcState.expression.slice(0, -1);
+      }
+      updateSciCalcDisplay();
+    }
+
+    function sciCalcEvaluate() {
+      if (!sciCalcState.expression) return;
+      const res = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.evaluateScientificExpression) ?
+        PSAT_ENGINE.evaluateScientificExpression(sciCalcState.expression, {
+          angleMode: sciCalcState.angleMode,
+          ans: sciCalcState.ans
+        }) :
+        { result: null, error: 'Engine unavailable' };
+
+      const resultEl = document.getElementById('sci-calc-result');
+      if (res.error) {
+        if (resultEl) {
+          resultEl.innerText = res.error;
+          resultEl.className = 'font-mono text-base font-bold text-rose-400 overflow-x-auto whitespace-nowrap min-h-[32px]';
+        }
+      } else {
+        sciCalcState.result = res.result;
+        sciCalcState.ans = res.result;
+        sciCalcState.hasEvaluated = true;
+        if (resultEl) {
+          resultEl.innerText = String(res.result);
+          resultEl.className = 'font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight';
+        }
+      }
+    }
+
+    function updateSciCalcDisplay() {
+      const exprEl = document.getElementById('sci-calc-expr');
+      const resultEl = document.getElementById('sci-calc-result');
+      if (exprEl) {
+        exprEl.innerText = sciCalcState.expression || '';
+      }
+      if (resultEl && !sciCalcState.hasEvaluated) {
+        resultEl.innerText = sciCalcState.result !== undefined ? String(sciCalcState.result) : '0';
+        resultEl.className = 'font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight';
+      }
+    }
+
     function toggleReferenceSheet(forceState) {
       const modal = document.getElementById('formula-sheet-modal');
       if (!modal) return;
@@ -2225,21 +2115,30 @@
     }
 
     function setFormulaTab(tab) {
-      const tabOfficial = document.getElementById('tab-content-ref-official');
-      const tabAdvanced = document.getElementById('tab-content-ref-advanced');
       const btnOfficial = document.getElementById('btn-tab-ref-official');
       const btnAdvanced = document.getElementById('btn-tab-ref-advanced');
+      const paneOfficial = document.getElementById('tab-content-ref-official');
+      const paneAdvanced = document.getElementById('tab-content-ref-advanced');
+      if (!btnOfficial || !btnAdvanced || !paneOfficial || !paneAdvanced) return;
 
       if (tab === 'official') {
-        if (tabOfficial) tabOfficial.classList.remove('hidden');
-        if (tabAdvanced) tabAdvanced.classList.add('hidden');
-        if (btnOfficial) btnOfficial.className = 'px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all';
-        if (btnAdvanced) btnAdvanced.className = 'px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+        btnOfficial.className = 'btn btn-sm btn-primary is-active';
+        btnAdvanced.className = 'btn btn-sm btn-ghost text-slate-300';
+        btnOfficial.setAttribute('aria-selected', 'true');
+        btnAdvanced.setAttribute('aria-selected', 'false');
+        btnOfficial.tabIndex = 0;
+        btnAdvanced.tabIndex = -1;
+        paneOfficial.classList.remove('hidden');
+        paneAdvanced.classList.add('hidden');
       } else {
-        if (tabOfficial) tabOfficial.classList.add('hidden');
-        if (tabAdvanced) tabAdvanced.classList.remove('hidden');
-        if (btnAdvanced) btnAdvanced.className = 'px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all';
-        if (btnOfficial) btnOfficial.className = 'px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all';
+        btnAdvanced.className = 'btn btn-sm btn-primary is-active';
+        btnOfficial.className = 'btn btn-sm btn-ghost text-slate-300';
+        btnOfficial.setAttribute('aria-selected', 'false');
+        btnAdvanced.setAttribute('aria-selected', 'true');
+        btnOfficial.tabIndex = -1;
+        btnAdvanced.tabIndex = 0;
+        paneAdvanced.classList.remove('hidden');
+        paneOfficial.classList.add('hidden');
       }
     }
 
@@ -2311,21 +2210,78 @@
       const desmosHandle = document.getElementById('desmos-drag-handle');
       if (desmosWin && desmosHandle) makeDraggable(desmosWin, desmosHandle);
 
+      const sciWin = document.getElementById('scientific-calculator-window');
+      const sciHandle = document.getElementById('scientific-drag-handle');
+      if (sciWin && sciHandle) {
+        makeDraggable(sciWin, sciHandle);
+        sciWin.addEventListener('keydown', (e) => {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if (e.key >= '0' && e.key <= '9') {
+            sciCalcInput(e.key);
+          } else if (e.key === '.' || e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/' || e.key === '(' || e.key === ')' || e.key === '^' || e.key === '%') {
+            sciCalcInput(e.key);
+          } else if (e.key === 'Enter' || e.key === '=') {
+            e.preventDefault();
+            sciCalcEvaluate();
+          } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            sciCalcBackspace();
+          } else if (e.key === 'c' || e.key === 'C') {
+            sciCalcClear();
+          }
+        });
+      }
+
       const refWin = document.getElementById('formula-sheet-modal');
       const refHandle = document.getElementById('formula-drag-handle');
       if (refWin && refHandle) makeDraggable(refWin, refHandle);
 
+      // Reference tab keyboard navigation
+      const tablist = document.querySelector('#formula-sheet-modal [role="tablist"]');
+      if (tablist) {
+        tablist.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const isOfficialActive = document.getElementById('btn-tab-ref-official').getAttribute('aria-selected') === 'true';
+            if (isOfficialActive) {
+              setFormulaTab('advanced');
+              const adv = document.getElementById('btn-tab-ref-advanced');
+              if (adv) adv.focus();
+            } else {
+              setFormulaTab('official');
+              const off = document.getElementById('btn-tab-ref-official');
+              if (off) off.focus();
+            }
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            setFormulaTab('official');
+            const off = document.getElementById('btn-tab-ref-official');
+            if (off) off.focus();
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            setFormulaTab('advanced');
+            const adv = document.getElementById('btn-tab-ref-advanced');
+            if (adv) adv.focus();
+          }
+        });
+      }
+
       document.addEventListener('keydown', (e) => {
-        if (e.altKey && (e.key === 'c' || e.key === 'C')) {
+        if (e.altKey && (e.key === 'c' || e.key === 'C' || e.key === 'g' || e.key === 'G')) {
           e.preventDefault();
           toggleDesmosCalculator();
+        } else if (e.altKey && (e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+          toggleScientificCalculator();
         } else if (e.altKey && (e.key === 'r' || e.key === 'R')) {
           e.preventDefault();
           toggleReferenceSheet();
         } else if (e.key === 'Escape') {
           const d = document.getElementById('desmos-floating-window');
+          const s = document.getElementById('scientific-calculator-window');
           const r = document.getElementById('formula-sheet-modal');
           if (d && !d.classList.contains('hidden')) d.classList.add('hidden');
+          if (s && !s.classList.contains('hidden')) s.classList.add('hidden');
           if (r && !r.classList.contains('hidden')) r.classList.add('hidden');
         }
       });
@@ -2345,10 +2301,10 @@
         </span>
       </div>
       <div class="flex items-center space-x-1.5">
-        <button onclick="toggleDesmosSize()" class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors" title="Toggle Size">
+        <button onclick="toggleDesmosSize()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Toggle Size">
           <i id="desmos-size-icon" data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
         </button>
-        <button onclick="toggleDesmosCalculator(false)" class="p-1 hover:bg-rose-900/60 hover:text-rose-300 rounded text-slate-400 transition-colors" title="Close">
+        <button onclick="toggleDesmosCalculator(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
@@ -2360,7 +2316,89 @@
     </div>
   </div>
 
-  <!-- FLOATING TOOL 2: OFFICIAL PSAT 8/9 MATH REFERENCE SHEET -->
+  <!-- FLOATING TOOL 2: BUILT-IN SCIENTIFIC CALCULATOR -->
+  <div id="scientific-calculator-window" class="hidden fixed z-50 bg-white rounded-2xl shadow-2xl border-2 border-slate-700/30 overflow-hidden flex flex-col w-[94vw] sm:w-[380px] md:w-[420px] max-h-[92vh] transition-all select-none" style="top: 85px; right: 30px;">
+    <!-- Drag Handle Header -->
+    <div id="scientific-drag-handle" class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between cursor-move border-b border-slate-800 shrink-0">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-6 h-6 rounded-md bg-indigo-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+          fx
+        </div>
+        <span class="text-xs font-bold text-white flex items-center">
+          Scientific Calculator
+          <span id="sci-mode-badge" class="ml-2 px-1.5 py-0.2 text-[10px] font-semibold bg-indigo-950 text-indigo-300 border border-indigo-700/50 rounded">DEG</span>
+        </span>
+      </div>
+      <div class="flex items-center space-x-1">
+        <button onclick="toggleScientificAngleMode()" id="btn-sci-angle-mode" class="btn btn-sm btn-ghost text-[11px] font-bold text-indigo-300 hover:text-white px-2 py-0.5" title="Toggle DEG / RAD angle mode">
+          DEG
+        </button>
+        <button onclick="toggleScientificCalculator(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400 hover:text-white" title="Close Calculator (Esc)" aria-label="Close Scientific Calculator">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Display Screen -->
+    <div class="bg-slate-950 p-4 border-b border-slate-800 flex flex-col justify-end text-right min-h-[90px] shrink-0">
+      <div id="sci-calc-expr" class="font-mono text-xs text-slate-400 overflow-x-auto whitespace-nowrap min-h-[18px]" aria-label="Current expression"></div>
+      <div id="sci-calc-result" class="font-mono text-2xl font-black text-white overflow-x-auto whitespace-nowrap min-h-[32px] tracking-tight" aria-live="polite" aria-label="Calculation result">0</div>
+    </div>
+
+    <!-- Keypad Grid -->
+    <div class="p-3 bg-slate-900 grid grid-cols-5 gap-1.5 text-xs font-semibold overflow-y-auto">
+      <!-- Row 1: Sci Functions Top -->
+      <button type="button" onclick="sciCalcInput('sin(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Sine">sin</button>
+      <button type="button" onclick="sciCalcInput('cos(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Cosine">cos</button>
+      <button type="button" onclick="sciCalcInput('tan(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Tangent">tan</button>
+      <button type="button" onclick="sciCalcInput('pi')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Pi constant">&pi;</button>
+      <button type="button" onclick="sciCalcInput('e')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Euler constant">e</button>
+
+      <!-- Row 2: Sci Functions Inverse & Logs -->
+      <button type="button" onclick="sciCalcInput('asin(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arcsine">sin⁻¹</button>
+      <button type="button" onclick="sciCalcInput('acos(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arccosine">cos⁻¹</button>
+      <button type="button" onclick="sciCalcInput('atan(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Arctangent">tan⁻¹</button>
+      <button type="button" onclick="sciCalcInput('log(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Logarithm base 10">log</button>
+      <button type="button" onclick="sciCalcInput('ln(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Natural logarithm">ln</button>
+
+      <!-- Row 3: Powers, Roots, Parens -->
+      <button type="button" onclick="sciCalcInput('^')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Power">xʸ</button>
+      <button type="button" onclick="sciCalcInput('sqrt(')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Square root">&radic;</button>
+      <button type="button" onclick="sciCalcInput('^2')" class="p-2 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Square">x²</button>
+      <button type="button" onclick="sciCalcInput('(')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Open parenthesis">(</button>
+      <button type="button" onclick="sciCalcInput(')')" class="p-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center" aria-label="Close parenthesis">)</button>
+
+      <!-- Row 4: Numbers 7, 8, 9 & Clear/Delete -->
+      <button type="button" onclick="sciCalcInput('7')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">7</button>
+      <button type="button" onclick="sciCalcInput('8')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">8</button>
+      <button type="button" onclick="sciCalcInput('9')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">9</button>
+      <button type="button" onclick="sciCalcBackspace()" class="p-3 rounded-lg bg-amber-900/40 text-amber-300 border border-amber-800/40 hover:bg-amber-800/60 active:scale-95 transition-all text-center font-bold" aria-label="Backspace">DEL</button>
+      <button type="button" onclick="sciCalcClear()" class="p-3 rounded-lg bg-rose-900/40 text-rose-300 border border-rose-800/40 hover:bg-rose-800/60 active:scale-95 transition-all text-center font-bold" aria-label="Clear All">AC</button>
+
+      <!-- Row 5: Numbers 4, 5, 6 & Mult/Div -->
+      <button type="button" onclick="sciCalcInput('4')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">4</button>
+      <button type="button" onclick="sciCalcInput('5')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">5</button>
+      <button type="button" onclick="sciCalcInput('6')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">6</button>
+      <button type="button" onclick="sciCalcInput('*')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Multiply">&times;</button>
+      <button type="button" onclick="sciCalcInput('/')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Divide">&divide;</button>
+
+      <!-- Row 6: Numbers 1, 2, 3 & Add/Sub -->
+      <button type="button" onclick="sciCalcInput('1')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">1</button>
+      <button type="button" onclick="sciCalcInput('2')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">2</button>
+      <button type="button" onclick="sciCalcInput('3')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">3</button>
+      <button type="button" onclick="sciCalcInput('+')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Plus">+</button>
+      <button type="button" onclick="sciCalcInput('-')" class="p-3 rounded-lg bg-slate-700/80 text-emerald-300 hover:bg-slate-600 active:scale-95 transition-all text-center text-sm font-bold" aria-label="Minus">&minus;</button>
+
+      <!-- Row 7: 0, Dot, Ans, Percent, Equals -->
+      <button type="button" onclick="sciCalcInput('0')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">0</button>
+      <button type="button" onclick="sciCalcInput('.')" class="p-3 rounded-lg bg-slate-800 text-white hover:bg-slate-700 active:scale-95 transition-all text-center text-sm font-bold">.</button>
+      <button type="button" onclick="sciCalcInput('Ans')" class="p-3 rounded-lg bg-slate-800 text-indigo-300 hover:bg-slate-700 active:scale-95 transition-all text-center font-bold" aria-label="Previous Answer">Ans</button>
+      <button type="button" onclick="sciCalcInput('%')" class="p-3 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-95 transition-all text-center font-bold" aria-label="Modulo / Percent">%</button>
+      <button type="button" onclick="sciCalcEvaluate()" class="p-3 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 active:scale-95 transition-all text-center text-sm font-black shadow-md shadow-indigo-600/30" aria-label="Calculate Equals">=</button>
+    </div>
+  </div>
+
+  <!-- FLOATING TOOL 3: OFFICIAL PSAT 8/9 MATH REFERENCE SHEET -->
   <div id="formula-sheet-modal" class="hidden fixed z-50 bg-white rounded-2xl shadow-2xl border-2 border-slate-700/30 overflow-hidden flex flex-col w-[94vw] sm:w-[680px] md:w-[760px] max-h-[85vh] transition-all" style="top: 75px; right: 35px;">
     <div id="formula-drag-handle" class="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between cursor-move select-none border-b border-slate-800">
       <div class="flex items-center space-x-2.5">
@@ -2373,17 +2411,17 @@
         </span>
       </div>
       <div class="flex items-center space-x-2">
-        <div class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
-          <button onclick="setFormulaTab('official')" id="btn-tab-ref-official" class="px-2.5 py-0.5 rounded-md bg-indigo-600 text-white font-bold transition-all">Official Reference</button>
-          <button onclick="setFormulaTab('advanced')" id="btn-tab-ref-advanced" class="px-2.5 py-0.5 rounded-md text-slate-300 hover:text-white font-medium transition-all">Algebra & High-Frequency</button>
+        <div role="tablist" aria-label="Reference Sheet Tabs" class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700 text-[11px]">
+          <button role="tab" id="btn-tab-ref-official" aria-selected="true" aria-controls="tab-content-ref-official" tabindex="0" onclick="setFormulaTab('official')" class="btn btn-sm btn-primary is-active">Official Reference</button>
+          <button role="tab" id="btn-tab-ref-advanced" aria-selected="false" aria-controls="tab-content-ref-advanced" tabindex="-1" onclick="setFormulaTab('advanced')" class="btn btn-sm btn-ghost text-slate-300">Algebra & High-Frequency</button>
         </div>
-        <button onclick="toggleReferenceSheet(false)" class="p-1 hover:bg-rose-900/60 hover:text-rose-300 rounded text-slate-400 transition-colors" title="Close (Esc)">
+        <button onclick="toggleReferenceSheet(false)" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close (Esc)" aria-label="Close Reference Sheet">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
     </div>
     <div class="flex-1 overflow-y-auto p-4 sm:p-5 custom-scrollbar bg-slate-50/50 space-y-4">
-      <div id="tab-content-ref-official" class="space-y-4">
+      <div role="tabpanel" id="tab-content-ref-official" aria-labelledby="btn-tab-ref-official" tabindex="0" class="space-y-4">
         <div class="p-3 bg-indigo-50/80 border border-indigo-100 rounded-xl flex items-start space-x-2 text-xs text-indigo-950">
           <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
           <div>
@@ -2555,10 +2593,19 @@
           </ul>
         </div>
       </div>
-      <div id="tab-content-ref-advanced" class="hidden space-y-4">
+      <div role="tabpanel" id="tab-content-ref-advanced" aria-labelledby="btn-tab-ref-advanced" tabindex="0" class="hidden space-y-4">
+        <!-- Supplemental Study Notice Banner -->
+        <div class="p-3 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start space-x-2.5 text-xs text-amber-950">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+          <div>
+            <strong>Supplemental Study Reference:</strong> These high-frequency formulas and rules are not provided on the official Bluebook exam sheet. Master and memorize these concepts before test day.
+          </div>
+        </div>
+
+        <!-- 1. Linear Equations & Slope -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="trending-up" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Linear Functions & Slope
+            <i data-lucide="trending-up" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Linear Functions &amp; Systems
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
@@ -2566,58 +2613,117 @@
               <span class="font-mono font-bold text-indigo-700">m = (y<sub>2</sub> - y<sub>1</sub>) / (x<sub>2</sub> - x<sub>1</sub>)</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Slope-Intercept Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y = mx + b</span> <span class="text-[10px] text-slate-500">(m=slope, b=y-int)</span>
+              <span class="text-slate-500 font-medium block">Slope-Intercept &amp; Point-Slope:</span>
+              <span class="font-mono font-bold text-indigo-700">y = mx + b</span> &bull; <span class="font-mono font-bold text-indigo-700">y - y<sub>1</sub> = m(x - x<sub>1</sub>)</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Point-Slope Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y - y<sub>1</sub> = m(x - x<sub>1</sub>)</span>
+              <span class="text-slate-500 font-medium block">Parallel &amp; Perpendicular Lines:</span>
+              <span class="font-mono text-indigo-700 font-semibold">Parallel: m<sub>1</sub> = m<sub>2</sub> &bull; Perp: m<sub>1</sub> &times; m<sub>2</sub> = -1</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Parallel & Perpendicular:</span>
-              <span class="font-mono font-bold text-indigo-700">Parallel: m<sub>1</sub> = m<sub>2</sub> &bull; Perp: m<sub>1</sub> &times; m<sub>2</sub> = -1</span>
+              <span class="text-slate-500 font-medium block">System Solutions (Ax + By = C):</span>
+              <span class="font-mono text-indigo-700 font-semibold">1 Sol: diff slopes &bull; No Sol: same slope, diff y-int &bull; &infin; Sol: identical</span>
             </div>
           </div>
         </div>
+
+        <!-- 2. Quadratics & Parabolas -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="target" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Quadratic Functions & Parabolas
+            <i data-lucide="target" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Quadratic Functions &amp; Parabolas
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Quadratic Formula:</span>
+              <span class="text-slate-500 font-medium block">Quadratic Formula &amp; Vertex:</span>
               <span class="font-mono font-bold text-indigo-700">x = (-b &plusmn; &radic;(b<sup>2</sup> - 4ac)) / (2a)</span>
-            </div>
-            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Parabola Vertex:</span>
-              <span class="font-mono font-bold text-indigo-700">x<sub>vertex</sub> = -b / (2a)</span>
-            </div>
-            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Vertex Form:</span>
-              <span class="font-mono font-bold text-indigo-700">y = a(x - h)<sup>2</sup> + k</span> <span class="text-[10px] text-slate-500">(Vertex at (h, k))</span>
+              <div class="text-[11px] text-slate-600 mt-1">Vertex x = -b / (2a) &bull; y = a(x - h)<sup>2</sup> + k</div>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
               <span class="text-slate-500 font-medium block">Discriminant (b<sup>2</sup> - 4ac):</span>
-              <span class="font-mono text-indigo-700 font-semibold">&gt;0: 2 real &bull; =0: 1 real &bull; &lt;0: 0 real</span>
+              <div class="font-mono text-indigo-700 font-semibold mt-0.5">&gt; 0: 2 real roots &bull; = 0: 1 real root &bull; &lt; 0: 0 real roots</div>
+              <div class="text-[11px] text-slate-500 mt-1">Sum of roots = -b/a &bull; Product of roots = c/a</div>
             </div>
           </div>
         </div>
+
+        <!-- 3. Exponents, Radicals & Growth -->
         <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
           <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
-            <i data-lucide="percent" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Exponents, Growth & Percents
+            <i data-lucide="zap" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Exponents, Radicals &amp; Growth Models
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Percent Change:</span>
-              <span class="font-mono font-bold text-indigo-700">((New - Old) / Old) &times; 100%</span>
+              <span class="text-slate-500 font-medium block">Exponent Rules:</span>
+              <span class="font-mono font-bold text-indigo-700">x<sup>a</sup>&times;x<sup>b</sup> = x<sup>a+b</sup> &bull; (x<sup>a</sup>)<sup>b</sup> = x<sup>ab</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">x<sup>-a</sup> = 1/x<sup>a</sup> &bull; x<sup>0</sup> = 1</div>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Exponential Model:</span>
+              <span class="text-slate-500 font-medium block">Fractional Powers:</span>
+              <span class="font-mono font-bold text-indigo-700">x<sup>a/b</sup> = <sup>b</sup>&radic;(x<sup>a</sup>) = (<sup>b</sup>&radic;x)<sup>a</sup></span>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Exponential Growth &amp; Decay:</span>
               <span class="font-mono font-bold text-indigo-700">y = a(1 &plusmn; r)<sup>t</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">a=initial, r=rate, t=time</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Ratios, Percentages & Percent Change -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="percent" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Ratios, Proportions &amp; Percent Change
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Percent Change:</span>
+              <span class="font-mono font-bold text-indigo-700">% Change = ((New - Old) / Old) &times; 100%</span>
             </div>
             <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-              <span class="text-slate-500 font-medium block">Fractional Power:</span>
-              <span class="font-mono font-bold text-indigo-700">x<sup>a/b</sup> = <sup>b</sup>&radic;(x<sup>a</sup>)</span>
+              <span class="text-slate-500 font-medium block">Percent Multiplier:</span>
+              <span class="font-mono font-bold text-indigo-700">Increase: (1 + r) &bull; Decrease: (1 - r)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Coordinate Geometry & Circles -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="compass" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Coordinate Geometry &amp; Circle Equations
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Distance &amp; Midpoint:</span>
+              <span class="font-mono font-bold text-indigo-700">d = &radic;((x<sub>2</sub> - x<sub>1</sub>)<sup>2</sup> + (y<sub>2</sub> - y<sub>1</sub>)<sup>2</sup>)</span>
+              <div class="text-[11px] text-slate-500 mt-1">Midpoint: ((x<sub>1</sub>+x<sub>2</sub>)/2, (y<sub>1</sub>+y<sub>2</sub>)/2)</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Standard Circle Equation:</span>
+              <span class="font-mono font-bold text-indigo-700">(x - h)<sup>2</sup> + (y - k)<sup>2</sup> = r<sup>2</sup></span>
+              <div class="text-[11px] text-slate-500 mt-1">Center at (h, k), Radius = r</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. Data, Statistics & Probability -->
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
+          <h4 class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Statistics &amp; Probability
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Mean &amp; Median:</span>
+              <span class="font-mono font-bold text-indigo-700">Mean = (&sum; x) / n</span>
+              <div class="text-[11px] text-slate-500 mt-1">Median: Middle ranked value</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Range &amp; Std Dev:</span>
+              <span class="font-mono font-bold text-indigo-700">Range = Max - Min</span>
+              <div class="text-[11px] text-slate-500 mt-1">Standard Dev: Spread around mean</div>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+              <span class="text-slate-500 font-medium block">Basic Probability:</span>
+              <span class="font-mono font-bold text-indigo-700">P(E) = Favorable / Total</span>
             </div>
           </div>
         </div>
@@ -2628,7 +2734,7 @@
         <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-500"></i>
         <span>Shortcut: <kbd class="px-1 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Alt+R</kbd> &bull; Drag title bar to move</span>
       </div>
-      <button onclick="toggleReferenceSheet(false)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold rounded-lg text-xs transition-colors">
+      <button onclick="toggleReferenceSheet(false)" class="btn btn-sm btn-secondary">
         Close
       </button>
     </div>
@@ -2655,7 +2761,7 @@
             <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Score</span>
             <span id="pmod-exam-score" class="text-2xl font-black text-white">— <span class="text-xs font-normal text-slate-400">/ 1440</span></span>
           </div>
-          <button onclick="closeParentExamReview()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors" title="Close">
+          <button onclick="closeParentExamReview()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
@@ -2672,13 +2778,13 @@
         </div>
 
         <div class="flex bg-slate-200/80 p-0.5 rounded-xl text-xs">
-          <button onclick="filterParentExamQuestions('all')" id="pmod-rf-all" class="px-3 py-1 rounded-lg bg-white text-indigo-700 shadow-xs font-bold transition-all">
+          <button onclick="filterParentExamQuestions('all')" id="pmod-rf-all" class="btn btn-sm btn-primary is-active">
             All (<span id="pmod-cnt-all">0</span>)
           </button>
-          <button onclick="filterParentExamQuestions('incorrect')" id="pmod-rf-inc" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+          <button onclick="filterParentExamQuestions('incorrect')" id="pmod-rf-inc" class="btn btn-sm btn-secondary">
             Incorrect (<span id="pmod-cnt-inc">0</span>)
           </button>
-          <button onclick="filterParentExamQuestions('correct')" id="pmod-rf-cor" class="px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900 font-semibold transition-all">
+          <button onclick="filterParentExamQuestions('correct')" id="pmod-rf-cor" class="btn btn-sm btn-secondary">
             Correct (<span id="pmod-cnt-cor">0</span>)
           </button>
         </div>
@@ -2690,11 +2796,22 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between shrink-0">
-        <button onclick="window.print()" class="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors flex items-center">
-          <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Test Review
-        </button>
-        <button onclick="closeParentExamReview()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
+      <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center space-x-2">
+          <button onclick="toggleDesmosCalculator()" class="btn btn-sm btn-secondary" title="Open Desmos Graphing Calculator">
+            <span class="w-4 h-4 rounded bg-emerald-600 text-white flex items-center justify-center font-black text-[9px] mr-1">D</span> Desmos
+          </button>
+          <button onclick="toggleScientificCalculator()" class="btn btn-sm btn-secondary" title="Open Built-in Scientific Calculator">
+            <span class="w-4 h-4 rounded bg-indigo-600 text-white flex items-center justify-center font-bold text-[9px] mr-1">fx</span> Sci Calc
+          </button>
+          <button onclick="toggleReferenceSheet()" class="btn btn-sm btn-secondary" title="Open College Board Reference Sheet">
+            <i data-lucide="compass" class="w-3.5 h-3.5 mr-1 text-indigo-600"></i> Reference
+          </button>
+          <button onclick="window.print()" class="btn btn-sm btn-secondary">
+            <i data-lucide="printer" class="w-4 h-4 mr-1.5"></i> Print Test Review
+          </button>
+        </div>
+        <button onclick="closeParentExamReview()" class="btn btn-sm btn-primary">
           Close Review
         </button>
       </div>
@@ -2717,7 +2834,7 @@
           </div>
           <h3 id="pmd-modal-title" class="text-base font-bold text-white">Question Rationale &amp; Error Diagnostic</h3>
         </div>
-        <button onclick="closeMistakeRationaleModal()" class="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors" title="Close">
+        <button onclick="closeMistakeRationaleModal()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -2734,7 +2851,7 @@
 
       <!-- Modal Footer -->
       <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end shrink-0">
-        <button onclick="closeMistakeRationaleModal()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors">
+        <button onclick="closeMistakeRationaleModal()" class="btn btn-sm btn-primary">
           Close
         </button>
       </div>
