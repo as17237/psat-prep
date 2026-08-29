@@ -1,3 +1,8 @@
+## [Promotion] — 2026-08-29T02:11:32Z (Commit: f85d403)
+* **Branch:** `main`
+* **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.
+* **Target:** Azure Storage Account `psatprep4915` (`$web` root and `beta/` subfolder).
+
 ## [Promotion] — 2026-08-29T02:07:44Z (Commit: d808131)
 * **Branch:** `main`
 * **Verified Suites:** SM-2 SRS, Mini Exam Simulation, Backup Checksums, Free-Response Grading, PDF Extractor.

@@ -47,34 +47,34 @@
   <!-- Top Navigation Header -->
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center space-x-3">
-          <a href="parent.html" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center" title="Back to Parent Portal">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between py-2.5 md:py-0 md:h-16 gap-2">
+        <div class="flex items-center space-x-3 min-w-0">
+          <a href="parent.html" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center shrink-0" title="Back to Parent Portal">
             <i data-lucide="arrow-left" class="w-5 h-5"></i>
           </a>
-          <div class="flex items-center space-x-2.5">
+          <div class="flex items-center space-x-2.5 min-w-0">
             <div class="w-10 h-10 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-100 shrink-0">
               <i data-lucide="alert-triangle" class="w-5 h-5 text-white"></i>
             </div>
-            <div>
-              <h1 class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Student Trouble Spots &amp; Error Diagnostic Center</h1>
-              <p class="text-xs text-slate-500 font-medium">In-depth question review, high-resolution diagrams, and official College Board rationales</p>
+            <div class="min-w-0">
+              <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">Student Trouble Spots &amp; Error Diagnostic Center</h1>
+              <p class="text-[11px] text-slate-500 font-medium hidden sm:block truncate">In-depth question review, high-resolution diagrams, and official College Board rationales</p>
             </div>
           </div>
         </div>
 
-        <div class="flex items-center space-x-2.5">
-          <button onclick="syncMistakesFromCloud(true)" id="btn-mistakes-cloud-sync" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200" title="Fetch latest test results and attempts from Azure Cosmos DB">
-            <i data-lucide="cloud" class="w-4 h-4 mr-1.5 text-emerald-600"></i> <span id="mistakes-sync-status-text">Cosmos DB Sync</span>
+        <div class="flex items-center space-x-2 shrink-0 overflow-x-auto py-1">
+          <button onclick="syncMistakesFromCloud(true)" id="btn-mistakes-cloud-sync" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold text-xs rounded-xl transition-colors flex items-center border border-emerald-200 whitespace-nowrap shrink-0" title="Fetch latest test results and attempts from Azure Cosmos DB">
+            <i data-lucide="cloud" class="w-3.5 h-3.5 mr-1.5 text-emerald-600"></i> <span id="mistakes-sync-status-text">Cosmos DB Sync</span>
           </button>
-          <button onclick="launchMistakesDrill()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center">
+          <button onclick="launchMistakesDrill()" id="btn-top-drill-missed" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center whitespace-nowrap shrink-0">
             <i data-lucide="play-circle" class="w-4 h-4 mr-1.5"></i> Drill All Missed (<span id="top-drill-count">0</span>)
           </button>
-          <a href="parent.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
-            <i data-lucide="layout-dashboard" class="w-4 h-4 mr-1.5"></i> Parent Dashboard
+          <a href="parent.html" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center whitespace-nowrap shrink-0">
+            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden lg:inline">Parent</span> Dashboard
           </a>
-          <a href="index.html" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center">
-            <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Student App
+          <a href="index.html" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors flex items-center whitespace-nowrap shrink-0">
+            <i data-lucide="book-open" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden lg:inline">Student</span> App
           </a>
         </div>
       </div>
@@ -85,34 +85,39 @@
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
     <!-- Executive Summary Banner -->
-    <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div class="space-y-1">
+    <div class="bg-white p-6 sm:p-7 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+        <div class="space-y-2">
           <div class="flex items-center space-x-2">
             <span class="px-3 py-1 bg-rose-100 text-rose-800 text-xs font-bold rounded-full">Error Diagnostic Hub</span>
-            <span id="stat-total-missed-badge" class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg">20 Questions Missed</span>
+            <span id="stat-total-missed-badge" class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-lg">0 Questions Missed</span>
           </div>
-          <h2 class="text-xl font-bold text-slate-900">Longitudinal Question Mistake Analysis</h2>
-          <p class="text-xs text-slate-500 max-w-3xl leading-relaxed">
+          <h2 class="text-xl sm:text-2xl font-extrabold text-slate-900">Longitudinal Question Mistake Analysis</h2>
+          <p class="text-xs text-slate-500 max-w-2xl leading-relaxed">
             Every question the student has answered incorrectly across practice modules and standard exam sessions is logged here. Review full-sized diagram images, student choices, and College Board step-by-step explanations.
           </p>
+          <div class="pt-2">
+            <button onclick="launchMistakesDrill()" id="btn-summary-drill-missed" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-100 transition-all inline-flex items-center whitespace-nowrap">
+              <i data-lucide="play-circle" class="w-4 h-4 mr-2"></i> Launch Targeted Drill (<span id="summary-drill-count">0</span> Missed Questions) &rarr;
+            </button>
+          </div>
         </div>
 
         <!-- Metric Counter Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs shrink-0">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 min-w-[90px] text-center sm:text-left">
             <span class="text-[11px] font-semibold text-slate-400 block uppercase">Total Missed</span>
             <span id="cnt-total" class="text-xl font-black text-rose-600">0</span>
           </div>
-          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 min-w-[90px] text-center sm:text-left">
             <span class="text-[11px] font-semibold text-slate-400 block uppercase">Math Errors</span>
             <span id="cnt-math" class="text-xl font-black text-emerald-700">0</span>
           </div>
-          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 min-w-[90px] text-center sm:text-left">
             <span class="text-[11px] font-semibold text-slate-400 block uppercase">R&amp;W Errors</span>
             <span id="cnt-rw" class="text-xl font-black text-indigo-700">0</span>
           </div>
-          <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 min-w-[90px] text-center sm:text-left">
             <span class="text-[11px] font-semibold text-slate-400 block uppercase">Recurring 2×+</span>
             <span id="cnt-recurring" class="text-xl font-black text-amber-600">0</span>
           </div>
@@ -422,7 +427,10 @@
       document.getElementById('cnt-math').innerText = mathCount;
       document.getElementById('cnt-rw').innerText = rwCount;
       document.getElementById('cnt-recurring').innerText = recCount;
-      document.getElementById('top-drill-count').innerText = totalCount;
+      const topDrill = document.getElementById('top-drill-count');
+      if (topDrill) topDrill.innerText = totalCount;
+      const sumDrill = document.getElementById('summary-drill-count');
+      if (sumDrill) sumDrill.innerText = totalCount;
       document.getElementById('stat-total-missed-badge').innerText = `${totalCount} Questions Missed`;
 
       document.getElementById('t-all').innerText = totalCount;
