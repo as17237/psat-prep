@@ -46,11 +46,24 @@
           </a>
 
           <!-- Data & Settings Dropdown Menu (Consolidated Admin & Debug Operations) -->
-          <details class="relative">
+          <details class="relative" id="data-settings-menu" ontoggle="if (this.open) refreshBackupStatus();">
             <summary class="btn btn-sm btn-secondary list-none cursor-pointer">
               <i data-lucide="settings" class="w-4 h-4 mr-1.5 text-slate-600"></i> Data &amp; Settings
             </summary>
             <div class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 space-y-1 text-xs font-semibold">
+
+              <!-- Cloud backup freshness: a real measurement read from GET /api/backup-status.
+                   Three honest states only - measured/healthy, measured/stale-or-failed, and
+                   "unavailable" when the check itself could not run. Never a fixed checkmark. -->
+              <div id="backup-status-pill" class="px-3 py-2 rounded-xl flex items-start gap-2 bg-slate-100 border border-slate-200 text-slate-600">
+                <i data-lucide="cloud-cog" id="backup-status-pill-icon" class="w-4 h-4 mt-0.5 shrink-0"></i>
+                <div class="min-w-0">
+                  <div id="backup-status-pill-text" class="font-bold leading-tight">Cloud backup: …</div>
+                  <div id="backup-status-pill-detail" class="text-[10px] font-medium leading-tight mt-0.5 opacity-80">Checking backup freshness…</div>
+                </div>
+              </div>
+              <div class="border-t border-slate-100 my-1"></div>
+
               <button onclick="syncParentFromCloud(true)" id="btn-cloud-sync" class="w-full px-3 py-2 text-left hover:bg-slate-50 rounded-xl flex items-center text-emerald-700">
                 <i data-lucide="cloud" class="w-4 h-4 mr-2 text-emerald-600"></i> <span id="cloud-sync-status-text">Cosmos DB Sync</span>
               </button>
@@ -80,6 +93,25 @@
 
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Cloud Backup Freshness Warning Banner (hidden while healthy; shown on stale,
+         failed, or unavailable status. Every value below is read from /api/backup-status. -->
+    <div id="backup-status-banner" class="hidden p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2">
+      <div class="flex items-center space-x-3">
+        <div id="backup-status-banner-icon-wrap" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
+          <i data-lucide="cloud-off" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 id="backup-status-banner-title" class="text-sm font-black">Cloud backup status</h3>
+          <p id="backup-status-banner-detail" class="text-xs font-semibold"></p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <button onclick="refreshBackupStatus(true)" class="btn btn-sm btn-secondary">
+          <i data-lucide="refresh-cw" class="w-4 h-4 mr-1.5"></i> Re-check
+        </button>
+      </div>
+    </div>
 
     <!-- Demo Mode Active Warning Banner -->
     <div id="parent-demo-mode-banner" class="hidden p-4 sm:p-5 rounded-2xl bg-amber-500 text-slate-950 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2 border-amber-400 animate-in fade-in">
@@ -749,6 +781,113 @@
       }
     }
 
+    // ---------------------------------------------------------------------
+    // Cloud backup freshness widget (WI-04c)
+    //
+    // Every value rendered here is a measurement returned by GET /api/backup-status.
+    // There are exactly four render states and no fifth silent one:
+    //   'loading'     -> "…", no colour claim
+    //   'healthy'     -> green, real age
+    //   'unhealthy'   -> red banner + red pill, with the API's own reason
+    //   'unavailable' -> amber "backup status unavailable" + the fetch error
+    // A failed fetch must NEVER leave a previous green on screen and must never
+    // render a fixed checkmark (CLAUDE.md modes 1 and 5).
+    // ---------------------------------------------------------------------
+    const PARENT_API_BASE = 'https://psat-api-4915.azurewebsites.net/api';
+    let backupStatusInFlight = false;
+
+    function formatBackupAge(ageHours) {
+      if (typeof ageHours !== 'number' || !isFinite(ageHours) || ageHours < 0) return null;
+      if (ageHours < 1) return Math.round(ageHours * 60) + 'm ago';
+      if (ageHours < 48) return ageHours.toFixed(1) + 'h ago';
+      return (ageHours / 24).toFixed(1) + 'd ago';
+    }
+
+    function renderBackupStatus(state, data) {
+      const pill = document.getElementById('backup-status-pill');
+      const pillText = document.getElementById('backup-status-pill-text');
+      const pillDetail = document.getElementById('backup-status-pill-detail');
+      const banner = document.getElementById('backup-status-banner');
+      const bannerIconWrap = document.getElementById('backup-status-banner-icon-wrap');
+      const bannerTitle = document.getElementById('backup-status-banner-title');
+      const bannerDetail = document.getElementById('backup-status-banner-detail');
+      if (!pill || !pillText || !pillDetail || !banner) return;
+
+      pill.className = 'px-3 py-2 rounded-xl flex items-start gap-2 border';
+      banner.className = 'hidden p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2';
+
+      if (state === 'loading') {
+        pill.classList.add('bg-slate-100', 'border-slate-200', 'text-slate-600');
+        pillText.textContent = 'Cloud backup: …';
+        pillDetail.textContent = 'Checking backup freshness…';
+        return;
+      }
+
+      if (state === 'unavailable') {
+        pill.classList.add('bg-amber-50', 'border-amber-300', 'text-amber-800');
+        pillText.textContent = 'Backup status unavailable';
+        pillDetail.textContent = (data && data.error) ? String(data.error) : 'The status check could not be completed.';
+        banner.classList.remove('hidden');
+        banner.classList.add('bg-amber-50', 'border-amber-400', 'text-amber-900');
+        if (bannerIconWrap) bannerIconWrap.className = 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-amber-500 text-white';
+        if (bannerTitle) bannerTitle.textContent = 'BACKUP STATUS UNAVAILABLE — freshness could not be measured';
+        if (bannerDetail) {
+          bannerDetail.textContent = 'The backup-status service did not answer, so this page cannot tell you whether the nightly cloud backup ran. ' +
+            'Do not assume it is healthy. Details: ' + ((data && data.error) ? String(data.error) : 'unknown error');
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+
+      const ageLabel = formatBackupAge(data && data.ageHours);
+      const lastSuccess = (data && data.lastSuccessAt) ? new Date(data.lastSuccessAt).toLocaleString() : null;
+
+      if (state === 'healthy') {
+        pill.classList.add('bg-emerald-50', 'border-emerald-300', 'text-emerald-800');
+        pillText.textContent = 'Cloud backup: ' + (ageLabel || 'age unknown');
+        pillDetail.textContent = lastSuccess ? ('Last success ' + lastSuccess) : 'Last success timestamp unavailable';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+
+      // state === 'unhealthy'
+      pill.classList.add('bg-rose-50', 'border-rose-300', 'text-rose-800');
+      pillText.textContent = ageLabel ? ('Cloud backup STALE: ' + ageLabel) : 'No cloud backup found';
+      pillDetail.textContent = (data && data.reason) ? String(data.reason) : 'Backup is not healthy.';
+      banner.classList.remove('hidden');
+      banner.classList.add('bg-rose-50', 'border-rose-500', 'text-rose-900');
+      if (bannerIconWrap) bannerIconWrap.className = 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-600 text-white';
+      if (bannerTitle) bannerTitle.textContent = 'CLOUD BACKUP NOT HEALTHY';
+      if (bannerDetail) {
+        bannerDetail.textContent = ((data && data.reason) ? String(data.reason) : 'The nightly cloud backup is not current.') +
+          (lastSuccess ? (' Last successful backup: ' + lastSuccess + '.') : ' No successful backup has been recorded.') +
+          (data && data.lastFailureAt ? (' Last failure marker: ' + new Date(data.lastFailureAt).toLocaleString() + '.') : '');
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    async function refreshBackupStatus(force) {
+      if (backupStatusInFlight && !force) return;
+      backupStatusInFlight = true;
+      renderBackupStatus('loading');
+      try {
+        const res = await fetch(PARENT_API_BASE + '/backup-status', { cache: 'no-store' });
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status + ' from /api/backup-status');
+        }
+        const data = await res.json();
+        if (!data || typeof data.healthy !== 'boolean') {
+          throw new Error('Malformed response from /api/backup-status (no healthy flag)');
+        }
+        renderBackupStatus(data.healthy ? 'healthy' : 'unhealthy', data);
+      } catch (err) {
+        console.error('Backup status check failed:', err);
+        renderBackupStatus('unavailable', { error: err && err.message ? err.message : String(err) });
+      } finally {
+        backupStatusInFlight = false;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
       if (APP_ENV.isBeta) {
@@ -760,6 +899,7 @@
       setGapCount(20);
       syncParentFromCloud(false);
       updateParentSyncStatusBadge();
+      refreshBackupStatus();
     });
 
     function renderParentMetrics() {
@@ -1328,7 +1468,7 @@
       const btn = event?.currentTarget;
       if (btn) btn.disabled = true;
       try {
-        const res = await fetch('https://psat-api-4915.azurewebsites.net/api/sync?student_name=default_student');
+        const res = await fetch(PARENT_API_BASE + '/sync?student_name=default_student');
         if (!res.ok) throw new Error(`HTTP ${res.status}: Cloud backup service unavailable`);
         const cloudData = await res.json();
         

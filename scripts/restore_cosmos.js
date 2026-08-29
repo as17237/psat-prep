@@ -46,30 +46,44 @@ function verifyBackupIntegrity(backupPath, rawContent, parsed) {
 
 /**
  * Extracts and categorizes documents from various backup payload formats.
+ *
+ * Formats accepted:
+ *   - v1.1 cloud (WI-04): { studentAnswers: [...], feedback: [...], questions: [...] }
+ *   - v1.0 cloud:         { studentAnswers: [...], feedback: [...] }
+ *   - local CLI:          { documents: [...] }
+ *   - bare array / single document object
+ *
+ * `questions` is REPORTED but never restored: the Questions container has a different
+ * partition key (/domain) and is a write-only mirror of data/questions_data.js. Restoring
+ * it into UATStudentAnswers would corrupt the student container, so it is deliberately
+ * excluded from studentDocs/feedbackDocs here.
  */
 function extractBackupDocuments(parsed) {
+  const empty = { studentDocs: [], feedbackDocs: [], questionDocs: [] };
   if (!parsed || typeof parsed !== 'object') {
-    return { studentDocs: [], feedbackDocs: [] };
+    return empty;
   }
   if (Array.isArray(parsed)) {
-    return { studentDocs: parsed, feedbackDocs: [] };
+    return { studentDocs: parsed, feedbackDocs: [], questionDocs: [] };
   }
-  // Azure Function backup format: { studentAnswers: [...], feedback: [...] }
-  if (parsed.studentAnswers || parsed.feedback) {
+  const questionDocs = Array.isArray(parsed.questions) ? parsed.questions : [];
+  // Azure Function backup format: { studentAnswers: [...], feedback: [...], questions?: [...] }
+  if (parsed.studentAnswers || parsed.feedback || parsed.questions) {
     return {
       studentDocs: Array.isArray(parsed.studentAnswers) ? parsed.studentAnswers : [],
-      feedbackDocs: Array.isArray(parsed.feedback) ? parsed.feedback : []
+      feedbackDocs: Array.isArray(parsed.feedback) ? parsed.feedback : [],
+      questionDocs: questionDocs
     };
   }
   // CLI backup format: { documents: [...] }
   if (parsed.documents && Array.isArray(parsed.documents)) {
-    return { studentDocs: parsed.documents, feedbackDocs: [] };
+    return { studentDocs: parsed.documents, feedbackDocs: [], questionDocs: questionDocs };
   }
   // Single document object: { id: "...", ... }
   if (parsed.id) {
-    return { studentDocs: [parsed], feedbackDocs: [] };
+    return { studentDocs: [parsed], feedbackDocs: [], questionDocs: questionDocs };
   }
-  return { studentDocs: [], feedbackDocs: [] };
+  return empty;
 }
 
 /**
@@ -77,9 +91,12 @@ function extractBackupDocuments(parsed) {
  * Throws a hard error if zero valid documents are found.
  */
 function validateBackupPayload(parsed, backupPath) {
-  const { studentDocs, feedbackDocs } = extractBackupDocuments(parsed);
+  const { studentDocs, feedbackDocs, questionDocs } = extractBackupDocuments(parsed);
   const validStudentDocs = studentDocs.filter(d => d && typeof d === 'object' && d.id);
   const validFeedbackDocs = feedbackDocs.filter(d => d && typeof d === 'object' && d.id);
+  // Questions are counted for reporting only; they are NOT restorable by this script and
+  // therefore never contribute to the zero-document hard-failure guard.
+  const validQuestionDocs = questionDocs.filter(d => d && typeof d === 'object' && d.id);
   const totalValidDocs = validStudentDocs.length + validFeedbackDocs.length;
 
   if (totalValidDocs === 0) {
@@ -89,6 +106,8 @@ function validateBackupPayload(parsed, backupPath) {
   return {
     studentDocs: validStudentDocs,
     feedbackDocs: validFeedbackDocs,
+    questionDocs: validQuestionDocs,
+    questionsIgnoredCount: validQuestionDocs.length,
     totalCount: totalValidDocs
   };
 }
@@ -163,14 +182,19 @@ async function runRestore(specifiedFile, options = {}) {
 
   // 2. Strict validation (Hard Failure if 0 valid documents)
   const validation = validateBackupPayload(parsed, backupPath);
-  const { studentDocs, feedbackDocs, totalCount } = validation;
+  const { studentDocs, feedbackDocs, totalCount, questionsIgnoredCount } = validation;
+
+  if (questionsIgnoredCount > 0) {
+    console.log(`ℹ️  Backup also contains ${questionsIgnoredCount} Questions-container documents. They are NOT restored by this script (different container, partition key /domain) — reported only.`);
+  }
 
   const isApply = options.apply || process.argv.includes('--apply');
 
   if (!isApply) {
-    console.log(`\n[DRY RUN MODE] Verified backup snapshot containing ${totalCount} valid documents:`);
+    console.log(`\n[DRY RUN MODE] Verified backup snapshot containing ${totalCount} valid restorable documents:`);
     console.log(`  - Student Answers / Profiles: ${studentDocs.length}`);
     console.log(`  - Feedback Documents: ${feedbackDocs.length}`);
+    console.log(`  - Questions (reported, not restored): ${questionsIgnoredCount}`);
     studentDocs.slice(0, 10).forEach(doc => {
       console.log(`    • [StudentAnswers] ID: ${doc.id} (type: ${doc.doc_type || 'unknown'}, partition: ${doc.student_name || 'n/a'})`);
     });
@@ -183,7 +207,7 @@ async function runRestore(specifiedFile, options = {}) {
     console.log('\n✓ Dry-run validation PASSED. Zero database writes were executed.');
     console.log('⚠️  To perform the live restore with automated pre-restore safety snapshot, run:');
     console.log(`   node scripts/restore_cosmos.js ${specifiedFile ? specifiedFile + ' ' : ''}--apply\n`);
-    return { dryRun: true, totalCount, studentDocs: studentDocs.length, feedbackDocs: feedbackDocs.length };
+    return { dryRun: true, totalCount, studentDocs: studentDocs.length, feedbackDocs: feedbackDocs.length, questionsIgnored: questionsIgnoredCount };
   }
 
   // 2. Obtain Cosmos DB Credentials

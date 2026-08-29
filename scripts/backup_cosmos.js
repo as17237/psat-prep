@@ -4,9 +4,19 @@
  * Local CLI backup utility for Azure Cosmos DB (psat-prep-db).
  * Exports UATStudentAnswers (master student profiles, SRS states, sessions, and all
  * longitudinal exam sessions) + UATFeedback documents to timestamped, checksummed JSON
- * files under backups/. Payload shape is format-identical to the cloud function's
- * performCosmosBackup() (api/src/functions/backup.js) so scripts/restore_cosmos.js
- * accepts either.
+ * files under backups/, in payload format **version 1.0**.
+ *
+ * SCOPE DIFFERENCE (WI-04, deliberate — do not "fix" it silently):
+ * the cloud function performCosmosBackup() (api/src/functions/backup.js) now also
+ * exports the Questions container and emits format version 1.1 with a `questions` array
+ * and `backupMetadata.questionsCount`. This local CLI intentionally stays at 1.0
+ * (student + feedback only): the question mirror is already captured locally by
+ * scripts/export_questions_container.js / full_baseline_snapshot.sh, and adding ~8 MB of
+ * frozen question data to every local run buys nothing.
+ * scripts/restore_cosmos.js accepts BOTH 1.0 and 1.1 and restores only
+ * studentAnswers + feedback from either, so the two formats stay interchangeable for
+ * every restore path. If the Questions container ever becomes writable by the app, this
+ * divergence must be revisited.
  */
 
 const fs = require('fs');
@@ -41,8 +51,9 @@ async function fetchBackupDocuments(database, { log = console.log, warn = consol
 }
 
 /**
- * Builds the backup payload object exactly as api/src/functions/backup.js
- * performCosmosBackup() does, so local and cloud backups are format-identical.
+ * Builds the version 1.0 backup payload (studentAnswers + feedback). Field-for-field
+ * identical to the cloud function's payload apart from the 1.1-only `questions` array
+ * and `questionsCount` — see the scope note at the top of this file.
  */
 function buildBackupPayload({ studentDocs, feedbackDocs, dbName, triggerType, now }) {
   return {

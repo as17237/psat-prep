@@ -307,3 +307,122 @@ last proven restore is months old is an assumption again.
 Until that exists, run the four steps above by hand and record the counts. A run that
 does not include the red demonstration (§5.7) does not count as a verification.
 
+
+---
+
+## 6. Backup scope, failure visibility & retention (WI-04, deployed 2026-08-29)
+
+### 6.1 What the nightly backup now contains
+
+`performCosmosBackup` (`api/src/functions/backup.js`) exports **three** Cosmos containers,
+not two. Payload format is **version 1.1**:
+
+```json
+{
+  "backupMetadata": { "generatedAt", "triggerType", "database", "totalDocuments",
+                      "studentAnswersCount", "feedbackCount", "questionsCount",
+                      "version": "1.1" },
+  "studentAnswers": [ ... ],   // UATStudentAnswers
+  "feedback":       [ ... ],   // UATFeedback
+  "questions":      [ ... ]    // Questions  (NEW in 1.1)
+}
+```
+
+Measured on the first post-deploy run (`POST /api/backup`, 2026-08-29T15:47:19Z):
+10 student docs · 0 feedback docs · **3,059 question docs** · 8,411,843 bytes (8,215 KB).
+Prior payloads were ~520 KB.
+
+**Guards** (a backup either is complete or refuses to be written):
+
+| Container | Rule |
+| :-- | :-- |
+| `UATStudentAnswers` | 0 documents ⇒ **abort** the whole backup (pre-existing guard) |
+| `Questions` | 0 documents ⇒ continue, but log a loud scope warning and set `questionsContainerMissing: true` in the response. **1–2,999 documents ⇒ abort**: that is a partial read, not a smaller dataset. ≥ 3,000 ⇒ accept. |
+| `UATFeedback` | optional; a fetch error is reported, then treated as 0 |
+
+**Restore behaviour.** `scripts/restore_cosmos.js` accepts 1.0 and 1.1 payloads. It
+**reports but never restores** the `questions` array — the `Questions` container has a
+different partition key (`/domain`) and is a write-only mirror of
+`data/questions_data.js`; writing it into `UATStudentAnswers` would corrupt the student
+container. A questions-only payload therefore still hard-fails with "0 valid documents".
+
+### 6.2 Failure visibility
+
+A failed backup is no longer only a log line.
+
+* On any error in the timer **or** the HTTP handler, a marker blob
+  `backup_FAILED_<timestamp>.json` is written to `cosmos-backups` containing the error
+  message, error name, truncated stack, and the trigger type.
+* The marker write is itself wrapped in try/catch and **never throws** — a storage
+  problem must not replace the original backup error in the logs. Its success flag is
+  checked and logged at every call site.
+* `POST /api/backup` failure responses now include `failureMarkerWritten` and
+  `failureMarkerFilename`.
+
+### 6.3 `GET /api/backup-status`
+
+Anonymous, read-only (it lists blobs; it never writes or deletes).
+
+```bash
+curl -s https://psat-api-4915.azurewebsites.net/api/backup-status
+```
+
+```json
+{"success":true,"container":"cosmos-backups","checkedAt":"2026-08-29T15:47:28.753Z",
+ "lastSuccessAt":"2026-08-29T15:47:20.000Z","lastAttemptAt":"2026-08-29T15:47:20.000Z",
+ "lastFailureAt":null,"ageHours":0,"healthy":true,
+ "reason":"Last successful backup is 0 h old.","successBackupCount":5,
+ "failureMarkerCount":0,"maxAgeHours":26}
+```
+
+`healthy` is true only when **both** hold: the newest `cosmos_backup_*.json` archive is
+less than **26 h** old, **and** no `backup_FAILED_*` marker is newer than it. When no
+archive exists, `lastSuccessAt` and `ageHours` are `null` — never `0`.
+
+The parent portal's **Data & Settings** menu renders this as a live pill, plus a
+page-level banner when the status is red or unobtainable. There are exactly four states:
+`…` while loading, green with the measured age, red with the API's own reason, and a
+visible amber **"Backup status unavailable"** carrying the fetch error. A failed check
+never leaves a stale green on screen.
+
+### 6.4 Retention pruning — `scripts/prune_backups.js`
+
+Operator tool. **Dry run by default; `--apply` is required for any deletion.**
+
+```bash
+export AZURE_STORAGE_ACCOUNT=psatprep4915
+export AZURE_STORAGE_KEY=$(az storage account keys list --account-name psatprep4915 \
+  --resource-group rg-psat-prep --query "[0].value" -o tsv)
+node scripts/prune_backups.js              # plan only, nothing deleted
+node scripts/prune_backups.js --apply      # execute the printed plan
+```
+
+Policy: keep **every** archive ≤ 30 days old; older than that, keep the newest archive of
+each ISO week. **Hard floor: the newest 7 archives are never deleted, whatever the policy
+says.** Only timestamped `cosmos_backup_<ts>.json` archives are candidates — the
+`cosmos_backup_latest.json` pointer, `backup_FAILED_*` markers, and every other blob are
+never touched; a deleted archive takes its own `.sha256` sidecar with it.
+
+Safety: credentials come from environment variables only (secrets on argv are refused),
+the container name is hardcoded, and the script refuses to run inside the Azure Functions
+host — **the nightly timer can never prune.**
+
+### 6.5 Rollback for the API deployment
+
+The pre-WI-04 package is retained in the `function-releases` blob container:
+`20260828185431-6e37ac86-b5e7-4db2-bd46-3654ccbd36e2.zip`
+(sha256 `43575e49f22c35b0228927efef3590432610fdd803a1578797c979bdb74529f1`).
+
+```bash
+az storage blob download --account-name psatprep4915 --account-key "$AK" \
+  --container-name function-releases \
+  --name 20260828185431-6e37ac86-b5e7-4db2-bd46-3654ccbd36e2.zip --file rollback.zip
+unzip rollback.zip -d rollback && cd rollback && zip -r ../rollback_src.zip . -x 'node_modules/*'
+az functionapp deployment source config-zip --name psat-api-4915 \
+  --resource-group rg-psat-prep --src ../rollback_src.zip --build-remote true
+curl -s 'https://psat-api-4915.azurewebsites.net/api/sync?student_name=default_student' | head -c 200
+```
+
+Note: the WI-04 deploy removed the `WEBSITE_RUN_FROM_PACKAGE` and `ENABLE_ORYX_BUILD` app
+settings (`az functionapp deployment source config-zip` does this when switching to a
+remote-build zip deploy). A rollback via the same command needs no app-setting changes.

@@ -23,6 +23,67 @@ assert.strictEqual(res1.studentDocs[0].id, 'student_default_student');
 assert.strictEqual(res1.feedbackDocs[0].id, 'fb_1');
 console.log('✓ Azure Function backup payload validation passed');
 
+// 1b. WI-04 extended cloud payload format ({ studentAnswers, feedback, questions }).
+//     The Questions container is exported for disaster recovery but MUST NOT be
+//     restored into UATStudentAnswers by this script — it is a different container
+//     with a different partition key. The restore path reports it and ignores it.
+const extendedPayload = {
+  backupMetadata: {
+    generatedAt: '2026-08-29T15:30:00.000Z',
+    triggerType: 'http_request',
+    database: 'psat-prep-db',
+    totalDocuments: 6,
+    studentAnswersCount: 2,
+    feedbackCount: 1,
+    questionsCount: 3,
+    version: '1.1'
+  },
+  studentAnswers: [
+    { id: 'student_default_student', student_name: 'default_student', doc_type: 'student_master_profile' },
+    { id: 'exam_default_student_123', student_name: 'default_student', doc_type: 'exam_session' }
+  ],
+  feedback: [
+    { id: 'fb_1', category: 'bug', message: 'x' }
+  ],
+  questions: [
+    { id: 'q_ela_001', domain: 'Information and Ideas' },
+    { id: 'q_math_001', domain: 'Algebra' },
+    { id: 'q_math_002', domain: 'Geometry and Trigonometry' }
+  ]
+};
+
+const ext = extractBackupDocuments(extendedPayload);
+assert.strictEqual(ext.studentDocs.length, 2, 'Extended payload must yield exactly the 2 student docs');
+assert.strictEqual(ext.feedbackDocs.length, 1, 'Extended payload must yield exactly the 1 feedback doc');
+assert.strictEqual(ext.questionDocs.length, 3, 'Extended payload must report the questions array separately');
+assert.ok(
+  !ext.studentDocs.some(d => String(d.id).startsWith('q_')),
+  'Question documents must NEVER leak into the UATStudentAnswers restore set'
+);
+assert.ok(
+  !ext.feedbackDocs.some(d => String(d.id).startsWith('q_')),
+  'Question documents must NEVER leak into the UATFeedback restore set'
+);
+
+const extValidated = validateBackupPayload(extendedPayload, 'mock_extended_backup.json');
+assert.strictEqual(extValidated.totalCount, 3, 'Restorable count must be student+feedback only (3), not 6');
+assert.strictEqual(extValidated.questionDocs.length, 3);
+assert.strictEqual(extValidated.questionsIgnoredCount, 3, 'Ignored question count must be reported, not silently dropped');
+console.log('✓ WI-04 extended payload: questions reported and excluded from the restore set');
+
+// 1c. Old-format payloads (no questions key) stay restorable and report 0 questions.
+const oldFormatCheck = extractBackupDocuments(azureFuncPayload);
+assert.strictEqual(oldFormatCheck.questionDocs.length, 0);
+assert.strictEqual(validateBackupPayload(azureFuncPayload, 'old.json').questionsIgnoredCount, 0);
+console.log('✓ Old-format (pre-WI-04) backups remain restorable with 0 questions reported');
+
+// 1d. A questions-only payload has nothing restorable and must still hard-fail,
+//     rather than "succeeding" with 3,059 questions written into the wrong container.
+assert.throws(() => {
+  validateBackupPayload({ questions: [{ id: 'q_math_001', domain: 'Algebra' }] }, 'questions_only.json');
+}, /Hard Failure: 0 valid documents found/, 'A questions-only payload must hard-fail, never restore into UATStudentAnswers');
+console.log('✓ Questions-only payload hard-fails instead of restoring into the wrong container');
+
 // 2. CLI payload format ({ documents })
 const cliPayload = {
   backupMetadata: { generatedAt: '2026-08-28T22:00:00.000Z', documentCount: 2 },

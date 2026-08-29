@@ -3,9 +3,10 @@
  *
  * Tests scripts/backup_cosmos.js against an injected fake Cosmos client (no network,
  * no real Cosmos account touched). Verifies:
- *  1. The payload shape matches api/src/functions/backup.js performCosmosBackup()
- *     exactly, against a hand-written expected object (never produced by calling the
- *     function under test).
+ *  1. The payload shape matches the version 1.0 backup format, against a hand-written
+ *     expected object (never produced by calling the function under test). Note: since
+ *     WI-04 the cloud function emits version 1.1 with an extra `questions` array; the
+ *     shared fields asserted here are unchanged and restore_cosmos.js accepts both.
  *  2. The sha256 sidecar format ("<hex>  <filename>\n") and value, where the expected
  *     hash is computed independently in this test from a hand-built payload string.
  *  3. The zero-document abort guard on UATStudentAnswers: refuses (throws) and writes
@@ -42,8 +43,7 @@ const feedbackDocs = [
   { id: 'fb_1', student_name: 'default_student', rating: 5, comment: 'great app' }
 ];
 
-// Hand-built expected payload structure -- mirrors api/src/functions/backup.js
-// performCosmosBackup() field-for-field. This is NOT produced by calling
+// Hand-built expected payload structure -- the version 1.0 format. This is NOT produced by calling
 // buildBackupPayload(); it is typed out independently so the test can catch a
 // regression in that function.
 const expectedPayload = {
