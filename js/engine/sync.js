@@ -338,8 +338,12 @@
   //   push is older than FULL_PUSH_INTERVAL_MS, so any drift self-heals within a
   //   day instead of persisting silently.
 
-  /** Cursor key: when the last push happened, and when the last FULL push happened. */
-  var SYNC_CURSOR_KEY = 'psat_sync_cursor';
+  /**
+   * Cursor key: when the last push happened, and when the last FULL push happened.
+   * The name is owned by js/engine/storage.js (it owns localStorage keys) so that the
+   * destructive-action paths there and the push path here can never disagree about it.
+   */
+  var SYNC_CURSOR_KEY = storage.SYNC_CURSOR_KEY;
 
   /** A full push is forced at least this often, as a self-healing backstop. */
   var FULL_PUSH_INTERVAL_MS = 24 * 60 * 60 * 1000;

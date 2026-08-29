@@ -1225,7 +1225,15 @@ function restoreRealStudentData() {
       { success: false };
 
     if (!result.success) {
-      alert('❌ Restore Cancelled: Could not create pre-restore snapshot. Your backup remains intact.');
+      // WI-11: restoreRealData now also returns false when the pre-demo backup is
+      // missing or corrupt (it used to delete the four state keys in that case and
+      // report success). Both failure causes are covered by this one message, and
+      // the student page carries the identical wording.
+      alert(
+        '❌ Restore Cancelled: the saved copy of the real records could not be used ' +
+        '(it is missing or unreadable), or the pre-restore safety snapshot could not be written. ' +
+        'Nothing on this device has been modified.'
+      );
       return;
     }
     location.reload();

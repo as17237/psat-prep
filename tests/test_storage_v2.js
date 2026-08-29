@@ -563,6 +563,77 @@ assert.strictEqual(Object.keys(modeServer.state.posts[2].progress).length, 3, 't
 ok('resetSyncCursor restores the full-state fallback (used after reset/import/restore)');
 
 
+// ===========================================================================
+section('Transactional destructive actions: restore never deletes records');
+// ===========================================================================
+
+// --- 5a. A MISSING pre-demo backup must leave real data untouched -----------
+// Roadmap §1.3 and CLAUDE.md mode 7 (the Round-8 rule): "a fallback path may never
+// be more destructive than the primary path". Before WI-11, restoreRealData() with
+// no psat_pre_sample_backup deleted all four state keys and returned true.
+const noBackupStore = makeStore({
+  psat_progress: JSON.stringify(V1_PROGRESS),
+  psat_srs: JSON.stringify(V1_SRS),
+  psat_sessions: JSON.stringify(V1_SESSIONS),
+  psat_exam_history: JSON.stringify(V1_HISTORY),
+  psat_sample_data_active: 'true'
+});
+const beforeNoBackup = JSON.parse(JSON.stringify(noBackupStore.map));
+const noBackupResult = PSAT_ENGINE.restoreRealData(noBackupStore, null, null, PROD_LOC);
+assert.strictEqual(noBackupResult, false, 'restore with no backup must report failure, not success');
+assert.deepStrictEqual(noBackupStore.map, beforeNoBackup, 'restore with no backup must change NOTHING at all');
+assert.ok(noBackupStore.getItem('psat_progress'), 'psat_progress must still exist');
+assert.ok(noBackupStore.getItem('psat_srs'), 'psat_srs must still exist');
+assert.ok(noBackupStore.getItem('psat_sessions'), 'psat_sessions must still exist');
+assert.ok(noBackupStore.getItem('psat_exam_history'), 'psat_exam_history must still exist');
+ok('restoreRealData with a missing backup deletes nothing and returns false');
+
+// --- 5b. A CORRUPT backup is treated the same way ---------------------------
+const corruptStore = makeStore({
+  psat_progress: JSON.stringify(V1_PROGRESS),
+  psat_srs: JSON.stringify(V1_SRS),
+  psat_pre_sample_backup: '{not valid json',
+  psat_sample_data_active: 'true'
+});
+const beforeCorrupt = JSON.parse(JSON.stringify(corruptStore.map));
+assert.strictEqual(PSAT_ENGINE.restoreRealData(corruptStore, null, null, PROD_LOC), false, 'a corrupt backup must fail the restore');
+assert.deepStrictEqual(corruptStore.map, beforeCorrupt, 'a corrupt backup must leave every key untouched');
+ok('restoreRealData with a corrupt backup deletes nothing and returns false');
+
+// --- 5c. A VALID backup still restores exactly as before --------------------
+const realProgress = { real_q: { answered: true, isCorrect: true, timestamp: T0 } };
+const realHistory = [{ examId: 'real_exam', completedAt: T0 }];
+const goodStore = makeStore({ psat_progress: JSON.stringify(realProgress), psat_exam_history: JSON.stringify(realHistory) });
+assert.strictEqual(PSAT_ENGINE.backupRealData(goodStore, null, null, PROD_LOC), true, 'backup must succeed');
+goodStore.setItem('psat_sample_data_active', 'true');
+goodStore.setItem('psat_progress', JSON.stringify({ sample_q: { answered: true } }));
+assert.strictEqual(PSAT_ENGINE.restoreRealData(goodStore, null, null, PROD_LOC), true, 'a valid backup must restore');
+assert.deepStrictEqual(JSON.parse(goodStore.getItem('psat_progress')), realProgress, 'real progress must come back');
+assert.deepStrictEqual(JSON.parse(goodStore.getItem('psat_exam_history')), realHistory, 'real exam history must come back');
+assert.strictEqual(goodStore.getItem('psat_sample_data_active'), null, 'the demo flag must be cleared');
+assert.strictEqual(goodStore.getItem('psat_pre_sample_backup'), null, 'the consumed backup must be cleared');
+ok('restoreRealData with a valid backup restores every key and clears the demo flag');
+
+// --- 5d. A destructive action whose snapshot fails must abort ---------------
+const abortStore = makeStore({ psat_progress: JSON.stringify(realProgress) });
+const abortSet = abortStore.setItem.bind(abortStore);
+abortStore.setItem = function (k, v) {
+  if (k.indexOf('psat_snapshot_') === 0) throw new Error('QuotaExceededError');
+  return abortSet(k, v);
+};
+let mutationRan = false;
+const aborted = PSAT_ENGINE.runTransactionalAction(abortStore, 'reset_all_progress', function () {
+  mutationRan = true;
+  abortSet('psat_progress', '{}');
+  return { success: true };
+}, PROD_LOC);
+abortStore.setItem = abortSet;
+assert.strictEqual(aborted.success, false, 'a failing snapshot must abort the action');
+assert.strictEqual(aborted.aborted, true, 'the abort must be reported as such');
+assert.strictEqual(mutationRan, false, 'the destructive mutation must never have run');
+assert.deepStrictEqual(JSON.parse(abortStore.getItem('psat_progress')), realProgress, 'data must be exactly as it was');
+ok('runTransactionalAction aborts before the mutation when the safety snapshot fails');
+
 })().then(function () {
   console.log('\nALL WI-11 STORAGE/SYNC TESTS PASSED');
 }).catch(function (err) {

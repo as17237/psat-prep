@@ -58,6 +58,44 @@
   }
 
   /**
+   * WI-11 — the delta-sync cursor's localStorage key.
+   *
+   * The KEY is owned here (storage.js owns localStorage keys); the cursor's read /
+   * write / reset semantics live in js/engine/sync.js, which reads this constant
+   * from the storage part rather than re-typing the string. One name, one place
+   * (CLAUDE.md mode 2).
+   */
+  var SYNC_CURSOR_KEY = 'psat_sync_cursor';
+
+
+  /**
+   * Drops the delta-sync cursor so the next push sends the complete profile.
+   *
+   * Called from every path that replaces the four state keys wholesale — a snapshot
+   * restore, a demo restore, and (through runTransactionalAction) every destructive
+   * page action: reset, import, sample-data activation. After any of those the
+   * per-record timestamps no longer describe what the server already holds, so a
+   * delta would be computed against a cursor that means nothing.
+   *
+   * Failing to clear it is not fatal (the 24 h forced full push still heals it), so
+   * this reports and continues rather than throwing into a destructive action's
+   * rollback path.
+   */
+  function invalidateSyncCursor(store, loc) {
+    if (!store || !store.removeItem) return false;
+    try {
+      store.removeItem(getEnvironmentConfig(loc).storagePrefix + SYNC_CURSOR_KEY);
+      return true;
+    } catch (e) {
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Could not clear the sync cursor after a wholesale state change; the next full push will heal it:', e && e.message);
+      }
+      return false;
+    }
+  }
+
+
+  /**
    * Checks whether synthetic sample diagnostic data is currently loaded.
    */
   function isDemoModeActive(storage, loc) {
@@ -115,6 +153,21 @@
   }
 
 
+  /**
+   * Restores the real student records that backupRealData() set aside before demo
+   * data was loaded.
+   *
+   * WI-11 / roadmap §1.3 / CLAUDE.md mode 7 (the Round-8 rule). Before this change,
+   * the no-backup branch removed psat_progress, psat_srs, psat_sessions and
+   * psat_exam_history and then returned `true` — a fallback path strictly MORE
+   * destructive than the primary one, reported to the caller as a success. A
+   * missing or unreadable backup now changes nothing and returns false; the caller
+   * shows the error and the student's records stay exactly where they are.
+   *
+   * @returns {boolean} true only if real records were actually restored. The
+   *   boolean shape is deliberate: every existing call site treats a falsy result
+   *   as failure, so the fail-safe direction needs no call-site change to be safe.
+   */
   function restoreRealData(storage, safeGetFn, safeSetFn, loc) {
     var store = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
     if (!store) return false;
@@ -138,27 +191,36 @@
     };
 
     var backup = getFn('psat_pre_sample_backup', null);
-    if (backup) {
-      if (backup.progress) setFn('psat_progress', backup.progress);
-      else removeFn('psat_progress');
-
-      if (backup.srsState) setFn('psat_srs', backup.srsState);
-      else removeFn('psat_srs');
-
-      if (backup.sessionsState) setFn('psat_sessions', backup.sessionsState);
-      else removeFn('psat_sessions');
-
-      if (backup.examHistory) setFn('psat_exam_history', backup.examHistory);
-      else removeFn('psat_exam_history');
-    } else {
-      removeFn('psat_progress');
-      removeFn('psat_srs');
-      removeFn('psat_sessions');
-      removeFn('psat_exam_history');
+    if (!backup || typeof backup !== 'object' || Array.isArray(backup)) {
+      // NO usable backup. Do nothing and report it. Deleting the live keys here —
+      // which is what this branch used to do — would destroy the very records the
+      // caller is trying to rescue.
+      if (typeof console !== 'undefined' && console.error) {
+        console.error(
+          'restoreRealData: no usable psat_pre_sample_backup for this lane (' + env.envName + '). ' +
+          'Nothing was changed; the real records are still in place.'
+        );
+      }
+      return false;
     }
+
+    if (backup.progress) setFn('psat_progress', backup.progress);
+    else removeFn('psat_progress');
+
+    if (backup.srsState) setFn('psat_srs', backup.srsState);
+    else removeFn('psat_srs');
+
+    if (backup.sessionsState) setFn('psat_sessions', backup.sessionsState);
+    else removeFn('psat_sessions');
+
+    if (backup.examHistory) setFn('psat_exam_history', backup.examHistory);
+    else removeFn('psat_exam_history');
 
     removeFn('psat_sample_data_active');
     removeFn('psat_pre_sample_backup');
+    // The four state keys were just replaced wholesale, so per-record timestamps no
+    // longer describe what the server holds: force the next push to be a full one.
+    invalidateSyncCursor(store, loc);
     return true;
   }
 
@@ -347,6 +409,8 @@
       if (Array.isArray(snap.data.outbox)) {
         store.setItem(prefix + 'psat_sync_outbox', JSON.stringify(snap.data.outbox));
       }
+      // Wholesale state replacement: the delta cursor no longer describes the server.
+      invalidateSyncCursor(store, loc);
       return { success: true, timestamp: snap.timestamp, reason: snap.reason };
     } catch (e) {
       return { success: false, error: e.message };
@@ -392,6 +456,10 @@
         };
       }
 
+      // Every action routed through this wrapper is a destructive one that rewrites
+      // state wholesale (reset, import, demo activation, restore). Invalidating the
+      // cursor here covers all of them in ONE place instead of at each call site.
+      invalidateSyncCursor(store, loc);
       return {
         success: true,
         snapshotId: snap.snapshotId,
@@ -921,6 +989,10 @@
     getOutboxOps: getOutboxOps,
     ackOutboxOps: ackOutboxOps,
     clearOutbox: clearOutbox,
+    // Part-level only (not in srs.js's API_MANIFEST, so it never reaches the frozen
+    // PSAT_ENGINE surface): js/engine/sync.js reads the cursor key from here.
+    SYNC_CURSOR_KEY: SYNC_CURSOR_KEY,
+    invalidateSyncCursor: invalidateSyncCursor,
     SCHEMA_VERSION: SCHEMA_VERSION,
     readSchemaMeta: readSchemaMeta,
     migrateLocalStateToV2: migrateLocalStateToV2,

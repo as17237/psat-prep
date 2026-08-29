@@ -7,13 +7,12 @@
  * block that was duplicated with parent.html) and the explicit window
  * bindings at the bottom.
  *
- * NOT unified with parent.js (a real divergence found, deliberately left
- * alone): restoreRealStudentData(). The parent portal wraps the restore in
- * PSAT_ENGINE.runTransactionalAction and aborts if the pre-restore snapshot
- * fails; this page calls PSAT_ENGINE.restoreRealData directly. Reconciling
- * them changes what happens to a student's data on a failed snapshot, which
- * is a storage-semantics decision owned by WI-11, not a mechanical
- * relocation. Recorded in the WI-09 duplication ledger as an open twin.
+ * WI-09 left one open twin here: restoreRealStudentData() called
+ * PSAT_ENGINE.restoreRealData directly while parent.js wrapped it in
+ * PSAT_ENGINE.runTransactionalAction. WI-11 owns storage semantics and has
+ * RESOLVED it — both pages now use the transactional form, which snapshots
+ * first and aborts if the snapshot fails. The duplication ledger has no open
+ * twins left on this page.
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
@@ -113,14 +112,41 @@ function checkDemoModeBanner() {
   }
 }
 
+/**
+ * WI-11: this is now the SAME safe form parent.js uses (the WI-09 duplication
+ * ledger's one open twin, resolved here).
+ *
+ * What changed on this page: the restore used to call PSAT_ENGINE.restoreRealData
+ * directly, ignore its result, and reload unconditionally — so a restore that
+ * failed looked identical to one that succeeded. It now goes through
+ * runTransactionalAction, which takes a pre-action snapshot first and aborts if
+ * that snapshot cannot be written, and it only reloads when the restore actually
+ * happened.
+ *
+ * Paired engine change: restoreRealData no longer deletes the four state keys
+ * when the pre-demo backup is missing or corrupt. It changes nothing and returns
+ * false, which this wrapper turns into an explicit "nothing was modified" alert.
+ */
 function restoreRealStudentData() {
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.restoreRealData) {
-    PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage);
-    location.reload();
-  } else {
+  if (typeof PSAT_ENGINE === 'undefined' || !PSAT_ENGINE.restoreRealData || !PSAT_ENGINE.runTransactionalAction) {
     alert('Restore is unavailable because the app engine did not load. Your backup is intact — please reload the page and try again.');
     return;
   }
+
+  const result = PSAT_ENGINE.runTransactionalAction(localStorage, 'restore_real_data', function (ctx) {
+    const ok = PSAT_ENGINE.restoreRealData(localStorage, safeGetStorage, safeSetStorage, window.location);
+    return { success: !!ok };
+  }, window.location);
+
+  if (!result.success) {
+    alert(
+      '❌ Restore Cancelled: the saved copy of your real records could not be used ' +
+      '(it is missing or unreadable), or the pre-restore safety snapshot could not be written. ' +
+      'Nothing on this device has been modified.'
+    );
+    return;
+  }
+  location.reload();
 }
 
 function manualTriggerCloudSync(isManual = false) {
