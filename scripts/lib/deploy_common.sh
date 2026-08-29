@@ -49,6 +49,7 @@ APP_FILES=(
   "js/pages/feedback.js"
   "js/pages/mistakes.js"
   "js/pages/parent.js"
+  "js/pages/student.js"
 )
 
 # ------------------------------------------------------------------------------

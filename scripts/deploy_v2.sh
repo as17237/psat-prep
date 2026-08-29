@@ -137,15 +137,16 @@ for file in "${APP_FILES[@]}"; do
 done
 
 # Loud failure rather than a silently half-transformed lane (CLAUDE.md mode 5).
-# Where the question-image path literals live (WI-09 recount).
+# Where the question-image path literals live (recounted at the end of WI-09;
+# it was 7 across 6 files before the extraction).
 #   srs.js                    3  (lines ~1800, ~2210, ~2991 — srs.js is frozen
 #                                 for WI-09; WI-10 owns its decomposition)
 #   js/shared/questions.js    1  (questionImageSrc(), the single home of what
-#                                 used to be 4 inline copies in the pages)
-#   index.html                2  (not yet migrated — WI-09 4/4)
-# Recount and re-pin this whenever a page migrates; a stale number is a loud
+#                                 used to be 4 inline copies across the pages:
+#                                 index.html x2, parent.html, mistakes.html)
+# Recount and re-pin this whenever the pattern moves; a stale number is a loud
 # failure here rather than a silently half-transformed lane.
-EXPECTED_IMAGE_REWRITES=6
+EXPECTED_IMAGE_REWRITES=4
 if [[ "$IMAGE_REWRITES_TOTAL" -ne "$EXPECTED_IMAGE_REWRITES" ]]; then
   echo "ERROR: expected $EXPECTED_IMAGE_REWRITES absolutised question-image references, found $IMAGE_REWRITES_TOTAL." >&2
   echo "       The image-path pattern in the app changed — update this script before deploying." >&2

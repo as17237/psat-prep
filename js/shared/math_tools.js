@@ -314,6 +314,7 @@ export function makeDraggable(element, handle) {
   }
 }
 
+// Initialize Draggable floating windows & keyboard shortcuts on DOM load
 document.addEventListener('DOMContentLoaded', () => {
   const desmosWin = document.getElementById('desmos-floating-window');
   const desmosHandle = document.getElementById('desmos-drag-handle');
@@ -345,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const refHandle = document.getElementById('formula-drag-handle');
   if (refWin && refHandle) makeDraggable(refWin, refHandle);
 
-  // Reference tab keyboard navigation
+  // Reference tab keyboard navigation (Left/Right, Home, End)
   const tablist = document.querySelector('#formula-sheet-modal [role="tablist"]');
   if (tablist) {
     tablist.addEventListener('keydown', (e) => {
@@ -375,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Keyboard shortcuts: Alt+C/G (Desmos), Alt+S (Scientific), Alt+R (Reference Sheet), Esc (Close tools)
   document.addEventListener('keydown', (e) => {
     if (e.altKey && (e.key === 'c' || e.key === 'C' || e.key === 'g' || e.key === 'G')) {
       e.preventDefault();

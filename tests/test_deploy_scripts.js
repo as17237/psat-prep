@@ -158,6 +158,7 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/pages/feedback.js',
   'v2/js/pages/mistakes.js',
   'v2/js/pages/parent.js',
+  'v2/js/pages/student.js',
   'v2/data/questions_data.js',
 ];
 assert.deepStrictEqual([...v2Planned].sort(), [...V2_EXPECTED_BLOBS].sort(),
@@ -166,7 +167,7 @@ v2Planned.forEach(n => assert.ok(n.startsWith('v2/'), `planned blob '${n}' must 
 assert.ok(v2Planned.includes('v2/data/questions_data.js'),
   'v2 must carry its own question bundle (the pages load it by relative src)');
 // Every page's ES-module entry point must be in the lane.
-['feedback', 'mistakes', 'parent'].forEach(pg => assert.ok(v2Planned.includes(`v2/js/pages/${pg}.js`),
+['feedback', 'mistakes', 'parent', 'student'].forEach(pg => assert.ok(v2Planned.includes(`v2/js/pages/${pg}.js`),
   `v2 must deploy js/pages/${pg}.js — the page loads it with <script type="module">`));
 
 const betaDry = run('scripts/deploy_beta.sh', ['--dry-run'], {});
@@ -192,9 +193,9 @@ betaPlanned.forEach(n => assert.ok(n.startsWith('beta/'), `planned blob '${n}' m
 //   srs.js                 3  (frozen for WI-09; WI-10 owns srs.js)
 //   js/shared/questions.js 1  (questionImageSrc — the single home of what used
 //                              to be 4 inline copies across the pages)
-//   index.html             2  (not yet migrated — WI-09 4/4)
-// Re-pin this whenever a page migrates.
-const EXPECTED_IMAGE_REWRITES = 6;
+// WI-09 final count: all four pages are ES modules and every page-side copy
+// of the expression now lives in questionImageSrc().
+const EXPECTED_IMAGE_REWRITES = 4;
 assert.ok(new RegExp(`${EXPECTED_IMAGE_REWRITES} image references absolutised, 4 pages versioned`).test(v2Dry.stdout),
   `v2 staging must absolutise all ${EXPECTED_IMAGE_REWRITES} question-image references and version all 4 pages`);
 

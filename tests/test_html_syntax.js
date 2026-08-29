@@ -87,6 +87,11 @@ migratedHtml.forEach(file => {
     );
   });
 });
+// WI-09 is complete: all four pages load their controller as an ES module.
+assert.strictEqual(
+  migratedPages.length, 4,
+  `All 4 pages must have an ES-module entry point (WI-09); found ${migratedPages.length}: ${migratedPages.join(', ')}`
+);
 console.log(`✓ No logic in any inline <script> across ${migratedHtml.length} migrated page(s) (${inlineBlocksChecked} block(s) inspected)`);
 
 console.log('✓ All page JavaScript is 100% valid JavaScript!\n');
