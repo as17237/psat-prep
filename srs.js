@@ -2226,6 +2226,33 @@
   var CLOUD_SYNC_ENDPOINT = 'https://psat-api-4915.azurewebsites.net/api/sync';
 
   /**
+   * Identifies which deployment lane this client was served from, so the server can
+   * attribute a write to the app build that produced it.
+   *
+   * The working-tree copy is deliberately version-neutral: it reports 'v1' unless a page
+   * sets `window.PSAT_CLIENT_VERSION` before srs.js is used. `scripts/deploy_v2.sh`
+   * injects that global (`v2-<short-git-sha>`) into the /v2/ copies of the HTML pages at
+   * upload time; nothing in the repo hardcodes a version.
+   */
+  var CLIENT_VERSION_DEFAULT = 'v1';
+
+  function getClientVersion() {
+    try {
+      var scope = (typeof window !== 'undefined' && window) ? window :
+                  ((typeof globalThis !== 'undefined' && globalThis) ? globalThis : null);
+      if (scope && typeof scope.PSAT_CLIENT_VERSION === 'string' && scope.PSAT_CLIENT_VERSION) {
+        return scope.PSAT_CLIENT_VERSION;
+      }
+    } catch (e) {
+      // A blocked/throwing global must never break sync. Report and fall back.
+      if (typeof console !== 'undefined' && console.warn) {
+        console.warn('Unable to read PSAT_CLIENT_VERSION; reporting "' + CLIENT_VERSION_DEFAULT + '":', e && e.message);
+      }
+    }
+    return CLIENT_VERSION_DEFAULT;
+  }
+
+  /**
    * Derives daily session stats directly from progress question attempt timestamps.
    */
   function deriveSessionsFromProgress(progress) {
@@ -2723,7 +2750,8 @@
       sessionsState: sessions,
       examHistory: history,
       outboxOps: outbox,
-      clientTimestamp: new Date().toISOString()
+      clientTimestamp: new Date().toISOString(),
+      client_version: getClientVersion()
     };
 
     return fetchFn(CLOUD_SYNC_ENDPOINT, {
@@ -3421,6 +3449,7 @@
     _shuffle: _shuffle,
     _prioritizeUnseen: _prioritizeUnseen,
     _assembleModuleByBlueprint: _assembleModuleByBlueprint,
+    getClientVersion: getClientVersion,
     pushToCloud: pushToCloud,
     pullFromCloud: pullFromCloud,
     renderRationale: renderRationale,

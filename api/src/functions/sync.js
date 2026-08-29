@@ -148,7 +148,10 @@ app.http('sync', {
           sessionsState: mergedSessions,
           examHistory: mergedExams.slice(0, 50),
           updatedAt: now,
-          clientTimestamp: body.clientTimestamp || new Date().toISOString()
+          clientTimestamp: body.clientTimestamp || new Date().toISOString(),
+          // Which app build produced this write ('v1' = prod/beta lane, 'v2-<sha>' = /v2/ lane).
+          // Never cleared by a client that omits it: fall back to what is already stored.
+          clientVersion: body.client_version || existingMaster?.clientVersion || null
         };
         await c.items.upsert(masterDoc);
 

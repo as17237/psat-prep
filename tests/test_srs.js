@@ -1340,6 +1340,80 @@ const mockFetch = async (url, opts) => {
   assert.strictEqual(weakMetrics.matchingPoolCount, 4);
   assert.strictEqual(weakMetrics.focusShortName, 'Weakness Drill');
 
+  // 30. WI-06: client_version must be present in every sync POST body
+  // ------------------------------------------------------------------
+  // Expected values are hand-written here, NOT derived from srs.js.
+  const cvProdLoc = { pathname: '/index.html', search: '' };
+
+  function makeCaptureFetch(sink) {
+    return (url, opts) => {
+      sink.body = JSON.parse(opts.body);
+      sink.url = url;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: true, ackOpIds: [], updatedAt: 1 })
+      });
+    };
+  }
+
+  const cvStoreMap = {
+    'psat_progress': '{}',
+    'psat_srs': '{}',
+    'psat_sessions': '{}',
+    'psat_exam_history': '[]'
+  };
+  const cvStore = {
+    getItem: k => (cvStoreMap[k] !== undefined ? cvStoreMap[k] : null),
+    setItem: (k, v) => { cvStoreMap[k] = String(v); },
+    removeItem: k => { delete cvStoreMap[k]; }
+  };
+
+  // 30a. Default (no global set) must be the literal string "v1"
+  const savedWindow = global.window;
+  const savedGlobalVersion = global.PSAT_CLIENT_VERSION;
+  delete global.PSAT_CLIENT_VERSION;
+  global.window = undefined;
+
+  const cvDefaultSink = {};
+  const cvDefaultRes = await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvDefaultSink), 'e2e_test_student', cvProdLoc);
+  assert.strictEqual(cvDefaultRes.success, true, 'push must succeed');
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(cvDefaultSink.body, 'client_version'),
+    'sync POST body must contain a client_version field'
+  );
+  assert.strictEqual(cvDefaultSink.body.client_version, 'v1', 'client_version must default to "v1"');
+  assert.strictEqual(PSAT_ENGINE.getClientVersion(), 'v1', 'getClientVersion() must default to "v1"');
+
+  // 30b. window.PSAT_CLIENT_VERSION overrides the default
+  global.window = { PSAT_CLIENT_VERSION: 'v2-deadbee' };
+  const cvOverrideSink = {};
+  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvOverrideSink), 'e2e_test_student', cvProdLoc);
+  assert.strictEqual(
+    cvOverrideSink.body.client_version,
+    'v2-deadbee',
+    'window.PSAT_CLIENT_VERSION must override the default'
+  );
+  assert.strictEqual(PSAT_ENGINE.getClientVersion(), 'v2-deadbee');
+
+  // 30c. A non-string / empty global must not leak into the payload
+  global.window = { PSAT_CLIENT_VERSION: '' };
+  assert.strictEqual(PSAT_ENGINE.getClientVersion(), 'v1', 'Empty global must fall back to "v1"');
+  global.window = { PSAT_CLIENT_VERSION: 42 };
+  assert.strictEqual(PSAT_ENGINE.getClientVersion(), 'v1', 'Non-string global must fall back to "v1"');
+
+  // 30d. The other payload fields must be unchanged by this addition
+  global.window = undefined;
+  const cvShapeSink = {};
+  await PSAT_ENGINE.pushToCloud(cvStore, makeCaptureFetch(cvShapeSink), 'e2e_test_student', cvProdLoc);
+  ['student_name', 'progress', 'srsState', 'sessionsState', 'examHistory', 'outboxOps', 'clientTimestamp'].forEach(k => {
+    assert.ok(Object.prototype.hasOwnProperty.call(cvShapeSink.body, k), `payload must still carry ${k}`);
+  });
+  assert.strictEqual(cvShapeSink.body.student_name, 'e2e_test_student');
+
+  global.window = savedWindow;
+  if (savedGlobalVersion !== undefined) global.PSAT_CLIENT_VERSION = savedGlobalVersion;
+
   console.log('✓ All Spaced Repetition (SM-2), Real Dataset Exam Generation, Mini Exam Simulation, Monotonicity Scaling, Trouble Spot Aggregation, Lifetime Counter Retention, High-Yield Prioritization, Post-Exam Recovery Plan Generator, Error Tagging, Beta Isolation, Client Safety Snapshots, Beta Adapter Pull, Snapshot Restore Abort, Demo Mode Isolation, Durable Sync Outbox, Transactional Destructive Actions, Compact Long-Term SRS State, Blueprint-Balanced Modules, Calibrated Score Confidence Ranges, Error Tag Coaching Drills, Longitudinal Error Trends, High-Fidelity Structured Rationale Rendering (renderRationale), Dynamic Reactive Gap Drill Focus Metrics (calculateGapFocusMetrics), and Cosmos DB Cloud Sync tests passed!');
 })();
 
