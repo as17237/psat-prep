@@ -107,7 +107,11 @@ FULL BANK, CAPPED (what this build writes)
 
 **Therefore the single-master-document model does not scale to the full 3,059-question bank**, with or without WI-11's caps.
 
-### Options for the follow-up (needs an owner decision)
+### ✅ DECIDED 2026-08-30 — owner chose option C
+
+Owner's words: *"smallest data and no wall, no data loss, and the existing app should continue to work."* Specced as **WI-11.5** in `REFACTOR_PLAN.md` (inserted just before Phase 3): slim per-entry payloads **and** shard the master document into `progress_shard`/`srs_shard` buckets, with three hard acceptance criteria — additive migration that never deletes the legacy doc, full v1-client compatibility (prod app untouched; server reassembles and accepts v1 full-state payloads), and every document under 400 KB at full 3,059-question coverage. Run it after WI-12; never concurrently with WI-13/14. Fix `simulate_full_bank.js` first — it drives only 3 reviews/question, so the cap never engages.
+
+### Options as originally presented
 
 - **A. Slim the per-entry payload.** Drop derivable fields (`accuracyPercent`, `timesSeen`/`timesCorrect`/`timesIncorrect`, redundant flags) and shorten keys. Plausibly 40–60% smaller → ~1.4–2.0 MB at full bank. Cheapest change; still uncomfortably close to the wall.
 - **B. Shard the master document** (recommended): keep the profile doc small and store progress/SRS in bucketed documents (e.g. by question-id prefix or domain), or attempts as append-only docs with periodic rollups. The delta-sync path WI-11 just built is what makes this tractable — the client already computes per-key deltas. Server merge is per-key, so sharding is compatible with the existing `api/src/lib/merge.js` contract.

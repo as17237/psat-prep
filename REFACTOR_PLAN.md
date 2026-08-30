@@ -301,6 +301,25 @@ Format per item: **Objective · Dependencies · Touches · Data safety · Verifi
 
 ---
 
+#### WI-11.5 — Bound the data model: slim entries + shard the master document  ⭐ OWNER-APPROVED 2026-08-30
+
+**Owner decision (2026-08-30):** option **C** — "smallest data and no wall, no data loss, and the existing app should continue to work." All three are acceptance criteria, not aspirations.
+
+- **Objective:** remove the Cosmos 2 MB per-document ceiling as a future outage. Today's single `student_<name>` master doc is ~288 KB at 406 answered questions; WI-11's own simulation projects **3.29 MB at full bank (3,059 questions), crossing the 2 MB wall at ~1,500–2,000** — and shows the SRS history cap saves 0 bytes because growth is per-entry size (577 B/progress entry, 495 B/SRS card), not history length. Two changes, together:
+  1. **Slim (A):** stop persisting derivable fields (`accuracyPercent`, `timesSeen`/`timesCorrect`/`timesIncorrect`, redundant flags) — recompute them on read; shorten the hottest keys. Target ≥40% reduction per entry, measured.
+  2. **Shard (B):** the profile doc keeps identity + summaries + exam history; progress and SRS move into bucketed documents (`doc_type: 'progress_shard'` / `'srs_shard'`, deterministic bucket by question-id prefix, target ≤16 buckets so a full read is a single cross-partition query on the same `/student_name` partition key). WI-11's delta-sync path already computes per-key deltas, which is what makes routing a write to its bucket tractable.
+- **Dependencies:** WI-11's committed work (envelope v2, delta sync, summaries) is the foundation — accept or fold it into this item. Do before Phase 4; may run after WI-12 (no file overlap) but MUST NOT run concurrently with WI-13/14 (both touch rendering of the same metrics).
+- **Touches:** `js/engine/storage.js`, `js/engine/sync.js`, `api/src/functions/sync.js`, `api/src/lib/merge.js` (bucket-aware merge; the per-key pins in `tests/integrity/test_merge_pins.js` must all still pass), new `scripts/migrate_to_shards.js`, `tests/integrity/run_integrity.js` (shard-aware orphan/coverage checks).
+- **Data safety — the three owner constraints, made checkable:**
+  1. **No data loss:** migration is *additive* — write shards, verify byte-equivalence of the reassembled state against the pre-migration doc, and only then stop writing the legacy fields. The legacy master doc is **never deleted**; it is retained as a frozen fallback. Preflight backup before any write, and the reassembly proof runs against the real 406-entry document in a scratch DB first.
+  2. **Existing app keeps working:** the v1 client (prod) reads and writes the single master doc and must not be touched. Therefore `GET /api/sync` continues to return the same composite shape (server reassembles from shards + legacy doc), and `POST /api/sync` continues to accept full-state v1 payloads, routing them into shards server-side. **Compatibility test: a captured real v1 payload POSTed against the new API must produce the same reassembled state as today.**
+  3. **No wall:** re-run `scripts/simulate_full_bank.js` (first FIX it — it drives only 3 reviews/question so the cap never engages; drive 25+ on a subset) and require **every document < 400 KB at full 3,059-question coverage**, printed per shard.
+- **Verification:** red-first unit tests for bucket assignment (stable, deterministic, no question moves buckets across runs), slimming round-trip (recomputed fields equal the previously stored ones for all 406 live entries — compare against a backup, hand-checked on 10), reassembly equality, v1-payload compatibility, and shard-aware merge pins. Live: migrate `e2e_test_student` end to end; `default_student` etag-fenced and untouched until a separate, explicitly owner-approved migration run. Playwright + full suites green.
+- **Rollback:** the legacy master doc is retained and still authoritative until the flag flips; rollback = stop reading shards. Document the exact revert in the DR runbook.
+- **DoD:** simulation prints every doc < 400 KB at full bank (paste); reassembly byte-equal on real data; v1-payload compatibility test green; merge pins green; `default_student` provably untouched; integrity suite shard-aware and green.
+
+---
+
 ### Phase 3 — Design system & UI migration (in `/v2/`)
 
 ---
