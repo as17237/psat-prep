@@ -70,7 +70,11 @@ app.http('sync', {
           srsState: masterDoc?.srsState || {},
           sessionsState: masterDoc?.sessionsState || {},
           examHistory: mergedExams,
-          updatedAt: masterDoc?.updatedAt || Date.now()
+          updatedAt: masterDoc?.updatedAt || Date.now(),
+          // WI-11: surfaced so a client can see which envelope the stored document
+          // is on. A document written only by v1 clients has no field and reads as 1.
+          schemaVersion: Number(masterDoc?.schemaVersion) || 1,
+          createdAt: masterDoc?.createdAt || null
         };
 
         return { status: 200, jsonBody: { success: true, exists: true, data: compositeData } };
@@ -125,7 +129,21 @@ app.http('sync', {
           clientTimestamp: body.clientTimestamp || new Date().toISOString(),
           // Which app build produced this write ('v1' = prod/beta lane, 'v2-<sha>' = /v2/ lane).
           // Never cleared by a client that omits it: fall back to what is already stored.
-          clientVersion: body.client_version || existingMaster?.clientVersion || null
+          clientVersion: body.client_version || existingMaster?.clientVersion || null,
+          // WI-11 versioned envelope. ADDITIVE and MONOTONIC:
+          //   - a v1 client sends no schemaVersion, so `incoming` is 0 and the stored
+          //     value is kept -- a v1 write can never downgrade a document;
+          //   - a document that has never seen a v2 write reads as 1, which is the
+          //     truth about it rather than an invented default;
+          //   - no data is reshaped by this field. It records which envelope the
+          //     newest writer understood, nothing more, which is why server documents
+          //     need no migration (REFACTOR_PLAN.md WI-11).
+          schemaVersion: Math.max(
+            Number(body.schemaVersion) || 0,
+            Number(existingMaster?.schemaVersion) || 1
+          ),
+          // Preserve the document's first-seen time across every subsequent write.
+          createdAt: existingMaster?.createdAt || now
         };
         await c.items.upsert(masterDoc);
 
