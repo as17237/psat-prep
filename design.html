@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PSAT Prep — Design System Reference</title>
+  <link rel="stylesheet" href="styles/tokens.css?v=20260830-1">
+  <link rel="stylesheet" href="styles/components.css?v=20260830-1">
+  <style>
+    /* Page-level CSS for THIS reference page only, limited to layout grid —
+       the same rule WI-13/14/15 will hold the real pages to (REFACTOR_PLAN
+       §2.2). No component styling lives here; components.css owns that. */
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; background: var(--color-surface-alt); color: var(--color-text); }
+    .ds-shell { max-width: 72rem; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+    .ds-header { margin-bottom: var(--space-6); }
+    .ds-header h1 { margin: 0 0 var(--space-2); font-size: var(--text-xl); }
+    .ds-header p { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); max-width: 48rem; }
+    .ds-nav-shell { position: sticky; top: 0; background: var(--color-surface-alt); padding: var(--space-3) 0; z-index: 10; }
+    .ds-section { margin-top: var(--space-7); scroll-margin-top: 5rem; }
+    .ds-section h2 { font-size: var(--text-lg); margin: 0 0 var(--space-1); }
+    .ds-section-desc { color: var(--color-text-muted); font-size: var(--text-sm); margin: 0 0 var(--space-4); }
+    .ds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: var(--space-4); }
+    .ds-swatch-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .ds-swatch { width: 5.5rem; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--color-border); font-size: var(--text-xs); }
+    .ds-swatch-fill { height: 2.5rem; }
+    .ds-swatch-label { padding: var(--space-1) var(--space-2); background: var(--color-surface); color: var(--color-text-muted); }
+    .ds-type-row { display: flex; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-2); }
+    .ds-type-row code { width: 5rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+    .ds-space-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+    .ds-space-row code { width: 4rem; color: var(--color-text-muted); font-size: var(--text-xs); }
+    .ds-space-box { height: 1rem; background: var(--color-primary-300); border-radius: 2px; }
+    .ds-modal-frame { position: relative; min-height: 20rem; border: 1px dashed var(--color-border-strong); border-radius: var(--radius-lg); background: var(--color-surface); }
+    .ds-modal-frame .modal-backdrop { position: absolute; }
+    .ds-hover-hint { font-size: var(--text-xs); color: var(--color-text-subtle); margin-top: var(--space-1); }
+    .ds-parent-scope { padding: var(--space-4); border: 1px dashed var(--color-accent-400); border-radius: var(--radius-lg); }
+    #ds-chart { max-width: 40rem; }
+  </style>
+</head>
+<body>
+  <div class="ds-shell">
+    <div class="ds-header">
+      <h1>PSAT Prep — Design System Reference</h1>
+      <p>
+        Every token and component from <code>styles/tokens.css</code> and <code>styles/components.css</code>,
+        rendered in every state it supports. This page is both documentation and the Playwright
+        visual-truth target for <code>tests/e2e/design-system.spec.js</code> (REFACTOR_PLAN.md WI-12).
+        It does not read or write any student data — every value on this page is either a fixed
+        design-time constant or a real, frozen fact from the question bank (never a live measurement).
+      </p>
+    </div>
+
+    <div class="ds-nav-shell">
+      <div id="ds-nav" data-testid="component-navtabs-page"></div>
+    </div>
+
+    <section class="ds-section" id="sec-tokens" data-testid="section-tokens">
+      <h2>Tokens</h2>
+      <p class="ds-section-desc">Palette, type scale, spacing scale — the vocabulary every component below is built from.</p>
+
+      <h3>Palette</h3>
+      <div class="ds-swatch-row" data-testid="tokens-palette">
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-primary-600)"></div><div class="ds-swatch-label">primary-600</div></div>
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-accent-600)"></div><div class="ds-swatch-label">accent-600</div></div>
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-success-600)"></div><div class="ds-swatch-label">success-600</div></div>
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-warning-600)"></div><div class="ds-swatch-label">warning-600</div></div>
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-danger-600)"></div><div class="ds-swatch-label">danger-600</div></div>
+        <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-neutral-600)"></div><div class="ds-swatch-label">neutral-600</div></div>
+      </div>
+
+      <h3>Parent-portal accent override</h3>
+      <p class="ds-section-desc">Same tokens, <code>[data-portal="parent"]</code> scope — only the accent hue changes (violet, not cyan).</p>
+      <div class="ds-parent-scope" data-portal="parent" data-testid="tokens-parent-accent">
+        <div class="ds-swatch-row">
+          <div class="ds-swatch"><div class="ds-swatch-fill" style="background:var(--color-accent-600)"></div><div class="ds-swatch-label">accent-600</div></div>
+          <span class="badge badge-accent">Parent accent badge</span>
+        </div>
+      </div>
+
+      <h3>Type scale</h3>
+      <div data-testid="tokens-type-scale">
+        <div class="ds-type-row"><code>--text-xs</code><span style="font-size:var(--text-xs)">Skill: Command of Evidence</span></div>
+        <div class="ds-type-row"><code>--text-sm</code><span style="font-size:var(--text-sm)">14 of 20 correct this week</span></div>
+        <div class="ds-type-row"><code>--text-base</code><span style="font-size:var(--text-base)">Which choice best supports the claim?</span></div>
+        <div class="ds-type-row"><code>--text-lg</code><span style="font-size:var(--text-lg)">My Progress</span></div>
+        <div class="ds-type-row"><code>--text-xl</code><span style="font-size:var(--text-xl);font-weight:800">1180</span></div>
+      </div>
+
+      <h3>Spacing scale</h3>
+      <div data-testid="tokens-spacing">
+        <div class="ds-space-row"><code>--space-1</code><div class="ds-space-box" style="width:var(--space-1)"></div></div>
+        <div class="ds-space-row"><code>--space-2</code><div class="ds-space-box" style="width:var(--space-2)"></div></div>
+        <div class="ds-space-row"><code>--space-3</code><div class="ds-space-box" style="width:var(--space-3)"></div></div>
+        <div class="ds-space-row"><code>--space-4</code><div class="ds-space-box" style="width:var(--space-4)"></div></div>
+        <div class="ds-space-row"><code>--space-5</code><div class="ds-space-box" style="width:var(--space-5)"></div></div>
+        <div class="ds-space-row"><code>--space-6</code><div class="ds-space-box" style="width:var(--space-6)"></div></div>
+        <div class="ds-space-row"><code>--space-7</code><div class="ds-space-box" style="width:var(--space-7)"></div></div>
+        <div class="ds-space-row"><code>--space-8</code><div class="ds-space-box" style="width:var(--space-8)"></div></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-buttons" data-testid="section-buttons">
+      <h2>Buttons (absorbed from styles/buttons.css)</h2>
+      <p class="ds-section-desc">Unchanged, byte-identical file — pulled into this system by <code>@import</code> in components.css.</p>
+      <div class="ds-swatch-row" data-testid="component-buttons">
+        <button class="btn btn-primary btn-md">Primary</button>
+        <button class="btn btn-secondary btn-md">Secondary</button>
+        <button class="btn btn-success btn-md">Success</button>
+        <button class="btn btn-danger btn-md">Danger</button>
+        <button class="btn btn-ghost btn-md">Ghost</button>
+        <button class="btn btn-primary btn-md" disabled>Disabled</button>
+        <button class="btn btn-primary btn-md" id="ds-hover-button" data-testid="hover-demo-button">Hover me</button>
+      </div>
+      <p class="ds-hover-hint" data-testid="hover-demo-hint">↑ "Hover me" — real :hover (Playwright drives an actual pointer hover over it and asserts the background-color changes; no simulated CSS class involved).</p>
+    </section>
+
+    <section class="ds-section" id="sec-stat" data-testid="section-stat">
+      <h2>Stat</h2>
+      <p class="ds-section-desc">A single metric. <code>value: number|null</code> — <code>null</code> renders "—" by construction, never a fabricated number.</p>
+      <div class="ds-grid">
+        <div class="card" id="ds-stat-value" data-testid="component-statcard-value"></div>
+        <div class="card" id="ds-stat-null" data-testid="component-statcard-null"></div>
+        <div class="card" id="ds-stat-estimate" data-testid="component-statcard-estimate"></div>
+        <div class="card" id="ds-stat-loading" data-testid="component-statcard-loading"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-card" data-testid="section-card">
+      <h2>Card</h2>
+      <div class="ds-grid">
+        <div id="ds-card-default" data-testid="component-card-default"></div>
+        <div class="card is-loading" data-testid="component-card-loading">
+          <div class="skeleton-line" style="width:60%"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+        </div>
+        <div class="card" data-testid="component-card-empty" id="ds-card-empty"></div>
+        <div class="card is-error" data-testid="component-card-error" id="ds-card-error"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-banner" data-testid="section-banner">
+      <h2>Banner</h2>
+      <div id="ds-banners" data-testid="component-banners" style="display:flex;flex-direction:column;gap:var(--space-3)"></div>
+    </section>
+
+    <section class="ds-section" id="sec-badge" data-testid="section-badge">
+      <h2>Badge</h2>
+      <div class="ds-swatch-row" data-testid="component-badges">
+        <span class="badge badge-primary">Algebra</span>
+        <span class="badge badge-accent">Command of Evidence</span>
+        <span class="badge badge-success">Mastered</span>
+        <span class="badge badge-warning">Estimate</span>
+        <span class="badge badge-danger">Needs review</span>
+        <span class="badge badge-neutral">Medium</span>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-progress" data-testid="section-progress">
+      <h2>Progress</h2>
+      <div class="ds-grid">
+        <div id="ds-progress-default" data-testid="component-progress-default"></div>
+        <div id="ds-progress-null" data-testid="component-progress-null"></div>
+        <div id="ds-progress-success" data-testid="component-progress-success"></div>
+        <div id="ds-progress-danger" data-testid="component-progress-danger"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-table" data-testid="section-table">
+      <h2>Table</h2>
+      <div class="ds-grid">
+        <div class="card"><h3 class="card-title" style="font-size:var(--text-sm)">Default</h3><div id="ds-table-default" data-testid="component-table-default"></div></div>
+        <div class="card"><h3 class="card-title" style="font-size:var(--text-sm)">Loading</h3><div id="ds-table-loading" data-testid="component-table-loading"></div></div>
+        <div class="card"><h3 class="card-title" style="font-size:var(--text-sm)">Empty</h3><div id="ds-table-empty" data-testid="component-table-empty"></div></div>
+        <div class="card"><h3 class="card-title" style="font-size:var(--text-sm)">Error</h3><div id="ds-table-error" data-testid="component-table-error"></div></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-modal" data-testid="section-modal">
+      <h2>Modal</h2>
+      <div class="ds-grid">
+        <div class="ds-modal-frame" id="ds-modal-default" data-testid="component-modal-default"></div>
+        <div class="ds-modal-frame" id="ds-modal-danger" data-testid="component-modal-danger"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-tabs" data-testid="section-tabs">
+      <h2>Tabs</h2>
+      <div id="ds-tabs-demo" data-testid="component-navtabs-demo"></div>
+      <p class="ds-hover-hint" data-testid="hover-demo-tab-hint">Playwright also hovers the inactive "Exams" tab below and asserts its color changes on real :hover.</p>
+    </section>
+
+    <section class="ds-section" id="sec-empty" data-testid="section-empty">
+      <h2>Empty state</h2>
+      <div class="ds-grid">
+        <div class="card" id="ds-empty-default" data-testid="component-emptystate-empty"></div>
+        <div class="card is-error" id="ds-empty-error" data-testid="component-emptystate-error"></div>
+        <div class="card" id="ds-empty-action" data-testid="component-emptystate-action"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-question" data-testid="section-question">
+      <h2>Question card</h2>
+      <p class="ds-section-desc">Real record from data/ela_questions.json (id 09322f3e) — domain, skill, options and rationale are the app's actual dataset, not placeholder copy.</p>
+      <div class="ds-grid">
+        <div id="ds-question-default" data-testid="component-questioncard-default"></div>
+        <div id="ds-question-revealed" data-testid="component-questioncard-revealed"></div>
+        <div id="ds-question-loading" data-testid="component-questioncard-loading"></div>
+        <div id="ds-question-empty" data-testid="component-questioncard-empty"></div>
+      </div>
+    </section>
+
+    <section class="ds-section" id="sec-chart" data-testid="section-chart">
+      <h2>Chart colors (vendored Chart.js)</h2>
+      <p class="ds-section-desc">
+        Question-bank composition by domain — a real, frozen count from <code>data/ela_questions.json</code> +
+        <code>data/math_questions.json</code> (computed 2026-08-30; 3,059 questions total), not sample data.
+        Colors read live from <code>--chart-series-*</code> tokens via <code>getComputedStyle</code>, proving the
+        vendored <code>vendor/chart.min.js</code> and the tokens are wired together. WI-12 does not rewire any
+        existing page's chart code — this is a standalone proof for WI-13/14 to build on.
+      </p>
+      <canvas id="ds-chart" data-testid="component-chart" width="640" height="320"></canvas>
+    </section>
+  </div>
+
+  <script src="vendor/chart.min.js?v=20260830-1"></script>
+  <script type="module" src="js/pages/design.js?v=20260830-1"></script>
+</body>
+</html>
