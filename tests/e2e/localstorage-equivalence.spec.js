@@ -164,6 +164,26 @@ function normalise(value, key) {
   return value;
 }
 
+// psat_sessions is keyed by the LOCAL calendar day, so a baseline captured on
+// one date can never deep-equal a run on the next. Collapse the day key (and
+// the matching `date` field) to '<DAY>' in both dumps. The spec separately
+// asserts the live dump's key IS today's local date, so the key is still
+// verified -- only its date-dependence is normalised away.
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+function normaliseSessionDays(sessions) {
+  if (!sessions || typeof sessions !== 'object') return sessions;
+  const out = {};
+  Object.keys(sessions).forEach((day) => {
+    const entry = sessions[day];
+    const rewritten =
+      entry && typeof entry === 'object' && DAY_KEY.test(String(entry.date || ''))
+        ? Object.assign({}, entry, { date: '<DAY>' })
+        : entry;
+    out[DAY_KEY.test(day) ? '<DAY>' : day] = rewritten;
+  });
+  return out;
+}
+
 function normaliseDump(raw) {
   const out = {};
   Object.keys(raw)
@@ -180,7 +200,7 @@ function normaliseDump(raw) {
         out[k] = normalise(raw[k], null);
         return;
       }
-      out[k] = normalise(parsed, null);
+      out[k] = normalise(k === 'psat_sessions' ? normaliseSessionDays(parsed) : parsed, null);
     });
   return out;
 }
@@ -320,6 +340,11 @@ test.describe('localStorage equivalence (WI-09 no-behaviour-change proof)', () =
         ? path.resolve(baselineEnv)
         : path.join(__dirname, 'fixtures', 'localstorage_baseline_6d1c0e9.json');
       const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+      // The stored baseline carries the literal day it was captured; apply the
+      // same day-key normalisation to it so the comparison is date-independent.
+      if (baseline.psat_sessions) {
+        baseline.psat_sessions = normaliseSessionDays(baseline.psat_sessions);
+      }
 
       // The baseline stays the PRE-REFACTOR (6d1c0e9) dump. WI-11 is the first
       // work item that deliberately changes stored bytes, so rather than
@@ -327,6 +352,18 @@ test.describe('localStorage equivalence (WI-09 no-behaviour-change proof)', () =
       // accepted deltas are subtracted here, by hand, and everything else is
       // still compared byte-for-byte against the original. Any FOURTH difference
       // fails this spec exactly as before. See ACCEPTED_WI11_DELTAS above.
+      // The day key itself is normalised to '<DAY>' for the deep-equal (a
+      // baseline captured yesterday can never match a run today), so verify
+      // here that the session really was filed under today's LOCAL date.
+      const rawSessions = JSON.parse(raw.psat_sessions || '{}');
+      const today = new Date();
+      const todayKey = [
+        today.getFullYear(),
+        String(today.getMonth() + 1).padStart(2, '0'),
+        String(today.getDate()).padStart(2, '0'),
+      ].join('-');
+      expect(Object.keys(rawSessions)).toEqual([todayKey]);
+
       const comparable = stripAcceptedWi11Deltas(dump, baseline);
       expect(Object.keys(comparable).sort()).toEqual(Object.keys(baseline).sort());
       expect(comparable).toEqual(baseline);
