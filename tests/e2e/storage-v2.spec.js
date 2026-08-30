@@ -219,8 +219,18 @@ test.describe('WI-11 interrupted sync', () => {
 
     // Answer three questions with the network down. Answers must still be recorded
     // locally and queued; nothing may be lost because the push failed.
+    //
+    // Each answer is confirmed IN STORAGE before advancing. Clicking Next straight
+    // after the option click races loadQuestion()'s re-render, and under full-suite
+    // load that race loses an answer -- which made this spec intermittently report
+    // 2 of 3 attempts. Waiting on the recorded state is the deterministic form.
     for (let i = 0; i < 3; i++) {
       await page.locator('#options-container button').first().click({ force: true });
+      await page.waitForFunction(
+        (expected) => Object.keys(JSON.parse(localStorage.getItem('psat_progress') || '{}')).length === expected,
+        i + 1,
+        { timeout: 10000 }
+      );
       await page.locator('#btn-next').click({ force: true });
     }
 
@@ -270,6 +280,11 @@ test.describe('WI-11 interrupted sync', () => {
       await page.locator('#btn-next').click({ force: true });
     }
     await page.locator('#options-container button').first().click({ force: true });
+    await page.waitForFunction(
+      () => Object.keys(JSON.parse(localStorage.getItem('psat_progress') || '{}')).length === 4,
+      null,
+      { timeout: 10000 }
+    );
     await page.waitForFunction(
       () => JSON.parse(localStorage.getItem('psat_sync_outbox') || '[]').length === 0,
       null,

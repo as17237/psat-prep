@@ -79,6 +79,69 @@ const EMBEDDED_EPOCH = /\d{13}/g;
 // Keys holding a pre-formatted locale date string built from the clock.
 const NORMALISED_DATE_STRING_KEYS = new Set(['formattedDate', 'dateStr', 'displayDate']);
 
+// ---------------------------------------------------------------------------
+// ACCEPTED WI-11 DELTAS (REFACTOR_PLAN.md WI-11, storage & sync hardening)
+// ---------------------------------------------------------------------------
+// WI-09 through WI-10 were behaviour-frozen, so this dump matched 6d1c0e9
+// exactly. WI-11 is the first work item allowed to change stored bytes, and it
+// changes exactly three things. They are listed here BY HAND so that the
+// pre-refactor baseline can stay the comparison target and a fourth, unintended
+// difference still fails the spec.
+//
+//   1. psat_schema_meta   NEW key -- the versioned envelope sidecar
+//                         {schemaVersion: 2, createdAt, updatedAt, migratedAt,
+//                          migratedFrom, backedUpKeys}.
+//   2. psat_sync_cursor   NEW key -- the delta-push cursor
+//                         {lastPushAt, lastFullPushAt, lastAckAt, lastMode}.
+//   3. progress entries written by the EXAM path now carry `errorTag` and
+//      `historicalErrorTags`. Before WI-11 the exam-submission handler built its
+//      own progress record that omitted both fields, so finishing an exam DELETED
+//      any error tag the student had set on that question. Both paths now use
+//      PSAT_ENGINE.buildProgressEntry. Only the two null/empty defaults appear in
+//      this fixture's dump, because the fixture sets no error tags.
+//
+// No key is removed and no existing value changes. Anything else is a regression.
+const ACCEPTED_WI11_NEW_KEYS = ['psat_schema_meta', 'psat_sync_cursor'];
+const ACCEPTED_WI11_NEW_PROGRESS_FIELDS = { errorTag: null, historicalErrorTags: [] };
+
+/**
+ * Removes the three documented WI-11 additions from a dump so what remains can be
+ * compared against the pre-refactor baseline. Throws if an "accepted" addition is
+ * not actually what was documented -- e.g. an errorTag that is not null, which
+ * would be a real change hiding behind an allowance.
+ */
+function stripAcceptedWi11Deltas(dump, baseline) {
+  const out = JSON.parse(JSON.stringify(dump));
+  ACCEPTED_WI11_NEW_KEYS.forEach((k) => { delete out[k]; });
+  const progress = out.psat_progress;
+  const baseProgress = (baseline && baseline.psat_progress) || {};
+  if (progress && typeof progress === 'object') {
+    Object.keys(progress).forEach((qid) => {
+      const entry = progress[qid];
+      if (!entry || typeof entry !== 'object') return;
+      const baseEntry = baseProgress[qid];
+      Object.entries(ACCEPTED_WI11_NEW_PROGRESS_FIELDS).forEach(([field, allowedValue]) => {
+        if (!(field in entry)) return;
+        // The PRACTICE path always wrote these two fields, so the pre-refactor
+        // baseline already has them for practice-answered questions. Only the
+        // EXAM path's entries gained them, so only strip where the baseline has
+        // no such field -- otherwise a real change to a practice entry could hide.
+        if (baseEntry && typeof baseEntry === 'object' && field in baseEntry) return;
+        const actual = JSON.stringify(entry[field]);
+        const allowed = JSON.stringify(allowedValue);
+        if (actual !== allowed) {
+          throw new Error(
+            `localStorage equivalence: progress.${qid}.${field} is ${actual}, but only ` +
+              `${allowed} is an accepted WI-11 addition. This is a real change, not the documented one.`
+          );
+        }
+        delete entry[field];
+      });
+    });
+  }
+  return out;
+}
+
 // Top-level localStorage keys that are pure clock values.
 const CLOCK_ONLY_KEYS = new Set(['psat_last_cloud_sync_time']);
 
@@ -257,10 +320,21 @@ test.describe('localStorage equivalence (WI-09 no-behaviour-change proof)', () =
         ? path.resolve(baselineEnv)
         : path.join(__dirname, 'fixtures', 'localstorage_baseline_6d1c0e9.json');
       const baseline = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
-      expect(Object.keys(dump).sort()).toEqual(Object.keys(baseline).sort());
-      expect(dump).toEqual(baseline);
+
+      // The baseline stays the PRE-REFACTOR (6d1c0e9) dump. WI-11 is the first
+      // work item that deliberately changes stored bytes, so rather than
+      // re-capturing the baseline -- which would retire the proof -- the three
+      // accepted deltas are subtracted here, by hand, and everything else is
+      // still compared byte-for-byte against the original. Any FOURTH difference
+      // fails this spec exactly as before. See ACCEPTED_WI11_DELTAS above.
+      const comparable = stripAcceptedWi11Deltas(dump, baseline);
+      expect(Object.keys(comparable).sort()).toEqual(Object.keys(baseline).sort());
+      expect(comparable).toEqual(baseline);
       // eslint-disable-next-line no-console
-      console.log(`[ls-equivalence] DEEP-EQUAL vs ${baselinePath} -- 0 differences`);
+      console.log(
+        `[ls-equivalence] DEEP-EQUAL vs ${baselinePath} -- 0 differences ` +
+          'beyond the 3 documented WI-11 deltas'
+      );
     }
   });
 });
