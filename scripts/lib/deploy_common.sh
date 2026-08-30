@@ -36,11 +36,17 @@ SITE_BASE_URL="https://psatprep4915.z13.web.core.windows.net"
 # storage, examgen, sync) — that is also the order the pages' <script> tags use,
 # and a part that loads before its dependency throws by design. srs.js must
 # come after all six.
+# WI-12 added design.html (the component-system reference page, a real page
+# with a real ES-module entry — see tests/helpers/page_source.js PAGES.design),
+# js/components/*.js (statCard/banner/modal/progressBar/questionCard/navTabs/
+# emptyState/dataTable + the shared format.js), styles/tokens.css,
+# styles/components.css, and the self-hosted vendor/chart.min.js.
 APP_FILES=(
   "index.html"
   "parent.html"
   "mistakes.html"
   "feedback.html"
+  "design.html"
   "js/engine/grading.js"
   "js/engine/scheduler.js"
   "js/engine/scoring.js"
@@ -49,6 +55,9 @@ APP_FILES=(
   "js/engine/sync.js"
   "srs.js"
   "styles/buttons.css"
+  "styles/tokens.css"
+  "styles/components.css"
+  "vendor/chart.min.js"
   "js/shared/html.js"
   "js/shared/dom.js"
   "js/shared/env.js"
@@ -57,33 +66,58 @@ APP_FILES=(
   "js/shared/questions.js"
   "js/shared/drill.js"
   "js/shared/math_tools.js"
+  "js/components/format.js"
+  "js/components/statCard.js"
+  "js/components/banner.js"
+  "js/components/modal.js"
+  "js/components/progressBar.js"
+  "js/components/questionCard.js"
+  "js/components/navTabs.js"
+  "js/components/emptyState.js"
+  "js/components/dataTable.js"
   "js/pages/feedback.js"
   "js/pages/mistakes.js"
   "js/pages/parent.js"
   "js/pages/student.js"
+  "js/pages/design.js"
 )
 
 # ------------------------------------------------------------------------------
 # assert_app_files_cover_js_tree
 #
-# Every .js under js/ must be in APP_FILES, and every js/ entry in APP_FILES
-# must exist. Loud failure beats a lane that serves a page whose module 404s
+# Every .js under js/ must be in APP_FILES, every .css under styles/ must be
+# in APP_FILES, every file under vendor/ must be in APP_FILES, and every
+# js/styles/vendor entry in APP_FILES must exist on disk. Loud failure beats a
+# lane that serves a page whose module, stylesheet, or vendored asset 404s
 # (CLAUDE.md failure mode 5).
+#
+# WI-12 extended this from "js/ only" to also cover styles/ and vendor/ — the
+# same forgotten-file risk applies to a stylesheet or a vendored script as to
+# a page controller (CLAUDE.md failure mode 2: apply the rule everywhere it
+# applies, not just where it was first written). The function name is kept
+# ("_js_tree") because tests/test_deploy_scripts.js and all three lane
+# scripts already call it by this exact name; renaming it would be a rename
+# for its own sake, not a clarity win, and would touch call sites for no
+# behavioural change.
 # ------------------------------------------------------------------------------
 assert_app_files_cover_js_tree() {
   local missing=()
   local f
-  while IFS= read -r f; do
-    local found=false
-    local a
-    for a in "${APP_FILES[@]}"; do
-      if [[ "$a" == "$f" ]]; then found=true; break; fi
-    done
-    if [[ "$found" == "false" ]]; then missing+=("$f"); fi
-  done < <(find js -type f -name '*.js' 2>/dev/null | sort)
+  local dir
+  for dir in js styles vendor; do
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r f; do
+      local found=false
+      local a
+      for a in "${APP_FILES[@]}"; do
+        if [[ "$a" == "$f" ]]; then found=true; break; fi
+      done
+      if [[ "$found" == "false" ]]; then missing+=("$f"); fi
+    done < <(find "$dir" -type f 2>/dev/null | sort)
+  done
 
   if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: these js/ modules exist on disk but are not in APP_FILES:" >&2
+    echo "ERROR: these files exist on disk (js/, styles/, vendor/) but are not in APP_FILES:" >&2
     printf '       %s\n' "${missing[@]}" >&2
     echo "       Add them to scripts/lib/deploy_common.sh before deploying." >&2
     exit 5

@@ -49,7 +49,7 @@ function checkName(script, name) {
 // ---------------------------------------------------------------------------
 // 1. deploy_v2.sh accepts only v2/ names.
 // ---------------------------------------------------------------------------
-const v2Accepted = ['v2/index.html', 'v2/styles/buttons.css', 'v2/data/questions_data.js'];
+const v2Accepted = ['v2/index.html', 'v2/styles/buttons.css', 'v2/data/questions_data.js', 'v2/design.html', 'v2/styles/tokens.css', 'v2/vendor/chart.min.js'];
 v2Accepted.forEach(n => {
   const r = checkName('scripts/deploy_v2.sh', n);
   assert.strictEqual(r.status, 0, `deploy_v2.sh must accept '${n}' (stderr: ${r.stderr})`);
@@ -90,7 +90,7 @@ v2Refused.forEach(n => {
 // ---------------------------------------------------------------------------
 // 3. promote_to_prod.sh accepts only root names, and refuses soak lanes.
 // ---------------------------------------------------------------------------
-['index.html', 'parent.html', 'styles/buttons.css'].forEach(n => {
+['index.html', 'parent.html', 'styles/buttons.css', 'styles/tokens.css', 'design.html', 'vendor/chart.min.js'].forEach(n => {
   const r = checkName('scripts/promote_to_prod.sh', n);
   assert.strictEqual(r.status, 0, `promote_to_prod.sh must accept root name '${n}'`);
 });
@@ -145,11 +145,16 @@ const v2Planned = [...v2Dry.stdout.matchAll(/would upload .* -> \$web\/(\S+)/g)]
 // PSAT_ENGINE. This list is meant to require exactly this acknowledgement
 // whenever the deployed file set changes — it fired, and these six entries are
 // the acknowledgement. No assertion was changed or relaxed.
+// WI-12 additions: design.html (the component-system reference page),
+// js/components/*.js, styles/tokens.css, styles/components.css and the
+// self-hosted vendor/chart.min.js. Additive only — nothing above this
+// comment was removed or weakened.
 const V2_EXPECTED_BLOBS = [
   'v2/index.html',
   'v2/parent.html',
   'v2/mistakes.html',
   'v2/feedback.html',
+  'v2/design.html',
   'v2/js/engine/grading.js',
   'v2/js/engine/scheduler.js',
   'v2/js/engine/scoring.js',
@@ -158,6 +163,9 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/engine/sync.js',
   'v2/srs.js',
   'v2/styles/buttons.css',
+  'v2/styles/tokens.css',
+  'v2/styles/components.css',
+  'v2/vendor/chart.min.js',
   'v2/js/shared/html.js',
   'v2/js/shared/dom.js',
   'v2/js/shared/env.js',
@@ -166,10 +174,20 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/shared/questions.js',
   'v2/js/shared/drill.js',
   'v2/js/shared/math_tools.js',
+  'v2/js/components/format.js',
+  'v2/js/components/statCard.js',
+  'v2/js/components/banner.js',
+  'v2/js/components/modal.js',
+  'v2/js/components/progressBar.js',
+  'v2/js/components/questionCard.js',
+  'v2/js/components/navTabs.js',
+  'v2/js/components/emptyState.js',
+  'v2/js/components/dataTable.js',
   'v2/js/pages/feedback.js',
   'v2/js/pages/mistakes.js',
   'v2/js/pages/parent.js',
   'v2/js/pages/student.js',
+  'v2/js/pages/design.js',
   'v2/data/questions_data.js',
 ];
 assert.deepStrictEqual([...v2Planned].sort(), [...V2_EXPECTED_BLOBS].sort(),
@@ -210,9 +228,14 @@ betaPlanned.forEach(n => assert.ok(n.startsWith('beta/'), `planned blob '${n}' m
 // WI-09 moved the page-side copies into questionImageSrc(); WI-10 moved srs.js's
 // three into three different engine parts. The TOTAL is unchanged at 4, so this
 // number is not edited — only the breakdown behind it.
+// WI-12 added design.html as a 5th HTML page needing the client-version
+// injection; it introduces no new question-image accessor literal (its demo
+// question card goes through the existing questionImageSrc() helper), so the
+// rewrite count is unchanged at 4 while the versioned-page count rises to 5.
 const EXPECTED_IMAGE_REWRITES = 4;
-assert.ok(new RegExp(`${EXPECTED_IMAGE_REWRITES} image references absolutised, 4 pages versioned`).test(v2Dry.stdout),
-  `v2 staging must absolutise all ${EXPECTED_IMAGE_REWRITES} question-image references and version all 4 pages`);
+const EXPECTED_VERSIONED_PAGES = 5;
+assert.ok(new RegExp(`${EXPECTED_IMAGE_REWRITES} image references absolutised, ${EXPECTED_VERSIONED_PAGES} pages versioned`).test(v2Dry.stdout),
+  `v2 staging must absolutise all ${EXPECTED_IMAGE_REWRITES} question-image references and version all ${EXPECTED_VERSIONED_PAGES} pages`);
 
 // ---------------------------------------------------------------------------
 // 6b. WI-09: an ES module served with the wrong MIME type is refused by the

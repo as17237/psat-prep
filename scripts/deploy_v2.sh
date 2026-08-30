@@ -153,14 +153,27 @@ done
 #                                 index.html x2, parent.html, mistakes.html)
 # Recount and re-pin this whenever the pattern moves; a stale number is a loud
 # failure here rather than a silently half-transformed lane.
+#
+# WI-12 RECOUNT: added design.html, js/pages/design.js and js/components/*.js
+# (statCard/banner/modal/progressBar/questionCard/navTabs/emptyState/dataTable
+# + format.js), styles/tokens.css, styles/components.css and
+# vendor/chart.min.js to the lane. None of them use the
+# `'data/' + X.question_image` / `` `data/${X.question_image}` `` accessor
+# pattern this script rewrites (design.js's question demo passes a real
+# record straight to questionCard.js, which calls the existing
+# questionImageSrc() helper in js/shared/questions.js instead of
+# reimplementing the expression — CLAUDE.md mode 2), so the total stays 4.
 EXPECTED_IMAGE_REWRITES=4
 if [[ "$IMAGE_REWRITES_TOTAL" -ne "$EXPECTED_IMAGE_REWRITES" ]]; then
   echo "ERROR: expected $EXPECTED_IMAGE_REWRITES absolutised question-image references, found $IMAGE_REWRITES_TOTAL." >&2
   echo "       The image-path pattern in the app changed — update this script before deploying." >&2
   exit 6
 fi
-if [[ "$VERSION_INJECTIONS" -ne 4 ]]; then
-  echo "ERROR: expected 4 HTML pages to receive the client version, got $VERSION_INJECTIONS." >&2
+# WI-12 added design.html as a 5th HTML page — it needs the client version
+# injected exactly like the original four (index/parent/mistakes/feedback).
+EXPECTED_VERSION_INJECTIONS=5
+if [[ "$VERSION_INJECTIONS" -ne "$EXPECTED_VERSION_INJECTIONS" ]]; then
+  echo "ERROR: expected $EXPECTED_VERSION_INJECTIONS HTML pages to receive the client version, got $VERSION_INJECTIONS." >&2
   exit 6
 fi
 # No relative question-image path may survive into the lane; it would 404 under /v2/.

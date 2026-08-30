@@ -87,10 +87,12 @@ migratedHtml.forEach(file => {
     );
   });
 });
-// WI-09 is complete: all four pages load their controller as an ES module.
+// WI-09 is complete: all four app pages load their controller as an ES
+// module. WI-12 added a fifth page (design.html, the component reference
+// page) with the same rule.
 assert.strictEqual(
-  migratedPages.length, 4,
-  `All 4 pages must have an ES-module entry point (WI-09); found ${migratedPages.length}: ${migratedPages.join(', ')}`
+  migratedPages.length, 5,
+  `All 5 pages (4 app pages + design.html) must have an ES-module entry point; found ${migratedPages.length}: ${migratedPages.join(', ')}`
 );
 console.log(`✓ No logic in any inline <script> across ${migratedHtml.length} migrated page(s) (${inlineBlocksChecked} block(s) inspected)`);
 
