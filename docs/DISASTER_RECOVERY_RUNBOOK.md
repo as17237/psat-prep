@@ -457,3 +457,144 @@ curl -s 'https://psat-api-4915.azurewebsites.net/api/sync?student_name=default_s
 Note: the WI-04 deploy removed the `WEBSITE_RUN_FROM_PACKAGE` and `ENABLE_ORYX_BUILD` app
 settings (`az functionapp deployment source config-zip` does this when switching to a
 remote-build zip deploy). A rollback via the same command needs no app-setting changes.
+
+---
+
+## 7. Sharded student data model (WI-11.5)
+
+Added 2026-08-30. Read this before touching `api/src/functions/sync.js`, before restoring a
+student profile, and before believing a `progress` count read straight off a master document.
+
+### 7.1 What changed and why
+
+A student's `progress` and `srsState` used to live entirely on the single
+`student_<name>` master document. Measured at full 3,059-question coverage that document
+reaches **4,325,188 bytes** (3,367,863 B without the 50-exam history cap driven) — over
+Cosmos DB's **2 MB hard per-document limit**, which is a write rejection, not a warning.
+`node scripts/simulate_full_bank.js` prints both numbers.
+
+Those two maps now also live in bucketed documents on the SAME `/student_name` partition:
+
+| Document | `doc_type` | Holds |
+| :-- | :-- | :-- |
+| `student_<name>` | `student_master_profile` | identity, `sessionsState`, `examHistory`, and the FROZEN legacy `progress`/`srsState` |
+| `pshard_<name>_b00` … `_b15` | `progress_shard` | slim progress entries, in an `entries` map |
+| `sshard_<name>_b00` … `_b15` | `srs_shard` | slim SM-2 cards, in a `cards` map |
+| `exam_<name>_<examId>` | `exam_session` | unchanged — still the durable copy of every exam report |
+
+Bucket = `FNV-1a-32(questionId) % 16` (`api/src/lib/datamodel.js` → `bucketOf`). Deterministic
+and permanent: a question never changes bucket.
+
+Records are stored SLIM (short keys, derivable fields recomputed on read). The codec is
+self-verifying — it expands its own output and byte-compares before returning, falling back
+to storing the record verbatim under `$r` if the round trip is not exact. Measured on the
+real production document: progress 306.1 → 107.7 B/entry, SRS 159.3 → 65.3 B/card.
+
+Once a document is shard-authoritative the master's `examHistory` entries also drop their
+`moduleReports`, but ONLY for an examId whose immutable `exam_session` document is confirmed
+to exist — `GET /api/sync` already merges those docs over the master's copy, uncapped, so the
+full report still reaches every reader.
+
+### 7.2 The two modes, and which one a document is in
+
+Look for **`shardsVerifiedAt`** on the master document.
+
+- **absent → dual-write.** The master still carries the complete `progress`/`srsState`, and
+  shards are written alongside as a redundant copy. Every document starts here.
+- **present → shard-authoritative.** The shards are the truth. The master's `progress` /
+  `srsState` are FROZEN at their migration-day state: carried forward verbatim on every
+  write, never extended, never deleted.
+
+In BOTH modes `GET /api/sync` returns the identical v1 composite: it merges the master's
+fields with the reassembled shards using `api/src/lib/merge.js`'s newer-wins rules, so
+whichever side is fresher wins per key.
+
+```bash
+# Which mode is a student in, and what does the partition look like?
+export COSMOS_KEY=$(az cosmosdb keys list --name psat-cosmos-15958 \
+  --resource-group rg-psat-prep --query primaryMasterKey -o tsv)
+node -e '
+const {CosmosClient}=require("./api/node_modules/@azure/cosmos");
+const s=process.argv[1];
+(async()=>{const c=new CosmosClient({endpoint:"https://psat-cosmos-15958.documents.azure.com:443/",key:process.env.COSMOS_KEY})
+ .database("psat-prep-db").container("UATStudentAnswers");
+ const {resources}=await c.items.query({query:"SELECT * FROM c WHERE c.student_name=@s",
+   parameters:[{name:"@s",value:s}]}).fetchAll();
+ const m=resources.find(d=>d.id==="student_"+s);
+ console.log("mode:", m && m.shardsVerifiedAt ? "shard_authoritative" : "dual_write");
+ console.log("docs:", resources.length, resources.reduce((a,d)=>(a[d.doc_type]=(a[d.doc_type]||0)+1,a),{}));
+})();' default_student
+```
+
+### 7.3 Reading a student's real state
+
+**Never read `masterDoc.progress` and call it the student's progress.** On a migrated
+document that field is a frozen snapshot, not the current state. Use the reassembler:
+
+```bash
+node -e '
+const ss=require("./api/src/lib/shardsync.js");
+const {CosmosClient}=require("./api/node_modules/@azure/cosmos");
+(async()=>{const c=new CosmosClient({endpoint:"https://psat-cosmos-15958.documents.azure.com:443/",key:process.env.COSMOS_KEY})
+ .database("psat-prep-db").container("UATStudentAnswers");
+ const {resources}=await c.items.query({query:"SELECT * FROM c WHERE c.student_name=@s",
+   parameters:[{name:"@s",value:"default_student"}]}).fetchAll();
+ const comp=ss.reassembleComposite(resources,"default_student",Date.now());
+ console.log("progress",Object.keys(comp.progress).length,"srs",Object.keys(comp.srsState).length,
+   "exams",comp.examHistory.length);
+})();'
+```
+
+`tests/integrity/run_integrity.js`, `tests/integrity/snapshot_diff.js` and `GET /api/sync`
+all already do this.
+
+### 7.4 Migrating a student
+
+```bash
+export COSMOS_KEY=$(az cosmosdb keys list --name psat-cosmos-15958 \
+  --resource-group rg-psat-prep --query primaryMasterKey -o tsv)
+
+node scripts/migrate_to_shards.js --assert-test                                     # offline guard check
+node scripts/migrate_to_shards.js --student <name> --db psat-prep-db-drtest         # dry run
+node scripts/migrate_to_shards.js --student <name> --db psat-prep-db-drtest --apply
+```
+
+The script proves byte-equality in memory, writes the shards, RE-READS them out of Cosmos and
+proves it again, and only then stamps `shardsVerifiedAt`. A single differing byte aborts
+before any write. It refuses any database but `psat-prep-db-drtest` without `--allow-prod-db`,
+and refuses `default_student` in production without a separate
+`--i-have-owner-approval-for-default-student` flag.
+
+`scripts/verify_shard_migration_scratch.js` runs the whole read/write path end to end against
+the scratch database and prints `SHARD_MIGRATION_PROOF_OK`.
+
+### 7.5 ROLLBACK — the exact revert
+
+Rollback is removing one field. No data moves, nothing is deleted.
+
+```bash
+node scripts/migrate_to_shards.js --student <name> --db <db> --rollback          # dry run
+node scripts/migrate_to_shards.js --student <name> --db <db> --rollback --apply
+```
+
+That clears `shardsVerifiedAt`, which puts the document back in dual-write mode: the next POST
+writes the full merged `progress`/`srsState` onto the master again and the master is
+authoritative once more. The shard documents are LEFT IN PLACE and are still merged on read,
+so no state is lost in either direction. Verified in the scratch database on 2026-08-30: after
+rollback the composite still held all 407 progress entries (406 legacy + 1 that existed only
+in a shard) and all 32 shard documents were still present.
+
+To revert the API itself, redeploy the pre-WI-11.5 `api/` package — §6.5 has the deployment
+mechanics. A v1-only server reads `masterDoc.progress` directly, which on a migrated document
+is the frozen snapshot. So if the API is rolled back while any document is shard-authoritative,
+run the document rollback above FIRST, let one sync land, and only then redeploy.
+
+### 7.6 Restoring a sharded student from backup
+
+Nothing special: the nightly backup exports every document in `UATStudentAnswers`, shards
+included, and `scripts/restore_cosmos.js` restores them the same way. The one thing to check
+afterwards is that the shard documents and the master's `shardsVerifiedAt` came back together
+— a master carrying the marker but missing its shards would read as an empty profile. The
+`SHARD-ROUTING` check in `tests/integrity/run_integrity.js` catches misrouted or duplicated
+records, and `DOC-SIZE-ALL` enforces the 400 KB budget on every document rather than only the
+master.

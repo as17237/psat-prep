@@ -48,6 +48,12 @@ const {
   computeBackupStatus
 } = require('../../api/src/lib/backupCore.js');
 
+// WI-11.5: student state may live in bucketed `progress_shard` / `srs_shard` documents
+// as well as on the master profile. Every check below reads the REASSEMBLED state
+// (master + shards) so a migrated student is inspected exactly as thoroughly as an
+// unmigrated one — the same rule applied at every site (CLAUDE.md mode 2).
+const dm = require('../../api/src/lib/datamodel.js');
+
 // ---------------------------------------------------------------------------
 // Configuration — every one of these is a read target.
 // ---------------------------------------------------------------------------
@@ -221,14 +227,45 @@ async function main() {
   const allDocs = Array.isArray(studentDocs) ? studentDocs : [];
   const masters = allDocs.filter(d => d && d.doc_type === 'student_master_profile');
   const examSessions = allDocs.filter(d => d && d.doc_type === 'exam_session');
-  const untyped = allDocs.filter(d => d && d.doc_type !== 'student_master_profile' && d.doc_type !== 'exam_session');
+  const progressShards = allDocs.filter(d => d && d.doc_type === dm.PROGRESS_SHARD_TYPE);
+  const srsShards = allDocs.filter(d => d && d.doc_type === dm.SRS_SHARD_TYPE);
+  const KNOWN_DOC_TYPES = ['student_master_profile', 'exam_session', dm.PROGRESS_SHARD_TYPE, dm.SRS_SHARD_TYPE];
+  const untyped = allDocs.filter(d => d && KNOWN_DOC_TYPES.indexOf(d.doc_type) === -1);
+
+  /**
+   * The REASSEMBLED state per student: the master profile's own maps merged with
+   * whatever its shards hold. Every subsequent check reads this, not `m.progress`, so a
+   * migrated student is not silently reported as having lost its data.
+   */
+  const effectiveByStudent = new Map();
+  const ensureStudent = (name) => {
+    if (!effectiveByStudent.has(name)) {
+      effectiveByStudent.set(name, { student: name, master: null, progress: {}, srsState: {} });
+    }
+    return effectiveByStudent.get(name);
+  };
+  masters.forEach(m => {
+    const s = ensureStudent(m.student_name || '(no student_name)');
+    s.master = m;
+    Object.assign(s.progress, m.progress || {});
+    Object.assign(s.srsState, m.srsState || {});
+  });
+  progressShards.forEach(d => {
+    Object.assign(ensureStudent(d.student_name || '(no student_name)').progress,
+      dm.reassembleProgress([d]));
+  });
+  srsShards.forEach(d => {
+    Object.assign(ensureStudent(d.student_name || '(no student_name)').srsState,
+      dm.reassembleSrs([d]));
+  });
 
   // =====================================================================
   // 2. Document / progress floors.
   // =====================================================================
   section(2, `${STUDENT_CONTAINER} floors`);
   {
-    console.log(`  measured documents            : ${allDocs.length}  (masters=${masters.length}, exam_session=${examSessions.length}, other=${untyped.length})`);
+    console.log(`  measured documents            : ${allDocs.length}  (masters=${masters.length}, exam_session=${examSessions.length}, ` +
+      `progress_shard=${progressShards.length}, srs_shard=${srsShards.length}, other=${untyped.length})`);
     record('DOC-FLOOR', 'UATStudentAnswers >= floor',
       allDocs.length >= floor.studentDocsMin,
       `documents=${allDocs.length} >= floor ${floor.studentDocsMin}`);
@@ -238,9 +275,13 @@ async function main() {
       record('PROGRESS-FLOOR', 'default_student progress >= floor', false,
         `${DEFAULT_STUDENT_DOC_ID} not found in ${STUDENT_CONTAINER} — cannot check the progress floor`);
     } else {
-      const n = Object.keys(defaultMaster.progress || {}).length;
-      console.log(`  measured default_student progress entries : ${n}`);
-      console.log(`  measured default_student SRS cards        : ${Object.keys(defaultMaster.srsState || {}).length}`);
+      // Reassembled (master + shards), never the master field alone.
+      const eff = effectiveByStudent.get(defaultMaster.student_name) || { progress: {}, srsState: {} };
+      const n = Object.keys(eff.progress).length;
+      console.log(`  measured default_student progress entries : ${n}  ` +
+        `(master field ${Object.keys(defaultMaster.progress || {}).length} + shards)`);
+      console.log(`  measured default_student SRS cards        : ${Object.keys(eff.srsState).length}  ` +
+        `(master field ${Object.keys(defaultMaster.srsState || {}).length} + shards)`);
       console.log(`  measured default_student session days     : ${Object.keys(defaultMaster.sessionsState || {}).length}`);
       console.log(`  measured default_student examHistory      : ${(defaultMaster.examHistory || []).length}`);
       console.log(`  measured default_student updatedAt        : ${defaultMaster.updatedAt ? new Date(defaultMaster.updatedAt).toISOString() : 'null'}`);
@@ -253,18 +294,18 @@ async function main() {
   // =====================================================================
   // 3. Master-document schema.
   // =====================================================================
-  section(3, 'Master-document schema (progress entries + SM-2 SRS cards)');
+  section(3, 'Reassembled student schema (progress entries + SM-2 SRS cards, master + shards)');
   {
     let totalProgress = 0, totalCards = 0, missingTimestamp = 0, emptyQuestionId = 0;
     let minEase = null, maxEase = null, minReps = null, maxReps = null;
     const problems = [];
 
-    for (const m of masters) {
+    for (const m of effectiveByStudent.values()) {
       const progress = m.progress || {};
       for (const [qid, entry] of Object.entries(progress)) {
         totalProgress++;
         if (entry && typeof entry === 'object' && entry.timestamp === undefined) missingTimestamp++;
-        progressEntryProblems(`${m.id}/${qid}`, entry).forEach(p => problems.push(p));
+        progressEntryProblems(`${m.student}/${qid}`, entry).forEach(p => problems.push(p));
       }
       const cards = m.srsState || {};
       for (const [qid, card] of Object.entries(cards)) {
@@ -278,11 +319,13 @@ async function main() {
           minReps = (minReps === null || card.repetitions < minReps) ? card.repetitions : minReps;
           maxReps = (maxReps === null || card.repetitions > maxReps) ? card.repetitions : maxReps;
         }
-        srsCardProblems(`${m.id}/${qid}`, card).forEach(p => problems.push(p));
+        srsCardProblems(`${m.student}/${qid}`, card).forEach(p => problems.push(p));
       }
     }
 
+    console.log(`  students inspected                 : ${effectiveByStudent.size} (${[...effectiveByStudent.keys()].join(', ')})`);
     console.log(`  master_profile documents inspected : ${masters.length} (${masters.map(m => m.id).join(', ')})`);
+    console.log(`  shard documents inspected          : ${progressShards.length} progress + ${srsShards.length} srs`);
     console.log(`  progress entries inspected         : ${totalProgress}`);
     console.log(`  ...of which have NO timestamp      : ${missingTimestamp}  (measured, not a failure: timestamp is validated only when present)`);
     console.log(`  SRS cards inspected                : ${totalCards}`);
@@ -342,8 +385,22 @@ async function main() {
   // =====================================================================
   // 5. Master-document size budget.
   // =====================================================================
-  section(5, `${DEFAULT_STUDENT_DOC_ID} size budget`);
+  section(5, `${STUDENT_CONTAINER} document size budget`);
   {
+    // WI-11.5: the budget applies to EVERY document, not only the master. Sharding
+    // moves bytes into other documents, so a check that only watched the master would
+    // stop seeing the growth it exists to catch (CLAUDE.md mode 2).
+    const sized = allDocs.map(d => ({ id: d.id, type: d.doc_type, bytes: documentBytes(d).withSystemFields }))
+      .sort((a, b) => b.bytes - a.bytes);
+    const over = sized.filter(d => d.bytes >= MASTER_DOC_BUDGET_BYTES);
+    console.log(`  documents measured                                      : ${sized.length}`);
+    console.log('  five largest:');
+    sized.slice(0, 5).forEach(d => console.log(`    ${String(d.bytes).padStart(8)} B  ${d.id}  [${d.type}]`));
+    record('DOC-SIZE-ALL', 'every document < 400 KB', over.length === 0,
+      over.length === 0
+        ? `all ${sized.length} documents < ${MASTER_DOC_BUDGET_BYTES} bytes (largest ${sized[0] ? sized[0].bytes : 0})`
+        : `${over.length} document(s) at/over budget: ${over.map(d => `${d.id}=${d.bytes}`).join(', ')}`);
+
     const doc = allDocs.find(d => d && d.id === DEFAULT_STUDENT_DOC_ID);
     if (!doc) {
       record('DOC-SIZE', 'master doc < 400 KB', false, `${DEFAULT_STUDENT_DOC_ID} not found`);
@@ -361,6 +418,51 @@ async function main() {
         withSystemFields < MASTER_DOC_BUDGET_BYTES,
         `${DEFAULT_STUDENT_DOC_ID} = ${withSystemFields} bytes < ${MASTER_DOC_BUDGET_BYTES} budget (${pct}%)`);
     }
+  }
+
+  // =====================================================================
+  // 5b. WI-11.5 shard integrity: routing, non-overlap, codec health.
+  // =====================================================================
+  section('5b', 'Shard integrity (routing, non-overlap, codec fallbacks)');
+  {
+    const misrouted = [];
+    const seenProgress = new Map(); // qid -> shard doc id
+    const seenSrs = new Map();
+    let rawFallbacks = 0;
+    let shardedProgressEntries = 0;
+    let shardedSrsCards = 0;
+
+    const checkShard = (doc, mapField, seen, kind) => {
+      const map = doc[mapField] || {};
+      for (const qid of Object.keys(map)) {
+        const want = dm.bucketOf(qid);
+        if (want !== doc.bucket) {
+          misrouted.push(`${kind} '${qid}' is in ${doc.id} (bucket ${doc.bucket}) but hashes to bucket ${want}`);
+        }
+        const prior = seen.get(qid);
+        if (prior && prior !== doc.id) {
+          misrouted.push(`${kind} '${qid}' appears in BOTH ${prior} and ${doc.id}`);
+        }
+        seen.set(qid, doc.id);
+        if (map[qid] && Object.prototype.hasOwnProperty.call(map[qid], dm.K_RAW)) rawFallbacks++;
+      }
+      return Object.keys(map).length;
+    };
+
+    progressShards.forEach(d => { shardedProgressEntries += checkShard(d, 'entries', seenProgress, 'progress entry'); });
+    srsShards.forEach(d => { shardedSrsCards += checkShard(d, 'cards', seenSrs, 'srs card'); });
+
+    console.log(`  progress shards / entries          : ${progressShards.length} / ${shardedProgressEntries}`);
+    console.log(`  srs shards / cards                 : ${srsShards.length} / ${shardedSrsCards}`);
+    console.log(`  shard buckets configured           : ${dm.SHARD_COUNT}`);
+    console.log(`  records stored via the codec's verbatim fallback ($r) : ${rawFallbacks}  ` +
+      `(measured; a fallback costs bytes but never loses data)`);
+    if (misrouted.length) misrouted.slice(0, 20).forEach(p => console.log(`      ! ${p}`));
+    record('SHARD-ROUTING', 'every sharded record is in its hashed bucket, exactly once',
+      misrouted.length === 0,
+      misrouted.length === 0
+        ? `${shardedProgressEntries + shardedSrsCards} sharded records, 0 misrouted, 0 duplicated`
+        : `${misrouted.length} routing problem(s)`);
   }
 
   // =====================================================================
