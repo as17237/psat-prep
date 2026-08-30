@@ -35,3 +35,6 @@ api/node_modules/
 playwright-report/
 test-results/
 
+
+# Agent worktrees (isolated checkouts, never committed)
+.claude/worktrees/
