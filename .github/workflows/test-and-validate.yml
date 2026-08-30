@@ -45,10 +45,26 @@ jobs:
       # hand-written backup fixtures in tests/integrity/fixtures/.
       # The LIVE parts (tests/integrity/run_integrity.js) are deliberately NOT here —
       # they read production Cosmos and run from scripts/preflight_backup.sh instead.
-      - name: Run WI-07 Offline Integrity Tests (merge pins + snapshot diff)
+      # WI-11.5 adds two more offline suites here for the same reason: test_datamodel.js
+      # proves the slim codec round-trips the REAL production document byte-for-byte
+      # (fixture committed at tests/integrity/fixtures/), and test_shard_routing.js
+      # proves a captured real v1 payload produces the same state through the new
+      # sharded server logic as it does through today's.
+      - name: Run Offline Integrity Tests (merge pins + snapshot diff + data model + shard routing)
         run: |
           node tests/integrity/test_merge_pins.js
           node tests/integrity/test_snapshot_diff.js
+          node tests/integrity/test_datamodel.js
+          node tests/integrity/test_shard_routing.js
+
+      # WI-11.5's no-wall gate: every document under 400 KB at full 3,059-question
+      # coverage. Exits non-zero if any document crosses the budget or if the SRS
+      # history cap stops engaging.
+      - name: Full-bank storage simulation (document size gate)
+        run: node scripts/simulate_full_bank.js
+
+      - name: Shard-migration guard self-check (offline, writes nothing)
+        run: node scripts/migrate_to_shards.js --assert-test
 
       - name: Validate Extracted Dataset
         run: |

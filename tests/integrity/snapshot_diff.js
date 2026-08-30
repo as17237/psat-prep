@@ -29,6 +29,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const dm = require('../../api/src/lib/datamodel.js');
 
 /** How many individual ids to name per category before summarising the rest. */
 const DEFAULT_MAX_DETAIL = 10;
@@ -113,6 +114,18 @@ function indexByStudent(backup) {
     const bucket = ensure(name);
     if (doc.doc_type === 'exam_session' || /^exam_/.test(doc.id || '')) {
       bucket.examSessionDocs[doc.id] = stripSystem(doc);
+      continue;
+    }
+    // WI-11.5: bucketed shard documents hold the same progress / SRS records the master
+    // profile used to hold, in slim form. Expanding them here means a snapshot taken
+    // before a shard migration and one taken after diff as "no change" rather than as
+    // "406 progress entries removed" — the diff compares STATE, not storage layout.
+    if (doc.doc_type === dm.PROGRESS_SHARD_TYPE) {
+      Object.assign(bucket.progress, dm.reassembleProgress([doc]));
+      continue;
+    }
+    if (doc.doc_type === dm.SRS_SHARD_TYPE) {
+      Object.assign(bucket.srsState, dm.reassembleSrs([doc]));
       continue;
     }
     // Anything else carrying the master maps is treated as the master profile.
