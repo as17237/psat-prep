@@ -4,7 +4,7 @@
 **Start with `CONTINUE_HERE.md`** — the full new-machine continuation guide (setup, resources, process, gotchas, next actions). This file is the detailed per-item status overlay.
 
 **Companion to:** `REFACTOR_PLAN.md` (the full 19-work-item plan — read it first; this file is the "where are we" overlay).
-**Last updated:** 2026-08-30. **WI-11.5 is complete and merged** — the Cosmos ceiling described in §8 below is SOLVED (33 docs, largest 81 KB at full bank). §8 is retained as the record of why. The only pending piece is deploying the API change; see `CONTINUE_HERE.md` §10. Supersedes `AGENT_HANDOFF.md` for refactor context.
+**Last updated:** 2026-08-30. **WI-11.5 is complete, merged, and DEPLOYED** — the Cosmos ceiling described in §8 below is SOLVED (33 docs, largest 81 KB at full bank). §8 is retained as the record of why. The sharded API handler was deployed to `psat-api-4915` on 2026-08-30 and verified (live student intact, `codecFallbacks: 0`, integrity 11/11); see `CONTINUE_HERE.md` §10. The live student (`default_student`) is not yet migrated to shards — that remains owner-gated. Supersedes `AGENT_HANDOFF.md` for refactor context.
 **Coordinator session:** https://claude.ai/code/session_01TToAjtgAQcWjJhKYYUjUV2 · Plan artifact: https://claude.ai/code/artifact/c8ffedd6-5c2c-486d-ada6-3ac028d8f547
 
 ---
@@ -38,7 +38,7 @@
 
 - **Prod site:** https://psatprep4915.z13.web.core.windows.net/ — serving hotfix `177e377`. **Do not deploy to root except via `scripts/promote_to_prod.sh` (owner-run).**
 - **Staging:** https://psatprep4915.z13.web.core.windows.net/v2/ — refactored app, deployed via `scripts/deploy_v2.sh` (prefix-asserted). Beta (`/beta/`) is stale and has a known image-404 defect; untouched by choice.
-- **API:** Functions app `psat-api-4915` — `/api/sync`, `/api/backup`, `/api/backup-status`, `/api/feedback`. Deployed from `api/` via `az functionapp deployment source config-zip --build-remote true`. Currently at WI-07 state (merge.js extraction) + WI-06 clientVersion.
+- **API:** Functions app `psat-api-4915` — `/api/sync`, `/api/backup`, `/api/backup-status`, `/api/feedback`. Deployed from `api/` via `az functionapp deployment source config-zip --build-remote true`. **At WI-11.5 state as of 2026-08-30** (slim+shard `sync.js` + `datamodel.js`/`shardsync.js`; deployment `093684c5`).
 - **Cosmos:** `psat-cosmos-15958` / `psat-prep-db` (rg `rg-psat-prep`): `Questions` (3,059, /domain, frozen), `UATStudentAnswers` (/student_name — `student_default_student` = THE LIVE STUDENT, ~406 progress/392 SRS/9 exams; `student_e2e_test_student` = test identity; 9 immutable `exam_*` docs), `UATFeedback` (/category).
 - **Storage `psatprep4915`:** `$web` (site + `data/images/` 3,059 PNGs + bundle), `cosmos-backups` (nightly 02:00 UTC, v1.1 ~8.4 MB, sha256 sidecars), `refactor-baseline` (PRIVATE; restore-verified baseline + superseded partials — never delete anything in either backup container).
 
@@ -126,7 +126,7 @@ Whatever is chosen, also **fix the simulation** so it actually exercises the cap
 
 Green today: 77 Playwright tests (incl. `@v2smoke` live), every `tests/*.js` suite, both offline integrity suites, the 56-symbol engine API surface, and the localStorage-equivalence proof (now date-independent, 0 differences beyond the 3 documented WI-11 deltas).
 
-Still outstanding for WI-11: the growth finding above; deploying the `api/src/functions/sync.js` schemaVersion change (preflight first — currently NOT deployed, live API verified without it); and a live `/v2/` `e2e_test_student` round-trip showing the v2 envelope end to end.
+Still outstanding for WI-11: the growth finding above (superseded by WI-11.5). The `api/src/functions/sync.js` change was **deployed 2026-08-30** (preflight cited); a live `e2e_test_student` write-path round-trip was executed against the deployed handler (200, `codecFallbacks: 0`, no data loss).
 
 
 ---
@@ -147,4 +147,4 @@ Merged to `main` (`9fac187`). Measured, not projected:
 - `scripts/simulate_full_bank.js` was FIXED: it drove 3 reviews/question against a 20-event cap, so the cap never engaged — which is why WI-11 wrongly concluded the cap was useless. It now saves 254,061 B and is a CI gate.
 - Two live records (`1b9fa866`, `q100`) would have been corrupted by a naive recompute; both pinned as tests.
 
-**Pending:** the API is edited and merged but NOT deployed. See `CONTINUE_HERE.md` §10 for the exact deploy + verify + rollback sequence.
+**Deployed 2026-08-30:** the sharded API handler is live on `psat-api-4915` (deployment `093684c5`), verified per `CONTINUE_HERE.md` §10 (live student intact; `e2e_test_student` write round-trip `codecFallbacks: 0`; integrity 11/11; rollback artifact `scm-releases/rollback/scm-pre-wi115-2026-08-30.zip`). The live student (`default_student`) migration to shards remains the one owner-gated step.

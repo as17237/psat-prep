@@ -264,7 +264,7 @@ docs/DISASTER_RECOVERY_RUNBOOK.md  docs/FEATURE_AND_RELIABILITY_ROADMAP.md
 
 Two real records in the live data would have been silently corrupted by a naive "recompute derivable fields" (`1b9fa866` has inconsistent counters; `q100` has `timesSeen: 0` and missing fields). Both are pinned as tests.
 
-**⚠️ PENDING — the API is NOT deployed.** `api/src/functions/sync.js` and the new `api/src/lib/{datamodel,shardsync}.js` are merged into `main` but **not deployed to `psat-api-4915`**. Production still runs the previous handler, and behaves exactly as before. Deferred deliberately for owner approval because it changes how the live student's data is read and written.
+**✅ DEPLOYED 2026-08-30 (owner-approved).** `api/src/functions/sync.js` and the new `api/src/lib/{datamodel,shardsync}.js` were deployed to `psat-api-4915` (deployment `093684c5-2137-4317-a8d6-313cb2125141`, status Success). Verified immediately after: live student reads intact and byte-identical (progress 406 / srs 393 / exams 10, `updatedAt 1788109870005` unchanged); write-path round-trip on `e2e_test_student` returned 200 with `mode: dual_write`, `codecFallbacks: 0`, no data loss; live integrity suite 11/11. Rollback artifact preserved server-side: `scm-releases/rollback/scm-pre-wi115-2026-08-30.zip` (4,157,440 B). **`default_student` was NOT migrated** — it remains a single document (64.7% of budget); its migration still needs explicit owner approval and the `--i-have-owner-approval-for-default-student` flag. (`e2e_test_student` was migrated to shards as a side effect of the write-path test.)
 
 **To deploy it when approved:**
 
@@ -328,9 +328,8 @@ One sub-agent per work item, coordinated by a session that verifies rather than 
 
 ## 14. Next actions, in order
 
-1. **Deploy the WI-11.5 API change** when the owner approves (§10) — everything else is staged behind it.
-2. Then, in order: migrate `e2e_test_student` to shards → run Playwright → `run_integrity.js`.
-3. **WI-13** (student portal) → **WI-14** (parent portal) → **WI-15** (mistakes/feedback), all on the WI-12 design system, in the `/v2/` lane. Never run these concurrently with data-model work.
+1. ~~Deploy the WI-11.5 API change~~ **✅ DONE 2026-08-30** (§10) — deployed, verified, rollback artifact saved. `e2e_test_student` migrated to shards; `run_integrity.js` 11/11. Live-student (`default_student`) migration remains owner-gated.
+2. **WI-13** (student portal) → **WI-14** (parent portal) → **WI-15** (mistakes/feedback), all on the WI-12 design system, in the `/v2/` lane. Never run these concurrently with data-model work.
 4. **WI-16** ∥ **WI-17**, then **WI-18** (≥5-day parallel run — owner approval), then **WI-19** (cutover — owner executes).
 5. Housekeeping: raise `tests/integrity/expected_floor.json` by hand after real growth; retire or fix the stale `/beta/` lane; delete the dead `copyShareableTestLink('custom')` branch in `parent.html`; consider anonymising `tests/integrity/fixtures/real_master_profile_2026-08-29.json` (it holds real study data — question ids, answers, timings; no PII).
 
