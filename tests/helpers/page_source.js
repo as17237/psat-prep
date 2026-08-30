@@ -32,6 +32,12 @@ const PAGES = {
   mistakes: { html: 'mistakes.html', entry: 'js/pages/mistakes.js' },
   parent: { html: 'parent.html', entry: 'js/pages/parent.js' },
   student: { html: 'index.html', entry: 'js/pages/student.js' },
+  // WI-12: the component-system reference page. Not one of the four
+  // student-facing app pages tests/test_buttons_and_interactions.js exercises
+  // (its own htmlFiles list is hand-written and deliberately excludes this),
+  // but it is a real page with a real ES-module entry, so it belongs in the
+  // inline-script-syntax rules tests/test_html_syntax.js enforces here.
+  design: { html: 'design.html', entry: 'js/pages/design.js' },
 };
 
 const IMPORT_RE = /^\s*import\s+\{[^}]*\}\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/;
@@ -138,6 +144,21 @@ function pageScript(pageName) {
   return chunks.join('\n');
 }
 
+/**
+ * Flattens an arbitrary ES module (repo-relative or absolute path) into one
+ * evaluable script, following its import graph exactly like pageScript()
+ * does for a page entry. For suites that unit-test a module directly (e.g.
+ * WI-12's tests/test_components.js against js/components/*.js) without an
+ * HTML page wrapping it — reuses flatten()/readModule() rather than
+ * reimplementing the import-stripping logic a second time (CLAUDE.md mode 2).
+ */
+function moduleScript(relOrAbsPath) {
+  const abs = path.isAbsolute(relOrAbsPath) ? relOrAbsPath : path.join(REPO_ROOT, relOrAbsPath);
+  const chunks = ["'use strict';"];
+  flatten(abs, new Set(), chunks);
+  return chunks.join('\n');
+}
+
 /** Every .js file under js/ (used by the syntax suite). */
 function allModuleFiles() {
   const root = path.join(REPO_ROOT, 'js');
@@ -153,4 +174,4 @@ function allModuleFiles() {
   return out.sort();
 }
 
-module.exports = { PAGES, REPO_ROOT, pageScript, inlineScripts, htmlPath, entryPath, allModuleFiles };
+module.exports = { PAGES, REPO_ROOT, pageScript, inlineScripts, htmlPath, entryPath, allModuleFiles, moduleScript };
