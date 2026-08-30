@@ -4,7 +4,7 @@
 **Start with `CONTINUE_HERE.md`** — the full new-machine continuation guide (setup, resources, process, gotchas, next actions). This file is the detailed per-item status overlay.
 
 **Companion to:** `REFACTOR_PLAN.md` (the full 19-work-item plan — read it first; this file is the "where are we" overlay).
-**Last updated:** 2026-08-30 (after WI-11's agent was cut off by a spend limit; coordinator completed its verification). Supersedes `AGENT_HANDOFF.md` for refactor context.
+**Last updated:** 2026-08-30. **WI-11.5 is complete and merged** — the Cosmos ceiling described in §8 below is SOLVED (33 docs, largest 81 KB at full bank). §8 is retained as the record of why. The only pending piece is deploying the API change; see `CONTINUE_HERE.md` §10. Supersedes `AGENT_HANDOFF.md` for refactor context.
 **Coordinator session:** https://claude.ai/code/session_01TToAjtgAQcWjJhKYYUjUV2 · Plan artifact: https://claude.ai/code/artifact/c8ffedd6-5c2c-486d-ada6-3ac028d8f547
 
 ---
@@ -127,3 +127,24 @@ Whatever is chosen, also **fix the simulation** so it actually exercises the cap
 Green today: 77 Playwright tests (incl. `@v2smoke` live), every `tests/*.js` suite, both offline integrity suites, the 56-symbol engine API surface, and the localStorage-equivalence proof (now date-independent, 0 differences beyond the 3 documented WI-11 deltas).
 
 Still outstanding for WI-11: the growth finding above; deploying the `api/src/functions/sync.js` schemaVersion change (preflight first — currently NOT deployed, live API verified without it); and a live `/v2/` `e2e_test_student` round-trip showing the v2 envelope end to end.
+
+
+---
+
+## 9. WI-11.5 outcome (2026-08-30) — ceiling removed
+
+Merged to `main` (`9fac187`). Measured, not projected:
+
+| | before | after |
+| :-- | --: | --: |
+| Full bank (3,059 Q + 50 mocks) | **4,325,188 B in ONE doc** (2.06x the 2 MB wall) | **33 docs, largest 81,308 B** (3.9% of the wall) |
+| progress entry (real live data) | 306.1 B | 107.7 B (-64.8%) |
+| SRS card (real live data) | 159.3 B | 65.3 B (-59.0%) |
+
+- Slim codec is self-verifying (expands its own output and byte-compares; falls back to verbatim rather than lose data) — 0 fallbacks across all 798 real records.
+- Sharding: `FNV-1a-32(id) % 16` into `pshard_*`/`sshard_*` on the same `/student_name` partition key.
+- v1 clients unaffected — entirely server-side; proven against a hand-transcribed copy of the shipped merge sequence and on a scratch DB restored from the real baseline. Legacy master map frozen, never deleted.
+- `scripts/simulate_full_bank.js` was FIXED: it drove 3 reviews/question against a 20-event cap, so the cap never engaged — which is why WI-11 wrongly concluded the cap was useless. It now saves 254,061 B and is a CI gate.
+- Two live records (`1b9fa866`, `q100`) would have been corrupted by a naive recompute; both pinned as tests.
+
+**Pending:** the API is edited and merged but NOT deployed. See `CONTINUE_HERE.md` §10 for the exact deploy + verify + rollback sequence.
