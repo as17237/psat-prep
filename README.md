@@ -1,5 +1,7 @@
 # PSAT Prep Mastery Platform
 
+> **🔧 Active refactor in progress.** If you are picking this project up — on a new machine or as a new agent — read **[CONTINUE_HERE.md](CONTINUE_HERE.md)** first: setup, live Azure resources, work-item status, safety rules, and the next actions. Plans live in [REFACTOR_PLAN.md](REFACTOR_PLAN.md), current status in [REFACTOR_STATE.md](REFACTOR_STATE.md), and binding coding rules in [CLAUDE.md](CLAUDE.md).
+
 An advanced, dependency-free PSAT preparation and mastery system featuring spaced repetition (SRS), empirical skill analytics, parent oversight dashboards, and official question card rendering with 100% mathematical and reading chart fidelity.
 
 ---

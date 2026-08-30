@@ -1,6 +1,8 @@
 # REFACTOR_STATE.md — Continuation Handoff
 
 **Purpose:** Everything needed to continue the refactor from a fresh clone on any machine.
+**Start with `CONTINUE_HERE.md`** — the full new-machine continuation guide (setup, resources, process, gotchas, next actions). This file is the detailed per-item status overlay.
+
 **Companion to:** `REFACTOR_PLAN.md` (the full 19-work-item plan — read it first; this file is the "where are we" overlay).
 **Last updated:** 2026-08-30 (after WI-11's agent was cut off by a spend limit; coordinator completed its verification). Supersedes `AGENT_HANDOFF.md` for refactor context.
 **Coordinator session:** https://claude.ai/code/session_01TToAjtgAQcWjJhKYYUjUV2 · Plan artifact: https://claude.ai/code/artifact/c8ffedd6-5c2c-486d-ada6-3ac028d8f547
