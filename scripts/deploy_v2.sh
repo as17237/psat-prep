@@ -109,10 +109,14 @@ for file in "${APP_FILES[@]}"; do
 
   # (b) absolutise question-image paths
   before=$(grep -c "['\"\`]data/" "$STAGING_DIR/$file" || true)
-  sed -i \
+  # `sed -i` differs between GNU (Linux/CI) and BSD (macOS): BSD requires a backup
+  # suffix, so use the attached-suffix form `-i.bak` (accepted by both) and delete
+  # the backup afterwards. The s|…|…|g backreference form itself is portable BRE.
+  sed -i.bak \
     -e "s|'data/' + \([A-Za-z_][A-Za-z0-9_]*\)\.question_image|'/data/' + \1.question_image|g" \
     -e "s|\`data/\${\([A-Za-z_][A-Za-z0-9_]*\)\.question_image}\`|\`/data/\${\1.question_image}\`|g" \
     "$STAGING_DIR/$file"
+  rm -f "$STAGING_DIR/$file.bak"
   rewrites=$(grep -c "['\"\`]/data/" "$STAGING_DIR/$file" || true)
   IMAGE_REWRITES_TOTAL=$((IMAGE_REWRITES_TOTAL + rewrites))
 
@@ -123,8 +127,18 @@ for file in "${APP_FILES[@]}"; do
         echo "ERROR: $file has no <head> to inject the client version into." >&2
         exit 5
       fi
-      sed -i "0,/<head>/s|<head>|<head>\n  <script>window.PSAT_CLIENT_VERSION = \"$CLIENT_VERSION\";</script>|" \
-        "$STAGING_DIR/$file"
+      # Inject after the FIRST <head> only. Done with awk, not sed, on purpose: the
+      # previous sed form needed three GNU-only features that all break on BSD/macOS —
+      # the `-i` backup suffix, a `\n` newline in the replacement, and the `0,/re/`
+      # address range (BSD only has `1,/re/`). awk is portable and needs none of them.
+      inject_tmp=$(mktemp)
+      awk -v ver="$CLIENT_VERSION" '
+        !injected && /<head>/ {
+          sub(/<head>/, "<head>\n  <script>window.PSAT_CLIENT_VERSION = \"" ver "\";</script>")
+          injected=1
+        }
+        { print }
+      ' "$STAGING_DIR/$file" > "$inject_tmp" && mv "$inject_tmp" "$STAGING_DIR/$file"
       if ! grep -q "window.PSAT_CLIENT_VERSION = \"$CLIENT_VERSION\"" "$STAGING_DIR/$file"; then
         echo "ERROR: client-version injection did not take effect in $file." >&2
         exit 5
