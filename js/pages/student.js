@@ -309,7 +309,7 @@ function resetAllProgress() {
 }
 
 function switchTab(tab) {
-  ['practice', 'exam', 'analytics', 'bank'].forEach(t => {
+  ['practice', 'review', 'exam', 'analytics', 'bank'].forEach(t => {
     const viewEl = document.getElementById(`view-${t}`);
     const tabEl = document.getElementById(`tab-${t}`);
     if (viewEl) viewEl.classList.add('hidden');

@@ -41,16 +41,21 @@
           </div>
         </div>
 
-        <!-- Header Nav Tabs -->
+        <!-- Header Nav Tabs — WI-13 four-tab IA: Practice · Review · Exams · My Progress.
+             IDs (#tab-practice/#tab-review/#tab-exam/#tab-analytics) are the stable
+             hooks the e2e suite clicks; only labels/order changed. -->
         <nav class="flex space-x-6 sm:space-x-8">
           <button onclick="switchTab('practice')" id="tab-practice" class="tab-active inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
             <i data-lucide="book-open" class="w-4 h-4 mr-1.5"></i> Practice
           </button>
+          <button onclick="switchTab('review')" id="tab-review" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
+            <i data-lucide="repeat" class="w-4 h-4 mr-1.5 text-amber-600"></i> Review
+          </button>
           <button onclick="switchTab('exam')" id="tab-exam" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
-            <i data-lucide="timer" class="w-4 h-4 mr-1.5 text-emerald-600"></i> PSAT 8/9 Exam
+            <i data-lucide="timer" class="w-4 h-4 mr-1.5 text-emerald-600"></i> Exams
           </button>
           <button onclick="switchTab('analytics')" id="tab-analytics" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 pt-1 text-sm font-medium transition-colors">
-            <i data-lucide="bar-chart-3" class="w-4 h-4 mr-1.5"></i> Analytics
+            <i data-lucide="bar-chart-3" class="w-4 h-4 mr-1.5"></i> My Progress
           </button>
         </nav>
 
@@ -491,6 +496,12 @@
       </div>
 
     </div>
+
+    <!-- ============================================================ -->
+    <!-- VIEW: REVIEW (SRS due queue + high-yield drill) -->
+    <!-- WI-13 Phase 1 scaffold; SRS queue + gap drill land in Phase 3. -->
+    <!-- ============================================================ -->
+    <div id="view-review" class="hidden space-y-6"></div>
 
     <!-- ============================================================ -->
     <!-- VIEW 4: OFFICIAL PSAT 8/9 EXAM & ADAPTIVE TEST RUNNER -->
