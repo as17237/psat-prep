@@ -491,29 +491,32 @@ function loadQuestion(idx) {
 
   if (q.type === 'multiple_choice') {
     optContainer.classList.remove('hidden');
+    // WI-13: options now use the WI-12 design-system .question-option markup
+    // (same classes js/components/questionCard.js emits: .question-option +
+    // .question-option-key, is-correct/is-incorrect post-answer, keyed by
+    // data-option-key). components.css owns the styling — no inline utilities.
+    optContainer.classList.add('question-options');
     frContainer.classList.add('hidden');
 
     q.options.forEach(opt => {
       const btn = document.createElement('button');
-      let stateStyle = 'border-slate-200 hover:border-indigo-300 bg-white text-slate-800';
+      btn.type = 'button';
+      let cls = 'question-option';
       if (qProg.answered) {
         if (opt.key === q.correct_answer) {
-          stateStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-semibold';
+          cls += ' is-correct';
         } else if (opt.key === qProg.selectedAnswer) {
-          stateStyle = 'border-rose-500 bg-rose-50 text-rose-950';
-        } else {
-          stateStyle = 'border-slate-200 opacity-60 bg-white';
+          cls += ' is-incorrect';
         }
       }
+      btn.className = cls;
+      btn.setAttribute('data-option-key', opt.key);
 
-      btn.className = `w-full text-left p-4 rounded-xl border-2 transition-all flex items-start space-x-3 ${stateStyle}`;
-      
       const keySpan = document.createElement('span');
-      keySpan.className = 'w-7 h-7 rounded-lg bg-slate-100 border border-slate-300 font-bold text-xs flex items-center justify-center flex-shrink-0 text-slate-700';
+      keySpan.className = 'question-option-key';
       keySpan.textContent = opt.key;
 
       const textSpan = document.createElement('span');
-      textSpan.className = 'text-sm pt-0.5 leading-relaxed';
       textSpan.textContent = opt.text;
 
       btn.appendChild(keySpan);
