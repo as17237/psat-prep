@@ -430,8 +430,9 @@ function loadQuestion(idx) {
   
   const diffBadge = document.getElementById('q-diff-badge');
   diffBadge.innerText = q.difficulty;
-  diffBadge.className = q.difficulty === 'Easy' ? 'px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700' :
-                       (q.difficulty === 'Medium' ? 'px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700' : 'px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-100 text-rose-700');
+  // WI-13: design-system .badge variants (styling owned by components.css)
+  diffBadge.className = 'badge ' + (q.difficulty === 'Easy' ? 'badge-success' :
+                       (q.difficulty === 'Medium' ? 'badge-warning' : 'badge-danger'));
 
   document.getElementById('side-skill-name').innerText = q.skill;
   document.getElementById('side-skill-desc').innerText = `Domain: ${q.domain} (${q.test})`;
@@ -448,10 +449,10 @@ function loadQuestion(idx) {
   if (card) {
     const isDue = card.dueAt <= Date.now();
     srsBadge.innerText = `SRS: Reps ${card.repetitions} · Interval ${card.intervalDays}d ${isDue ? '(Due Now)' : ''}`;
-    srsBadge.className = isDue ? 'text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800' : 'text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800';
+    srsBadge.className = isDue ? 'badge badge-danger' : 'badge badge-primary';
   } else {
     srsBadge.innerText = 'SRS: New Card';
-    srsBadge.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600';
+    srsBadge.className = 'badge badge-neutral';
   }
 
   // Visual Image
@@ -550,12 +551,12 @@ function loadQuestion(idx) {
     const timeSec = (qProg.timingReliable !== false && typeof qProg.timeSpentMs === 'number') ? ` (${Math.round(qProg.timeSpentMs / 1000)}s)` : '';
 
     if (qProg.isCorrect) {
-      feedbackBanner.className = 'p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900';
+      feedbackBanner.className = 'banner banner-success';
       document.getElementById('feedback-icon').innerHTML = `<i data-lucide="check-circle" class="w-6 h-6 text-emerald-600"></i>`;
       document.getElementById('feedback-title').innerText = `Correct!${timeSec}`;
       document.getElementById('feedback-desc').innerText = `Your answer: ${qProg.selectedAnswer}`;
     } else {
-      feedbackBanner.className = 'p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-900';
+      feedbackBanner.className = 'banner banner-danger';
       document.getElementById('feedback-icon').innerHTML = `<i data-lucide="x-circle" class="w-6 h-6 text-rose-600"></i>`;
       document.getElementById('feedback-title').innerText = `Incorrect${timeSec}`;
       document.getElementById('feedback-desc').innerText = `Your answer: ${qProg.selectedAnswer} | Correct: ${acceptedDisplay}`;
