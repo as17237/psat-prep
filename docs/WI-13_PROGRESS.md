@@ -19,9 +19,17 @@
 - Exams: timer bar, palette pills, break screen (dark `bg-white/10` panels), zoom controls, `#exam-active` question container (has min-h/overflow + pre-padded inner sections — `.card` would double-pad).
 - Reason: the design system intentionally ships **no `input`/`select`/`palette`/layout classes**; styling these now would create mixed-system half-states Phase 6 rewrites anyway.
 
-## Remaining
-- **Phase 5 — My Progress:** analytics stat tiles→`statCard`/`.stat`, `renderCharts` already on vendored Chart.js, add a "Data & Sync" section (manual sync, restore real data, reset all progress — guarded/confirms per CLAUDE.md mode 7; folds in the sync-badge/banner component-port).
-- **Phase 6 — finish:** mobile-nav fix (flips `known-defects` canary #5 red — "Analytics tab off-screen at 390px, owned by WI-13"), empty-state pass, **remove the Tailwind CDN** (`index.html:8`) + convert all deferred elements, extend Playwright + **2 consecutive green runs**, Lighthouse ≥90 on `/v2/index.html`, `bash scripts/deploy_v2.sh`, then merge to `main`.
+## Done (cont.)
+- **Phase 5 (My Progress) — COMPLETE:** analytics header/stat-tiles/breakdown/bank panels→`.card` (`8a4af56`); **Data & Sync section** added (Sync now / Restore my real data / Reset all progress) — reset is mode-7 safe (confirm + transactional pre-reset snapshot) + test (`3847864`). Charts already on vendored Chart.js.
+- **Phase 6 (in progress):** ✅ **mobile-nav fix** (`878cc7a`) — tab nav moved to its own full-width horizontally-scrollable strip below the top bar; all four tabs reachable at 390px; the `known-defects` #5 canary was flipped from pinning the bug to asserting the fix.
+
+## Remaining (Phase 6)
+- **Empty-state pass:** confirm a fresh profile shows no non-zero number on any tab (analytics + Review already covered by tests; spot-check Practice/Exams).
+- **⚠️ Remove the Tailwind CDN** (`index.html:8`) + convert ALL deferred elements (Practice selects/palette, exam timer/palette-pills/break/zoom/#exam-active container, and any remaining utility-styled bits). **This is the single largest/riskiest task** — pulling the CDN unstyles every not-yet-ported element at once, so it is best done with visual verification (run the app / screenshots), not blind.
+- Extend Playwright + **2 consecutive green runs**; Lighthouse ≥90 on `/v2/index.html`; `bash scripts/deploy_v2.sh`; then merge to `main`.
+
+## Stat-tile note (optional polish)
+The 4 analytics stat tiles are `.card`-wrapped with JS-set value/label divs; converting to the full `.stat`/`statCard` structure is optional and can ride along with the Tailwind-removal pass.
 
 ## How to verify on resume
 ```bash
