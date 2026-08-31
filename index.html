@@ -157,6 +157,10 @@
           <button onclick="toggleReferenceSheet()" class="btn btn-sm btn-secondary" title="Open PSAT 8/9 Math Reference Sheet">
             <i data-lucide="compass" class="w-3.5 h-3.5 mr-1.5 text-indigo-600"></i> Reference Sheet
           </button>
+          <!-- WI-13: the question bank moves under Practice (was an unreachable top-level view) -->
+          <button onclick="switchTab('bank')" class="btn btn-sm btn-secondary" title="Browse and search all 3,059 questions">
+            <i data-lucide="table-2" class="w-3.5 h-3.5 mr-1.5 text-slate-600"></i> Browse all questions
+          </button>
         </div>
       </div>
 
@@ -458,6 +462,7 @@
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div>
+            <button onclick="switchTab('practice')" class="btn btn-sm btn-secondary mb-2" title="Return to Practice">&larr; Back to Practice</button>
             <h3 class="text-lg font-bold text-slate-900">Question Bank Explorer</h3>
             <p class="text-xs text-slate-500">3,059 Total Questions across Reading, Writing, and Math.</p>
           </div>

@@ -79,4 +79,22 @@ test.describe('student practice flow', () => {
 
     await expect(page.locator('#feedback-title')).toContainText('Correct!');
   });
+
+  // WI-13: the question bank now lives under Practice (it had no nav trigger
+  // before). "Browse all questions" opens it; "Back to Practice" returns.
+  test('Browse all questions opens the bank explorer and returns to Practice', async ({ page }) => {
+    await expect(page.locator('#view-practice')).toBeVisible();
+    await expect(page.locator('#view-bank')).toBeHidden();
+
+    await page.click('button:has-text("Browse all questions")');
+    await expect(page.locator('#view-bank')).toBeVisible();
+    await expect(page.locator('#view-practice')).toBeHidden();
+    // Real dataset count, written by hand (not derived from app logic).
+    await expect(page.locator('#bank-page-info')).toContainText('of 3059');
+    await expect(page.locator('#bank-table-body tr').first()).toBeVisible();
+
+    await page.click('button:has-text("Back to Practice")');
+    await expect(page.locator('#view-practice')).toBeVisible();
+    await expect(page.locator('#view-bank')).toBeHidden();
+  });
 });
