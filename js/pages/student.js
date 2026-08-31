@@ -332,8 +332,70 @@ function switchTab(tab) {
     }
   } else if (tab === 'bank') {
     renderBankTable();
+  } else if (tab === 'review') {
+    renderReview();
   }
   lucide.createIcons();
+}
+
+// ---------------------------------------------------------------------------
+// WI-13 Review tab: a first-class home for the two review-oriented study
+// flows that were previously buried (SRS due cards were only a Practice
+// filter option; the high-yield drill only launched from the exam lobby).
+// Rendered with the WI-12 design system (styles/components.css owns .card /
+// .badge / .btn / .empty-state); every number shown is a real measurement
+// off srsState, and the empty case shows an em-dash-free empty state, never
+// a fabricated zero (CLAUDE.md mode 1).
+// ---------------------------------------------------------------------------
+function renderReview() {
+  const container = document.getElementById('view-review');
+  if (!container) return;
+  srsState = safeGetStorage('psat_srs', {});
+  const now = Date.now();
+  const ids = Object.keys(srsState);
+  const dueCount = ids.filter(id => srsState[id] && srsState[id].dueAt <= now).length;
+  const totalCards = ids.length;
+
+  const dueSection = dueCount > 0
+    ? `<div class="card space-y-3">
+         <div class="question-meta">
+           <span class="badge badge-danger">${dueCount} due now</span>
+           <span class="badge badge-neutral">${totalCards} card${totalCards === 1 ? '' : 's'} tracked</span>
+         </div>
+         <h3 class="card-title">Spaced-repetition review</h3>
+         <p class="card-subtitle">Grading each card reschedules it with SM-2, so the ones you find hard come back sooner.</p>
+         <button type="button" class="btn btn-md btn-primary" onclick="startSrsReview()">Start review (${dueCount})</button>
+       </div>`
+    : `<div class="card">
+         <div class="empty-state">
+           <span class="empty-state-icon" aria-hidden="true">✅</span>
+           <p class="empty-state-title">Nothing due for review</p>
+           <p class="empty-state-desc">${totalCards > 0
+             ? 'Your scheduled cards are all caught up — check back tomorrow.'
+             : 'Answer questions in Practice to start building your review queue.'}</p>
+         </div>
+       </div>`;
+
+  const drillSection = `<div class="card space-y-3">
+       <div class="question-meta"><span class="badge badge-accent">Adaptive</span></div>
+       <h3 class="card-title">High-yield drill</h3>
+       <p class="card-subtitle">A 20-question set aimed at the skills you miss most, built from your own history.</p>
+       <button type="button" class="btn btn-md btn-secondary" onclick="startGapDrillFromLobby()">Start high-yield drill</button>
+     </div>`;
+
+  container.innerHTML = dueSection + drillSection;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Review happens in the familiar Practice question UI, filtered to the SRS
+// due set — no duplicate question loop. recordAttempt() already reschedules
+// via PSAT_ENGINE.scheduleNext, so grading a card here updates its SM-2 state.
+function startSrsReview() {
+  document.getElementById('filter-subject').value = 'all';
+  document.getElementById('filter-difficulty').value = 'all';
+  document.getElementById('filter-status').value = 'due';
+  applyFilters();
+  switchTab('practice');
 }
 
 function setViewMode(mode) {
@@ -2318,6 +2380,8 @@ Object.assign(window, {
   showStorageWarningBanner,
   resetAllProgress,
   switchTab,
+  renderReview,
+  startSrsReview,
   setViewMode,
   applyFilters,
   loadQuestion,
