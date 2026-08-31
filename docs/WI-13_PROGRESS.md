@@ -1,7 +1,14 @@
 # WI-13 (Student portal rebuild) — progress checkpoint
 
-**Branch:** `wi-13-student-rebuild` (pushed to origin; **not** merged to `main`, **not** deployed to `/v2/` — prod untouched).
-**As of:** 2026-08-30. **Full spec:** `REFACTOR_PLAN.md` §WI-13. **Detailed plan:** was drafted in `~/.claude/plans/greedy-booping-newell.md` (machine-local).
+**Branch:** `wi-13-student-rebuild` (pushed to origin; **not** merged to `main`).
+**As of:** 2026-08-31. **Full spec:** `REFACTOR_PLAN.md` §WI-13. **Detailed plan:** was drafted in `~/.claude/plans/greedy-booping-newell.md` (machine-local).
+
+## ✅ CURRENT STATE — deployed to /v2/ and validated end-to-end (2026-08-31)
+- **Deployed to the `/v2/` staging lane** (prod root untouched): https://psatprep4915.z13.web.core.windows.net/v2/index.html
+  (via `bash scripts/deploy_v2.sh`; dry-run pinned counts still 4 image-rewrites / 5 pages; client_version `v2-3ad22ca`).
+- **End-to-end verified against live Cosmos:** owner ran a 10-question gap drill on `/v2/`; it wrote a durable `exam_session` doc (`drill_gap_1788172053634`, `_etag`/`_ts` present) **and** 10 `progress` records; `exams` 10→11, `updatedAt` today. Grading cross-checked vs the real answer key = **0 mismatches** (the "all wrong" was genuine user answers, not a bug — confirms the option re-skin didn't break grading). Note: `/v2/` writes to `default_student` (the LIVE student, per `js/shared/env.js`); owner is OK with the validation data living in the real profile.
+- **Full desktop Playwright regression: 45 passed, 0 failed, TWICE consecutively** (the WI-13 "2 green runs" bar) — practice, review, exams, analytics, sync, mistakes, feedback, nav, storage, all 5 known-defect canaries.
+- **Verdict: V2 is functionally ready for the student to use on the `/v2/` URL now.** Remaining items below are polish + the eventual prod cutover, not usability blockers.
 
 ## Approach (important)
 - Rebuild is **incremental**, one small verified commit per element, on the WI-12 design system (`styles/tokens.css` + `components.css` + `js/components/*` classes).
@@ -23,13 +30,14 @@
 - **Phase 5 (My Progress) — COMPLETE:** analytics header/stat-tiles/breakdown/bank panels→`.card` (`8a4af56`); **Data & Sync section** added (Sync now / Restore my real data / Reset all progress) — reset is mode-7 safe (confirm + transactional pre-reset snapshot) + test (`3847864`). Charts already on vendored Chart.js.
 - **Phase 6 (in progress):** ✅ **mobile-nav fix** (`878cc7a`) — tab nav moved to its own full-width horizontally-scrollable strip below the top bar; all four tabs reachable at 390px; the `known-defects` #5 canary was flipped from pinning the bug to asserting the fix.
 
-## Remaining (Phase 6)
-- **Empty-state pass:** confirm a fresh profile shows no non-zero number on any tab (analytics + Review already covered by tests; spot-check Practice/Exams).
-- **⚠️ Remove the Tailwind CDN** (`index.html:8`) + convert ALL deferred elements (Practice selects/palette, exam timer/palette-pills/break/zoom/#exam-active container, and any remaining utility-styled bits). **This is the single largest/riskiest task** — pulling the CDN unstyles every not-yet-ported element at once, so it is best done with visual verification (run the app / screenshots), not blind.
-- Extend Playwright + **2 consecutive green runs**; Lighthouse ≥90 on `/v2/index.html`; `bash scripts/deploy_v2.sh`; then merge to `main`.
+## Remaining (Phase 6) — polish + cutover, NOT usability blockers
+1. **⚠️ Remove the Tailwind CDN** (`index.html:8`) + convert ALL deferred elements (Practice filter `<select>`s + question palette; exam timer / palette-pills / break screen / zoom / `#exam-active` container; any remaining utility-styled bits). **The single largest/riskiest task** — pulling the CDN unstyles every not-yet-ported element at once, so do it **with visual verification** (the app is now on `/v2/` — deploy after each chunk and eyeball it), not blind. Redeploy: `bash scripts/deploy_v2.sh`.
+2. **Mobile project run** (`--project=chromium-mobile`) for full sign-off — desktop already 2× green; the 390px nav fix is covered, but the full mobile pass hasn't been run.
+3. **Lighthouse ≥90** on `/v2/index.html`.
+4. Optional polish: analytics stat tiles → full `.stat`/`statCard` structure (currently `.card`-wrapped with JS-set value/label divs) — ride it along with the Tailwind-removal pass.
+5. **Prod cutover** (owner-run, separate from WI-13): `scripts/promote_to_prod.sh` when ready to serve V2 at the production root instead of `/v2/`.
 
-## Stat-tile note (optional polish)
-The 4 analytics stat tiles are `.card`-wrapped with JS-set value/label divs; converting to the full `.stat`/`statCard` structure is optional and can ride along with the Tailwind-removal pass.
+Empty-state discipline is already covered by tests (analytics empty + Review empty); spot-check Practice/Exams during the Tailwind pass.
 
 ## How to verify on resume
 ```bash
