@@ -304,25 +304,36 @@ test.describe('WI-08.5 hotfix regressions (defects #1-#4 must stay fixed)', () =
   });
 });
 
-test.describe('known defects still open (pin today\'s real behavior; must go red when fixed)', () => {
-  test.describe('at the 390px mobile viewport (forced regardless of project)', () => {
-    test.use({ viewport: { width: 390, height: 844 } });
+// WI-13 FIXED defect #5: at 390px the four-tab nav used to overflow the header
+// with no scroll affordance, leaving the last tab unreachable by touch. The nav
+// is now a horizontally-scrollable strip (overflow-x-auto + min-w-0), so every
+// tab is reachable by swipe. This test was flipped from pinning the broken
+// behavior to asserting the fix -- if the nav stops scrolling or the header
+// blows out again, it goes red.
+test.describe('WI-13 mobile nav: all four tabs reachable at 390px (defect #5 fixed)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
 
-    test('index.html: the Analytics tab is rendered off-screen and unreachable by touch (defect #5, owned by WI-13)', async ({ page }) => {
-      await page.goto('/index.html');
-      await seedEmpty(page);
+  test('index.html: the nav scrolls horizontally and the My Progress tab is reachable', async ({ page }) => {
+    await page.goto('/index.html');
+    await seedEmpty(page);
 
-      const box = await page.locator('#tab-analytics').boundingBox();
-      expect(box).toBeTruthy();
-      // The tab sits past the right edge of a 390px viewport -- a real
-      // touch user has no horizontal scroll affordance to reach it.
-      expect(box.x).toBeGreaterThan(390);
+    // The tab nav is its own full-width strip and is horizontally scrollable
+    // at 390px -- a real swipe affordance (this is the fix for defect #5).
+    const nav = page.locator('#tab-practice').locator('xpath=..');
+    const scroll = await nav.evaluate((el) => ({
+      sw: el.scrollWidth,
+      cw: el.clientWidth,
+      overflowX: getComputedStyle(el).overflowX,
+    }));
+    expect(scroll.overflowX).toBe('auto');
+    // The strip spans (near) the full 390px viewport rather than being squeezed
+    // into a sliver between the logo and the action buttons.
+    expect(scroll.cw).toBeGreaterThan(300);
 
-      const overflow = await page.evaluate(() => {
-        const row = document.querySelector('header .flex.items-center.justify-between.h-16');
-        return { scrollWidth: row.scrollWidth, clientWidth: row.clientWidth };
-      });
-      expect(overflow.scrollWidth).toBeGreaterThan(overflow.clientWidth * 2);
-    });
+    // And the last tab is actually reachable: a normal click scrolls it into
+    // view (exactly as a swipe would) and switches to My Progress.
+    await page.click('#tab-analytics');
+    await expect(page.locator('#view-analytics')).toBeVisible();
+    await expect(page.locator('#view-practice')).toBeHidden();
   });
 });
