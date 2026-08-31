@@ -452,6 +452,22 @@
 
       </div>
 
+      <!-- WI-13: Data & Sync — the student-side mirror of the parent portal's
+           Data & Backups. Destructive reset is btn-danger + confirm + a
+           transactional pre-reset snapshot (resetAllProgress, CLAUDE.md mode 7). -->
+      <div class="card space-y-4" data-testid="data-sync-section">
+        <div>
+          <h3 class="card-title">Data &amp; Sync</h3>
+          <p class="card-subtitle">Your progress saves on this device and syncs to the cloud. These controls are here if you need them.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button type="button" onclick="manualTriggerCloudSync(true)" class="btn btn-md btn-primary">Sync now</button>
+          <button type="button" onclick="restoreRealStudentData()" class="btn btn-md btn-secondary">Restore my real data</button>
+          <button type="button" onclick="resetAllProgress()" class="btn btn-md btn-danger">Reset all progress…</button>
+        </div>
+        <p class="empty-state-desc">Reset erases every attempt, SRS review card, and analytic on this device. It asks you to confirm first and takes a safety snapshot before anything is removed.</p>
+      </div>
+
     </div>
 
     <!-- ============================================================ -->

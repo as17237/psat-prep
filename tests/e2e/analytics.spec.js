@@ -56,4 +56,25 @@ test.describe('student analytics tab', () => {
     await expect(page.locator('#stat-flagged')).toHaveText(String(FIXTURE.flaggedCount));
     await expect(page.locator('#stat-weakness')).toHaveText(FIXTURE.topWeaknessLabel);
   });
+
+  // WI-13: the Data & Sync section (My Progress tab) surfaces sync/restore/reset.
+  // Reset is destructive on live data, so it must be guarded (CLAUDE.md mode 7).
+  test('Data & Sync section is present and Reset is guarded by a confirm', async ({ page }) => {
+    await page.goto('/index.html');
+    await seedEmpty(page);
+    await page.click('#tab-analytics', { force: true });
+
+    const section = page.locator('[data-testid="data-sync-section"]');
+    await expect(section).toBeVisible();
+    await expect(section.getByRole('button', { name: 'Sync now' })).toBeVisible();
+    await expect(section.getByRole('button', { name: 'Restore my real data' })).toBeVisible();
+    await expect(section.getByRole('button', { name: /Reset all progress/ })).toBeVisible();
+
+    // Clicking Reset must raise a confirm dialog before touching anything.
+    // Dismiss it -> no-op, so this test never wipes the seeded profile.
+    let dialogType = null;
+    page.once('dialog', (dialog) => { dialogType = dialog.type(); dialog.dismiss(); });
+    await section.getByRole('button', { name: /Reset all progress/ }).click();
+    await expect.poll(() => dialogType).toBe('confirm');
+  });
 });
