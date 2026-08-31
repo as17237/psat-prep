@@ -1369,14 +1369,15 @@ function renderExamMcqOptions(q) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.onclick = () => selectExamMcqChoice(letter);
-    btn.className = isSelected ?
-      'p-3.5 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-900 font-bold text-sm text-left flex items-center transition-all shadow-sm' :
-      'p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50 text-slate-800 text-sm text-left flex items-center transition-all';
-
-    btn.innerHTML = `
-      <span class="w-7 h-7 rounded-lg ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'} flex items-center justify-center font-bold text-xs mr-3 shrink-0">${letter}</span>
-      <span class="font-medium text-xs sm:text-sm line-clamp-2">${esc(optText)}</span>
-    `;
+    // WI-13: same design-system .question-option markup as the practice options
+    // (styling owned by components.css). The grid container (#exam-mcq-options)
+    // keeps its two-column layout from the markup. Uses innerHTML (not
+    // createElement/setAttribute) to stay compatible with the lightweight DOM
+    // mock in tests/test_buttons_and_interactions.js.
+    btn.className = 'question-option' + (isSelected ? ' is-selected' : '');
+    btn.innerHTML =
+      `<span class="question-option-key">${esc(letter)}</span>` +
+      `<span>${esc(optText)}</span>`;
     container.appendChild(btn);
   });
 }
