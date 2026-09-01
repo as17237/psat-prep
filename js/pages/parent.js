@@ -14,7 +14,7 @@ import { safeGetStorage, safeSetStorage, readSyncBadgeState, onPendingSyncCountC
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { launchTargetedMistakeDrill } from '../shared/drill.js';
-import { setClassName } from '../shared/dom.js';
+import { applyClass } from '../shared/dom.js';
 import { toggleDesmosCalculator, initDesmosCalculator, fallbackDesmosIframe, toggleDesmosSize, toggleScientificCalculator, toggleScientificAngleMode, sciCalcInput, sciCalcClear, sciCalcBackspace, sciCalcEvaluate, updateSciCalcDisplay, toggleReferenceSheet, setFormulaTab, makeDraggable } from '../shared/math_tools.js';
 
 // safeSetStorage bumps the pending-sync counter; this is how it reaches this
@@ -1000,27 +1000,27 @@ function updateGapTestCalculations() {
     if (focusType === 'math_only') {
       summaryBox.className = 'p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-3 text-xs text-emerald-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'calculator');
-      setClassName(focusIcon, 'w-4 h-4 text-emerald-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-emerald-600 shrink-0');
       poolBadge.className = 'font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0 text-center';
     } else if (focusType === 'rw_only') {
       summaryBox.className = 'p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'book-open');
-      setClassName(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
       poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
     } else if (focusType === 'srs_only') {
       summaryBox.className = 'p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col gap-3 text-xs text-amber-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'clock');
-      setClassName(focusIcon, 'w-4 h-4 text-amber-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-amber-600 shrink-0');
       poolBadge.className = 'font-bold text-amber-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shrink-0 text-center';
     } else if (focusType === 'weak_only') {
       summaryBox.className = 'p-4 bg-rose-50 border border-rose-200 rounded-xl flex flex-col gap-3 text-xs text-rose-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'alert-triangle');
-      setClassName(focusIcon, 'w-4 h-4 text-rose-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-rose-600 shrink-0');
       poolBadge.className = 'font-bold text-rose-700 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shrink-0 text-center';
     } else {
       summaryBox.className = 'p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'target');
-      setClassName(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
       poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
     }
   }
