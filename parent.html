@@ -10,7 +10,11 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Desmos Graphing Calculator API -->
   <script src="https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
-  <!-- Unified Button System -->
+  <!-- WI-14: design system (tokens + components + self-hosted utilities); buttons.css predates it.
+       Loaded alongside Tailwind for now; the CDN is removed later in the rebuild once
+       parent.html's markup is ported and gen_utilities.js covers its classes. -->
+  <link rel="stylesheet" href="styles/tokens.css?v=20260830-1">
+  <link rel="stylesheet" href="styles/components.css?v=20260830-1">
   <link rel="stylesheet" href="styles/buttons.css?v=20260829-7">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
