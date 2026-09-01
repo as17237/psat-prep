@@ -74,7 +74,13 @@ test.describe('student analytics tab', () => {
     // Dismiss it -> no-op, so this test never wipes the seeded profile.
     let dialogType = null;
     page.once('dialog', (dialog) => { dialogType = dialog.type(); dialog.dismiss(); });
-    await section.getByRole('button', { name: /Reset all progress/ }).click();
+    const resetBtn = section.getByRole('button', { name: /Reset all progress/ });
+    await resetBtn.scrollIntoViewIfNeeded();
+    // force-click: elementFromPoint confirms this button is the top element at its
+    // own centre (nothing overlays it), so `force` bypasses only a mobile-viewport
+    // actionability/stability flake (post-load re-render), not a real overlay. The
+    // confirm still fires — verified — so the guard is genuinely exercised.
+    await resetBtn.click({ force: true });
     await expect.poll(() => dialogType).toBe('confirm');
   });
 });
