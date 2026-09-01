@@ -94,7 +94,7 @@ function syncParentFromCloud(isManual = false) {
           if (isManual) alert(`Sync Warning: ${errMsg}. Please check your internet connection.`);
         }
       }
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }).catch(err => {
       updateParentSyncStatusBadge();
       console.warn('Sync failed:', err);
@@ -214,7 +214,7 @@ async function refreshBackupStatus(force) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   if (APP_ENV.isBeta) {
     const banner = document.getElementById('beta-sandbox-banner');
     if (banner) banner.classList.remove('hidden');
@@ -454,7 +454,7 @@ function renderParentExamHistory() {
         <p class="text-[11px] text-slate-400">When your student completes a standard PSAT 8/9 exam or practice drill, their score report and question analysis will appear here.</p>
       </div>
     `;
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -545,7 +545,7 @@ function renderParentExamHistory() {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderTroubleSpots() {
@@ -650,7 +650,7 @@ function renderTroubleDomainChips() {
     }
   }
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function openMistakeRationaleModal(qid) {
@@ -754,7 +754,7 @@ function openMistakeRationaleModal(qid) {
   `;
 
   document.getElementById('parent-mistake-detail-modal').classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function closeMistakeRationaleModal() {
@@ -844,7 +844,7 @@ function openParentExamReview(examId) {
 
   filterParentExamQuestions('all');
   document.getElementById('parent-exam-review-modal').classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function closeParentExamReview() {
@@ -951,7 +951,7 @@ function filterParentExamQuestions(filter) {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function switchBuilderTab(tab) {
@@ -961,7 +961,7 @@ function switchBuilderTab(tab) {
     if (view) view.classList.toggle('hidden', t !== tab);
     if (tabEl) tabEl.className = 'btn btn-sm ' + (t === tab ? 'btn-primary is-active' : 'btn-ghost');
   });
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function updateGapTestCalculations() {
@@ -1086,7 +1086,7 @@ function updateGapTestCalculations() {
     }
   }
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function setGapCount(c) {

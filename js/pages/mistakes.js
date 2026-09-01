@@ -70,7 +70,7 @@ function syncMistakesFromCloud(isManual = false) {
       } else {
         updateMistakesSyncBadge();
       }
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }).catch(err => {
       updateMistakesSyncBadge();
       console.warn('Sync failed:', err);
@@ -83,7 +83,7 @@ function syncMistakesFromCloud(isManual = false) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   if (APP_ENV.isBeta) {
     const banner = document.getElementById('beta-sandbox-banner');
     if (banner) banner.classList.remove('hidden');
@@ -280,7 +280,7 @@ function renderMistakesFeed() {
       </div>
     `;
     if (paginationContainer) paginationContainer.classList.add('hidden');
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -479,7 +479,7 @@ function renderMistakesFeed() {
     container.appendChild(card);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   if (window.MathJax && window.MathJax.typesetPromise) {
     window.MathJax.typesetPromise();
   }
@@ -491,7 +491,7 @@ function openImageLightbox(imgSrc) {
   if (modal && img) {
     img.src = imgSrc;
     modal.classList.remove('hidden');
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
 }
 

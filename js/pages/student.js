@@ -46,7 +46,7 @@ function updateSyncStatusBadge() {
   } else {
     badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB: Synced (${timeAgoStr})`;
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 let questions = window.QUESTIONS_DATA || [];
@@ -74,6 +74,21 @@ let searchedBankQuestions = [...questions];
 let domainChartInstance = null;
 let difficultyChartInstance = null;
 
+// WI-13 Perf: lazy-load Chart.js only when the My Progress tab is opened.
+// The eager <script> tag was removed from index.html <head> (−205 KB off first paint).
+let chartLoading = null;
+function loadChartJs() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (chartLoading) return chartLoading;
+  chartLoading = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/chart.min.js?v=20260830-1';
+    s.onload = () => resolve(); s.onerror = () => resolve();
+    document.head.appendChild(s);
+  });
+  return chartLoading;
+}
+
 // Visibility-aware timer
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
@@ -96,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
     return;
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   checkDemoModeBanner();
   applyFilters();
   updateHeaderStats();
@@ -155,7 +170,7 @@ function manualTriggerCloudSync(isManual = false) {
   const el = document.getElementById('hdr-cloud-badge');
   if (el) {
     el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
   if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
     return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(pullRes => {
@@ -193,14 +208,14 @@ function manualTriggerCloudSync(isManual = false) {
           alert(`Sync notice: ${errMsg}. Practice data remains safely stored in local cache.`);
         }
       }
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
       return pullRes;
     }).catch(err => {
       console.warn('Manual cloud sync failed:', err);
       if (btnText) btnText.innerText = 'Sync';
       updateSyncStatusBadge();
       if (isManual) alert('Sync notice: Could not reach Cosmos DB sync endpoint.');
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
   }
 }
@@ -240,13 +255,13 @@ function triggerCloudSync() {
           } else {
             el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
           }
-          lucide.createIcons();
+          if (typeof lucide !== 'undefined') lucide.createIcons();
         }
       }).catch(() => {
         const el = document.getElementById('hdr-cloud-badge');
         if (el) {
           el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-          lucide.createIcons();
+          if (typeof lucide !== 'undefined') lucide.createIcons();
         }
       });
     }
@@ -335,7 +350,7 @@ function switchTab(tab) {
   } else if (tab === 'review') {
     renderReview();
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ---------------------------------------------------------------------------
@@ -424,7 +439,7 @@ function setViewMode(mode) {
     if (visualContainer) visualContainer.classList.add('hidden');
     if (textContainer) textContainer.classList.remove('hidden');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function applyFilters() {
@@ -639,7 +654,7 @@ function loadQuestion(idx) {
   document.getElementById('btn-next').disabled = (currentIndex === filteredQuestions.length - 1);
 
   renderPalette();
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function recordAttempt(selectedAnswer, isCorrect) {
@@ -956,8 +971,13 @@ function renderAnalytics() {
 
 function renderCharts(domainStats, diffStats) {
   if (typeof Chart === 'undefined') {
-    console.warn('Chart.js library not loaded; charts omitted.');
-    return;
+    return loadChartJs().then(() => {
+      if (typeof Chart !== 'undefined') {
+        return renderCharts(domainStats, diffStats);
+      } else {
+        console.warn('Chart.js library not loaded; charts omitted.');
+      }
+    });
   }
   const dLabels = Object.keys(domainStats);
   const dAccuracies = dLabels.map(k => {
@@ -1126,7 +1146,7 @@ function showExamSubview(subviewId) {
   });
   const target = document.getElementById(subviewId);
   if (target) target.classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function startStandardExam(opts) {
@@ -1219,7 +1239,7 @@ function showExamToast(msg) {
   }
   toast.innerHTML = `<i data-lucide="bell" class="w-4 h-4 text-amber-400 mr-2"></i> ${esc(msg)}`;
   toast.classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   setTimeout(() => {
     if (toast) toast.classList.add('hidden');
   }, 4500);
@@ -1347,7 +1367,7 @@ function loadExamQuestion(qIdx) {
   renderExamPalettePills();
   setExamViewMode(examViewMode);
   persistActiveExamState();
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderExamMcqOptions(q) {
@@ -1859,7 +1879,7 @@ function renderExamLobbyHistory() {
         <p class="text-[11px] text-slate-400">Complete the standard PSAT 8/9 exam or a section test above to view score trends and diagnostic reviews here.</p>
       </div>
     `;
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -1904,7 +1924,7 @@ function renderExamLobbyHistory() {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function viewExamReportFromHistory(examId) {
@@ -2092,7 +2112,7 @@ function resumeActiveExamState() {
   }, 1000);
 
   loadExamQuestion(currentExamQIndex);
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function discardActiveExamState() {
@@ -2224,7 +2244,7 @@ function filterReportQuestions(filter) {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function setQuestionErrorTag(qid, tagId) {
