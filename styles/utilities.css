@@ -218,6 +218,7 @@ input::placeholder,textarea::placeholder{opacity:1;color:var(--color-text-subtle
 .mb-4{margin-bottom: 1rem;}
 .mb-6{margin-bottom: 1.5rem;}
 .min-h-\[18px\]{min-height: 18px;}
+.min-h-\[20rem\]{min-height: 20rem;}
 .min-h-\[300px\]{min-height: 300px;}
 .min-h-\[32px\]{min-height: 32px;}
 .min-h-\[500px\]{min-height: 500px;}
