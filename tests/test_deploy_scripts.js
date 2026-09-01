@@ -165,6 +165,7 @@ const V2_EXPECTED_BLOBS = [
   'v2/styles/buttons.css',
   'v2/styles/tokens.css',
   'v2/styles/components.css',
+  'v2/styles/utilities.css',
   'v2/vendor/chart.min.js',
   'v2/js/shared/html.js',
   'v2/js/shared/dom.js',

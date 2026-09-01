@@ -57,6 +57,7 @@ APP_FILES=(
   "styles/buttons.css"
   "styles/tokens.css"
   "styles/components.css"
+  "styles/utilities.css"
   "vendor/chart.min.js"
   "js/shared/html.js"
   "js/shared/dom.js"
