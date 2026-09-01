@@ -57,6 +57,7 @@ APP_FILES=(
   "styles/buttons.css"
   "styles/tokens.css"
   "styles/components.css"
+  "styles/utilities.css"
   "vendor/chart.min.js"
   "js/shared/html.js"
   "js/shared/dom.js"
@@ -206,6 +207,8 @@ resolve_storage_credentials() {
 # ------------------------------------------------------------------------------
 # upload_blob <local-file> <blob-name> <required-prefix>
 # Asserts the destination, then uploads with no-cache headers.
+# WI-13 Perf: text assets are pre-gzipped for upload (Azure Blob static hosting
+# does not compress on the fly). Frozen/pinned assets get immutable cache headers.
 # ------------------------------------------------------------------------------
 upload_blob() {
   local local_file="$1" blob_name="$2" prefix="$3"
@@ -226,16 +229,47 @@ upload_blob() {
     *.js)   content_type_args=(--content-type "application/javascript") ;;
     *.css)  content_type_args=(--content-type "text/css") ;;
     *.html) content_type_args=(--content-type "text/html") ;;
+    *.json) content_type_args=(--content-type "application/json") ;;
+  esac
+
+  # WI-13 Perf: immutable caching for frozen/pinned assets; no-cache for everything else.
+  local cache_control="no-cache, no-store, must-revalidate"
+  case "$blob_name" in
+    */data/questions_data.js|data/questions_data.js)
+      cache_control="public, max-age=31536000, immutable" ;;
+    */vendor/chart.min.js|vendor/chart.min.js)
+      cache_control="public, max-age=31536000, immutable" ;;
+  esac
+
+  # WI-13 Perf: pre-gzip text assets. Azure Blob static hosting does not
+  # compress on the fly, so we upload the gzipped bytes with Content-Encoding: gzip.
+  # Browsers decompress transparently; every modern browser sends Accept-Encoding: gzip.
+  local upload_file="$local_file"
+  local encoding_args=()
+  case "$blob_name" in
+    *.js|*.css|*.html|*.json)
+      local gz_tmp
+      gz_tmp=$(mktemp)
+      gzip -9 -c "$local_file" > "$gz_tmp"
+      upload_file="$gz_tmp"
+      encoding_args=(--content-encoding "gzip")
+      ;;
   esac
 
   az storage blob upload \
     --container-name "$WEB_CONTAINER" \
     --name "$blob_name" \
-    --file "$local_file" \
-    --content-cache-control "no-cache, no-store, must-revalidate" \
+    --file "$upload_file" \
+    --content-cache-control "$cache_control" \
     "${content_type_args[@]}" \
+    "${encoding_args[@]}" \
     --overwrite true \
     --output none
+
+  # Clean up temp gzip file if we created one
+  if [[ "$upload_file" != "$local_file" ]]; then
+    rm -f "$upload_file"
+  fi
 }
 
 # ------------------------------------------------------------------------------

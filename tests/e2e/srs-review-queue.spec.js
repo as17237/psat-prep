@@ -16,7 +16,7 @@
  * filter routes through loadQuestion() too. WI-08.5 fixed that; it is now a
  * plain must-pass regression assertion.
  */
-const { test, expect, seedFixtureProfile, QUESTIONS } = require('./fixtures');
+const { test, expect, seedFixtureProfile, seedEmpty, QUESTIONS } = require('./fixtures');
 
 const DUE_IDS = ['27754367', '96fa19ad', '7326e8c1', 'bff1c061'];
 // bundle order among the due ids (applyFilters() does not shuffle)
@@ -62,5 +62,39 @@ test.describe('SRS review queue', () => {
     // longer "New Card", repetitions incremented) -- this is the actual
     // scheduleNext() write-back the grading path is responsible for.
     await expect(page.locator('#srs-status-badge')).not.toHaveText('SRS: New Card');
+  });
+});
+
+// WI-13: the Review tab surfaces the SRS due queue + the high-yield drill as
+// first-class flows (previously a buried Practice filter option and an
+// exam-lobby button). "Start review" applies the due filter and jumps to the
+// Practice question UI, where recordAttempt() already reschedules via SM-2.
+test.describe('Review tab (WI-13)', () => {
+  test('empty profile: no cards due -> honest empty state + high-yield drill', async ({ page }) => {
+    await page.goto('/index.html');
+    await seedEmpty(page);
+
+    await page.click('#tab-review', { force: true });
+    await expect(page.locator('#view-review')).toBeVisible();
+    await expect(page.locator('#view-review')).toContainText('Nothing due for review');
+    await expect(page.locator('#view-review button:has-text("Start high-yield drill")')).toBeVisible();
+    // Mode 1: an empty profile shows no fabricated "due now" count.
+    await expect(page.locator('#view-review').getByText(/due now/)).toHaveCount(0);
+  });
+
+  test('fixture profile: real due count, and Start review opens the filtered Practice queue', async ({ page }) => {
+    await page.goto('/index.html');
+    await seedFixtureProfile(page);
+
+    await page.click('#tab-review', { force: true });
+    // The fixture seeds exactly 4 due cards (see this file's header) -- written
+    // by hand, not derived from app logic.
+    await expect(page.locator('#view-review')).toContainText('4 due now');
+    await expect(page.locator('#view-review button:has-text("Start review (4)")')).toBeVisible();
+
+    await page.click('#view-review button:has-text("Start review")');
+    await expect(page.locator('#view-practice')).toBeVisible();
+    await expect(page.locator('#filter-status')).toHaveValue('due');
+    await expect(page.locator('#q-index-badge')).toHaveText('Q1 of 4');
   });
 });

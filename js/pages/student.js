@@ -46,7 +46,7 @@ function updateSyncStatusBadge() {
   } else {
     badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB: Synced (${timeAgoStr})`;
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 let questions = window.QUESTIONS_DATA || [];
@@ -74,6 +74,21 @@ let searchedBankQuestions = [...questions];
 let domainChartInstance = null;
 let difficultyChartInstance = null;
 
+// WI-13 Perf: lazy-load Chart.js only when the My Progress tab is opened.
+// The eager <script> tag was removed from index.html <head> (−205 KB off first paint).
+let chartLoading = null;
+function loadChartJs() {
+  if (typeof Chart !== 'undefined') return Promise.resolve();
+  if (chartLoading) return chartLoading;
+  chartLoading = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'vendor/chart.min.js?v=20260830-1';
+    s.onload = () => resolve(); s.onerror = () => resolve();
+    document.head.appendChild(s);
+  });
+  return chartLoading;
+}
+
 // Visibility-aware timer
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
@@ -96,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
     return;
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   checkDemoModeBanner();
   applyFilters();
   updateHeaderStats();
@@ -155,7 +170,7 @@ function manualTriggerCloudSync(isManual = false) {
   const el = document.getElementById('hdr-cloud-badge');
   if (el) {
     el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   }
   if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
     return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(pullRes => {
@@ -193,14 +208,14 @@ function manualTriggerCloudSync(isManual = false) {
           alert(`Sync notice: ${errMsg}. Practice data remains safely stored in local cache.`);
         }
       }
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
       return pullRes;
     }).catch(err => {
       console.warn('Manual cloud sync failed:', err);
       if (btnText) btnText.innerText = 'Sync';
       updateSyncStatusBadge();
       if (isManual) alert('Sync notice: Could not reach Cosmos DB sync endpoint.');
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
   }
 }
@@ -240,13 +255,13 @@ function triggerCloudSync() {
           } else {
             el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
           }
-          lucide.createIcons();
+          if (typeof lucide !== 'undefined') lucide.createIcons();
         }
       }).catch(() => {
         const el = document.getElementById('hdr-cloud-badge');
         if (el) {
           el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-          lucide.createIcons();
+          if (typeof lucide !== 'undefined') lucide.createIcons();
         }
       });
     }
@@ -309,7 +324,7 @@ function resetAllProgress() {
 }
 
 function switchTab(tab) {
-  ['practice', 'exam', 'analytics', 'bank'].forEach(t => {
+  ['practice', 'review', 'exam', 'analytics', 'bank'].forEach(t => {
     const viewEl = document.getElementById(`view-${t}`);
     const tabEl = document.getElementById(`tab-${t}`);
     if (viewEl) viewEl.classList.add('hidden');
@@ -332,8 +347,70 @@ function switchTab(tab) {
     }
   } else if (tab === 'bank') {
     renderBankTable();
+  } else if (tab === 'review') {
+    renderReview();
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ---------------------------------------------------------------------------
+// WI-13 Review tab: a first-class home for the two review-oriented study
+// flows that were previously buried (SRS due cards were only a Practice
+// filter option; the high-yield drill only launched from the exam lobby).
+// Rendered with the WI-12 design system (styles/components.css owns .card /
+// .badge / .btn / .empty-state); every number shown is a real measurement
+// off srsState, and the empty case shows an em-dash-free empty state, never
+// a fabricated zero (CLAUDE.md mode 1).
+// ---------------------------------------------------------------------------
+function renderReview() {
+  const container = document.getElementById('view-review');
+  if (!container) return;
+  srsState = safeGetStorage('psat_srs', {});
+  const now = Date.now();
+  const ids = Object.keys(srsState);
+  const dueCount = ids.filter(id => srsState[id] && srsState[id].dueAt <= now).length;
+  const totalCards = ids.length;
+
+  const dueSection = dueCount > 0
+    ? `<div class="card space-y-3">
+         <div class="question-meta">
+           <span class="badge badge-danger">${dueCount} due now</span>
+           <span class="badge badge-neutral">${totalCards} card${totalCards === 1 ? '' : 's'} tracked</span>
+         </div>
+         <h3 class="card-title">Spaced-repetition review</h3>
+         <p class="card-subtitle">Grading each card reschedules it with SM-2, so the ones you find hard come back sooner.</p>
+         <button type="button" class="btn btn-md btn-primary" onclick="startSrsReview()">Start review (${dueCount})</button>
+       </div>`
+    : `<div class="card">
+         <div class="empty-state">
+           <span class="empty-state-icon" aria-hidden="true">✅</span>
+           <p class="empty-state-title">Nothing due for review</p>
+           <p class="empty-state-desc">${totalCards > 0
+             ? 'Your scheduled cards are all caught up — check back tomorrow.'
+             : 'Answer questions in Practice to start building your review queue.'}</p>
+         </div>
+       </div>`;
+
+  const drillSection = `<div class="card space-y-3">
+       <div class="question-meta"><span class="badge badge-accent">Adaptive</span></div>
+       <h3 class="card-title">High-yield drill</h3>
+       <p class="card-subtitle">A 20-question set aimed at the skills you miss most, built from your own history.</p>
+       <button type="button" class="btn btn-md btn-secondary" onclick="startGapDrillFromLobby()">Start high-yield drill</button>
+     </div>`;
+
+  container.innerHTML = dueSection + drillSection;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Review happens in the familiar Practice question UI, filtered to the SRS
+// due set — no duplicate question loop. recordAttempt() already reschedules
+// via PSAT_ENGINE.scheduleNext, so grading a card here updates its SM-2 state.
+function startSrsReview() {
+  document.getElementById('filter-subject').value = 'all';
+  document.getElementById('filter-difficulty').value = 'all';
+  document.getElementById('filter-status').value = 'due';
+  applyFilters();
+  switchTab('practice');
 }
 
 function setViewMode(mode) {
@@ -362,7 +439,7 @@ function setViewMode(mode) {
     if (visualContainer) visualContainer.classList.add('hidden');
     if (textContainer) textContainer.classList.remove('hidden');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function applyFilters() {
@@ -430,8 +507,9 @@ function loadQuestion(idx) {
   
   const diffBadge = document.getElementById('q-diff-badge');
   diffBadge.innerText = q.difficulty;
-  diffBadge.className = q.difficulty === 'Easy' ? 'px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700' :
-                       (q.difficulty === 'Medium' ? 'px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700' : 'px-2 py-0.5 text-xs font-semibold rounded-full bg-rose-100 text-rose-700');
+  // WI-13: design-system .badge variants (styling owned by components.css)
+  diffBadge.className = 'badge ' + (q.difficulty === 'Easy' ? 'badge-success' :
+                       (q.difficulty === 'Medium' ? 'badge-warning' : 'badge-danger'));
 
   document.getElementById('side-skill-name').innerText = q.skill;
   document.getElementById('side-skill-desc').innerText = `Domain: ${q.domain} (${q.test})`;
@@ -448,10 +526,10 @@ function loadQuestion(idx) {
   if (card) {
     const isDue = card.dueAt <= Date.now();
     srsBadge.innerText = `SRS: Reps ${card.repetitions} · Interval ${card.intervalDays}d ${isDue ? '(Due Now)' : ''}`;
-    srsBadge.className = isDue ? 'text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800' : 'text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800';
+    srsBadge.className = isDue ? 'badge badge-danger' : 'badge badge-primary';
   } else {
     srsBadge.innerText = 'SRS: New Card';
-    srsBadge.className = 'text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600';
+    srsBadge.className = 'badge badge-neutral';
   }
 
   // Visual Image
@@ -491,29 +569,32 @@ function loadQuestion(idx) {
 
   if (q.type === 'multiple_choice') {
     optContainer.classList.remove('hidden');
+    // WI-13: options now use the WI-12 design-system .question-option markup
+    // (same classes js/components/questionCard.js emits: .question-option +
+    // .question-option-key, is-correct/is-incorrect post-answer, keyed by
+    // data-option-key). components.css owns the styling — no inline utilities.
+    optContainer.classList.add('question-options');
     frContainer.classList.add('hidden');
 
     q.options.forEach(opt => {
       const btn = document.createElement('button');
-      let stateStyle = 'border-slate-200 hover:border-indigo-300 bg-white text-slate-800';
+      btn.type = 'button';
+      let cls = 'question-option';
       if (qProg.answered) {
         if (opt.key === q.correct_answer) {
-          stateStyle = 'border-emerald-500 bg-emerald-50 text-emerald-950 font-semibold';
+          cls += ' is-correct';
         } else if (opt.key === qProg.selectedAnswer) {
-          stateStyle = 'border-rose-500 bg-rose-50 text-rose-950';
-        } else {
-          stateStyle = 'border-slate-200 opacity-60 bg-white';
+          cls += ' is-incorrect';
         }
       }
+      btn.className = cls;
+      btn.setAttribute('data-option-key', opt.key);
 
-      btn.className = `w-full text-left p-4 rounded-xl border-2 transition-all flex items-start space-x-3 ${stateStyle}`;
-      
       const keySpan = document.createElement('span');
-      keySpan.className = 'w-7 h-7 rounded-lg bg-slate-100 border border-slate-300 font-bold text-xs flex items-center justify-center flex-shrink-0 text-slate-700';
+      keySpan.className = 'question-option-key';
       keySpan.textContent = opt.key;
 
       const textSpan = document.createElement('span');
-      textSpan.className = 'text-sm pt-0.5 leading-relaxed';
       textSpan.textContent = opt.text;
 
       btn.appendChild(keySpan);
@@ -547,12 +628,12 @@ function loadQuestion(idx) {
     const timeSec = (qProg.timingReliable !== false && typeof qProg.timeSpentMs === 'number') ? ` (${Math.round(qProg.timeSpentMs / 1000)}s)` : '';
 
     if (qProg.isCorrect) {
-      feedbackBanner.className = 'p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900';
+      feedbackBanner.className = 'banner banner-success';
       document.getElementById('feedback-icon').innerHTML = `<i data-lucide="check-circle" class="w-6 h-6 text-emerald-600"></i>`;
       document.getElementById('feedback-title').innerText = `Correct!${timeSec}`;
       document.getElementById('feedback-desc').innerText = `Your answer: ${qProg.selectedAnswer}`;
     } else {
-      feedbackBanner.className = 'p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-900';
+      feedbackBanner.className = 'banner banner-danger';
       document.getElementById('feedback-icon').innerHTML = `<i data-lucide="x-circle" class="w-6 h-6 text-rose-600"></i>`;
       document.getElementById('feedback-title').innerText = `Incorrect${timeSec}`;
       document.getElementById('feedback-desc').innerText = `Your answer: ${qProg.selectedAnswer} | Correct: ${acceptedDisplay}`;
@@ -573,7 +654,7 @@ function loadQuestion(idx) {
   document.getElementById('btn-next').disabled = (currentIndex === filteredQuestions.length - 1);
 
   renderPalette();
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function recordAttempt(selectedAnswer, isCorrect) {
@@ -890,8 +971,13 @@ function renderAnalytics() {
 
 function renderCharts(domainStats, diffStats) {
   if (typeof Chart === 'undefined') {
-    console.warn('Chart.js library not loaded; charts omitted.');
-    return;
+    return loadChartJs().then(() => {
+      if (typeof Chart !== 'undefined') {
+        return renderCharts(domainStats, diffStats);
+      } else {
+        console.warn('Chart.js library not loaded; charts omitted.');
+      }
+    });
   }
   const dLabels = Object.keys(domainStats);
   const dAccuracies = dLabels.map(k => {
@@ -1060,7 +1146,7 @@ function showExamSubview(subviewId) {
   });
   const target = document.getElementById(subviewId);
   if (target) target.classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function startStandardExam(opts) {
@@ -1153,7 +1239,7 @@ function showExamToast(msg) {
   }
   toast.innerHTML = `<i data-lucide="bell" class="w-4 h-4 text-amber-400 mr-2"></i> ${esc(msg)}`;
   toast.classList.remove('hidden');
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   setTimeout(() => {
     if (toast) toast.classList.add('hidden');
   }, 4500);
@@ -1281,7 +1367,7 @@ function loadExamQuestion(qIdx) {
   renderExamPalettePills();
   setExamViewMode(examViewMode);
   persistActiveExamState();
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderExamMcqOptions(q) {
@@ -1303,14 +1389,15 @@ function renderExamMcqOptions(q) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.onclick = () => selectExamMcqChoice(letter);
-    btn.className = isSelected ?
-      'p-3.5 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-indigo-900 font-bold text-sm text-left flex items-center transition-all shadow-sm' :
-      'p-3.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50 text-slate-800 text-sm text-left flex items-center transition-all';
-
-    btn.innerHTML = `
-      <span class="w-7 h-7 rounded-lg ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'} flex items-center justify-center font-bold text-xs mr-3 shrink-0">${letter}</span>
-      <span class="font-medium text-xs sm:text-sm line-clamp-2">${esc(optText)}</span>
-    `;
+    // WI-13: same design-system .question-option markup as the practice options
+    // (styling owned by components.css). The grid container (#exam-mcq-options)
+    // keeps its two-column layout from the markup. Uses innerHTML (not
+    // createElement/setAttribute) to stay compatible with the lightweight DOM
+    // mock in tests/test_buttons_and_interactions.js.
+    btn.className = 'question-option' + (isSelected ? ' is-selected' : '');
+    btn.innerHTML =
+      `<span class="question-option-key">${esc(letter)}</span>` +
+      `<span>${esc(optText)}</span>`;
     container.appendChild(btn);
   });
 }
@@ -1792,7 +1879,7 @@ function renderExamLobbyHistory() {
         <p class="text-[11px] text-slate-400">Complete the standard PSAT 8/9 exam or a section test above to view score trends and diagnostic reviews here.</p>
       </div>
     `;
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
 
@@ -1837,7 +1924,7 @@ function renderExamLobbyHistory() {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function viewExamReportFromHistory(examId) {
@@ -2025,7 +2112,7 @@ function resumeActiveExamState() {
   }, 1000);
 
   loadExamQuestion(currentExamQIndex);
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function discardActiveExamState() {
@@ -2157,7 +2244,7 @@ function filterReportQuestions(filter) {
     container.appendChild(div);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function setQuestionErrorTag(qid, tagId) {
@@ -2314,6 +2401,8 @@ Object.assign(window, {
   showStorageWarningBanner,
   resetAllProgress,
   switchTab,
+  renderReview,
+  startSrsReview,
   setViewMode,
   applyFilters,
   loadQuestion,

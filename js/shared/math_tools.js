@@ -40,6 +40,22 @@
 let desmosCalculatorInstance = null;
 let desmosIsExpanded = false;
 
+// WI-13 Perf: lazy-load Desmos only when the calculator is first opened.
+// The eager <script> tag was removed from index.html <head> (−794 KB off first paint).
+let desmosLoading = null;
+function loadDesmos() {
+  if (window.Desmos && typeof window.Desmos.GraphingCalculator === 'function') return Promise.resolve();
+  if (desmosLoading) return desmosLoading;
+  desmosLoading = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
+    s.onload = () => resolve();
+    s.onerror = () => resolve(); // initDesmosCalculator() already falls back to an iframe
+    document.head.appendChild(s);
+  });
+  return desmosLoading;
+}
+
 export function toggleDesmosCalculator(forceState) {
   const modal = document.getElementById('desmos-floating-window');
   if (!modal) return;
@@ -47,11 +63,11 @@ export function toggleDesmosCalculator(forceState) {
 
   if (shouldOpen) {
     modal.classList.remove('hidden');
-    initDesmosCalculator();
+    loadDesmos().then(() => initDesmosCalculator());
   } else {
     modal.classList.add('hidden');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 export function initDesmosCalculator() {
@@ -111,7 +127,7 @@ export function toggleDesmosSize() {
   if (desmosCalculatorInstance && typeof desmosCalculatorInstance.resize === 'function') {
     setTimeout(() => desmosCalculatorInstance.resize(), 100);
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // SCIENTIFIC CALCULATOR STATE & CONTROLLER
@@ -135,7 +151,7 @@ export function toggleScientificCalculator(forceState) {
   } else {
     modal.classList.add('hidden');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 export function toggleScientificAngleMode() {
@@ -220,7 +236,7 @@ export function toggleReferenceSheet(forceState) {
   } else {
     modal.classList.add('hidden');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 export function setFormulaTab(tab) {

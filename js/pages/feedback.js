@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (qid) {
     document.getElementById('fb-qid').value = qid;
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   renderFeedbackList();
 });
 
@@ -118,7 +118,7 @@ function renderFeedbackList() {
     tbody.appendChild(tr);
   });
 
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
   updateMarkdownPreview();
 }
 
