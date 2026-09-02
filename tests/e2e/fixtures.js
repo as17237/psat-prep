@@ -238,6 +238,118 @@ const FIXTURE = {
 };
 
 // ---------------------------------------------------------------------------
+// WI-17 analytics / cross-portal parity fixture
+// ---------------------------------------------------------------------------
+// A richer, 60-attempt hand-designed profile that pushes real skills ACROSS the
+// mastered / focus / in-progress thresholds so the analytics classifications on
+// index.html "My Progress" and parent.html "Overview" can be checked against a
+// HAND-COMPUTED table (below) and against EACH OTHER (the twin-drift check).
+//
+// Six real bank skills; for each we take the first N multiple-choice questions
+// (bundle order, deterministic) and mark the first `correct` of them correct.
+// Accuracies are chosen to be unambiguous on BOTH portals' slightly different
+// rules (student rounds accuracy and gates focus at >=3 attempts; parent uses
+// unrounded accuracy, gates top-weakness at >=3 and weak-count at >=2), so no
+// skill sits on a rounding boundary. All expected outputs were verified by
+// running the real engine + the pages' grouping logic before this was committed.
+const ANALYTICS_PLAN = [
+  // tag, skill, test, attempts, correct  ->  classification
+  { tag: 'A', skill: 'Command of Evidence', test: 'Reading and Writing', attempts: 15, correct: 15 }, // mastered 100%
+  { tag: 'C', skill: 'Words in Context', test: 'Reading and Writing', attempts: 17, correct: 3 },     // focus 18% (TOP weakness)
+  { tag: 'E', skill: 'Form, Structure, and Sense', test: 'Reading and Writing', attempts: 2, correct: 2 }, // in-progress (<3)
+  { tag: 'B', skill: 'Linear functions', test: 'Math', attempts: 12, correct: 12 },                   // mastered 100%
+  { tag: 'D', skill: 'Nonlinear functions', test: 'Math', attempts: 12, correct: 6 },                 // focus 50%
+  { tag: 'F', skill: 'Nonlinear equations in one variable and systems of equations in two variables', test: 'Math', attempts: 2, correct: 1 }, // in-progress (<3)
+];
+
+// Build the concrete progress rows once (Node side), deterministically.
+const ANALYTICS_ROWS = (() => {
+  const rows = [];
+  ANALYTICS_PLAN.forEach((p) => {
+    const pool = QUESTIONS.filter(
+      (q) => q.test === p.test && q.skill === p.skill && q.type === 'multiple_choice' && Array.isArray(q.options) && q.options.length === 4
+    ).slice(0, p.attempts);
+    if (pool.length !== p.attempts) {
+      throw new Error(`fixtures.js ANALYTICS_PLAN: skill "${p.skill}" has ${pool.length} MCQ, need ${p.attempts}`);
+    }
+    pool.forEach((q, i) => {
+      const isCorrect = i < p.correct;
+      const wrong = q.options.find((o) => o.key !== q.correct_answer).key;
+      rows.push({ id: q.id, isCorrect, selectedAnswer: isCorrect ? q.correct_answer : wrong });
+    });
+  });
+  return rows;
+})();
+
+// Flag the first 3 attempted questions; make the first 4 attempted SRS-due.
+const ANALYTICS_FLAG_IDS = ANALYTICS_ROWS.slice(0, 3).map((r) => r.id);
+const ANALYTICS_DUE_IDS = ANALYTICS_ROWS.slice(0, 4).map((r) => r.id);
+
+// Hand-computed expectation table (verified against the real engine + page logic).
+const ANALYTICS = {
+  totalAttempted: 60,
+  totalDisplay: `60 / ${TOTAL_QUESTION_COUNT}`,
+  overallAccuracyPercent: 65, // round(39/60*100)
+  flaggedCount: 3,
+  topWeaknessLabel: 'Words in Context (18%)', // min accuracy focus skill, round(3/17*100)=18
+  masteredCount: 2, // Command of Evidence 100%, Linear functions 100%
+  focusCount: 2, // Words in Context 18%, Nonlinear functions 50%
+  inProgressCount: 2, // Form/Structure/Sense (2 att), Nonlinear equations (2 att)
+  masteredBadgeCommandOfEvidence: '100% (15/15)',
+  focusBadgeWordsInContext: '18% (3/17)',
+  weakSkillsCount: 3, // parent gap-weak-skills: attempted>=2 & <75% -> Words(17), Nonlinear fns(12), Nonlinear eqns(2)
+  srsDueCount: 4,
+  rwAttempted: 34, // 15 + 17 + 2
+  mathAttempted: 26, // 12 + 12 + 2
+  totalQuestionsInBank: TOTAL_QUESTION_COUNT,
+};
+
+/**
+ * Seeds the WI-17 analytics profile: 60 attempts across 6 skills, 3 flagged,
+ * 4 SRS-due, empty sessions (so streak/study-time are an honest 0 on both pages).
+ */
+async function seedAnalyticsProfile(page) {
+  await page.evaluate(
+    ({ rows, flagIds, dueIds }) => {
+      const now = Date.now();
+      const flag = new Set(flagIds);
+      const due = new Set(dueIds);
+      const progress = {};
+      const srs = {};
+      rows.forEach((r) => {
+        progress[r.id] = {
+          answered: true,
+          selectedAnswer: r.selectedAnswer,
+          isCorrect: r.isCorrect,
+          timeSpentMs: 30000,
+          timingReliable: true,
+          timestamp: now - 3600000,
+          isFlagged: flag.has(r.id),
+          errorTag: null,
+          historicalErrorTags: [],
+          timesSeen: 1,
+          timesCorrect: r.isCorrect ? 1 : 0,
+          timesIncorrect: r.isCorrect ? 0 : 1,
+          accuracyPercent: r.isCorrect ? 100 : 0,
+          attempts: [{ at: now - 3600000, selectedAnswer: r.selectedAnswer, isCorrect: r.isCorrect, timeSpentMs: 30000, source: 'practice' }],
+        };
+        if (due.has(r.id)) {
+          srs[r.id] = { questionId: r.id, repetitions: 2, intervalDays: 1, easeFactor: 2.5, dueAt: now - 86400000, history: [{ at: now - 86400000, grade: 4 }] };
+        }
+      });
+      localStorage.setItem('psat_progress', JSON.stringify(progress));
+      localStorage.setItem('psat_srs', JSON.stringify(srs));
+      localStorage.setItem('psat_sessions', JSON.stringify({}));
+      localStorage.setItem('psat_exam_history', JSON.stringify([]));
+      localStorage.removeItem('psat_active_exam_state');
+      localStorage.removeItem('psat_sample_data_active');
+    },
+    { rows: ANALYTICS_ROWS, flagIds: ANALYTICS_FLAG_IDS, dueIds: ANALYTICS_DUE_IDS }
+  );
+  await page.reload({ waitUntil: 'domcontentloaded' });
+}
+
+// ---------------------------------------------------------------------------
 // Sync / network quarantine
 // ---------------------------------------------------------------------------
 const SYNC_HOST = 'psat-api-4915.azurewebsites.net';
@@ -562,8 +674,10 @@ module.exports = {
   assertNoQuarantineViolations,
   seedEmpty,
   seedFixtureProfile,
+  seedAnalyticsProfile,
   findNonZeroDigits,
   FIXTURE,
+  ANALYTICS,
   KNOWN_RW_QUESTION,
   KNOWN_MATH_FR_QUESTION,
   QUESTIONS,
