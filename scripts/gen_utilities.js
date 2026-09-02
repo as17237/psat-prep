@@ -39,18 +39,27 @@ function isUtility(tok) {
   const base = tok.replace(VARIANT_RE, '');
   return FAMILY_RE.test(base) || BARE.has(base);
 }
+// Pages whose Tailwind utilities are self-hosted here (WI-13: index/student;
+// WI-14: parent). Add a page's HTML + its controller when its Tailwind CDN is removed.
+const HTML_PAGES = ['index.html', 'parent.html'];
+const JS_SOURCES = ['js/pages/student.js', 'js/pages/parent.js'];
+
 function collectClasses() {
   const htmlSet = new Set(), jsSet = new Set();
   // HTML class="..." attributes are AUTHORITATIVE — take every token (flagged if unhandled).
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  for (const m of html.matchAll(/class="([^"]*)"/g)) m[1].split(/\s+/).forEach((c) => { if (c && !isOwned(c)) htmlSet.add(c); });
+  for (const page of HTML_PAGES) {
+    const html = fs.readFileSync(path.join(ROOT, page), 'utf8');
+    for (const m of html.matchAll(/class="([^"]*)"/g)) m[1].split(/\s+/).forEach((c) => { if (c && !isOwned(c)) htmlSet.add(c); });
+  }
   // JS: BEST-EFFORT scan (class attrs, ternaries, concatenations, template literals).
   // Kept only if it looks like a real utility; unknowns are dropped (id/icon-name noise),
   // not flagged — shape alone can't always separate `text-emerald-800` from `text-mode-warning`.
-  const js = fs.readFileSync(path.join(ROOT, 'js/pages/student.js'), 'utf8');
-  for (const m of js.matchAll(/(?<![\w$@#])-?[a-z][a-z0-9:/[\]%.-]*/g)) {
-    const tok = m[0];
-    if (isUtility(tok) && !isOwned(tok.replace(VARIANT_RE, '')) && !htmlSet.has(tok)) jsSet.add(tok);
+  for (const src of JS_SOURCES) {
+    const js = fs.readFileSync(path.join(ROOT, src), 'utf8');
+    for (const m of js.matchAll(/(?<![\w$@#])-?[a-z][a-z0-9:/[\]%.-]*/g)) {
+      const tok = m[0];
+      if (isUtility(tok) && !isOwned(tok.replace(VARIANT_RE, '')) && !htmlSet.has(tok)) jsSet.add(tok);
+    }
   }
   return { htmlSet, jsSet };
 }
@@ -64,8 +73,16 @@ const OWNED = new Set(['card','card-title','card-subtitle','banner','banner-icon
   'tab-active','tab-link','is-active','is-correct','is-incorrect','is-selected','is-done','is-loading','is-error',
   'custom-scrollbar','no-scrollbar','skeleton-line']);
 const OWNED_PREFIX = ['badge-','banner-','btn','stat-'];
+// Exotic Tailwind utilities the scanner does not synthesize (peer/after toggle
+// switches, details group-open, backdrop-blur, zoom-in). Hand-authored in
+// styles/tw-extras.css instead, so treat them as "owned" here (skip, never fail).
+const HAND_AUTHORED = new Set(['opacity-80', 'backdrop-blur-xs', 'zoom-in-95', 'group', 'group-open:hidden',
+  'peer', 'peer-focus:outline-hidden', 'peer-checked:after:translate-x-full', 'peer-checked:after:border-white',
+  'peer-checked:bg-emerald-500', 'peer-checked:bg-amber-400', "after:content-['']", 'after:absolute',
+  'after:top-[2px]', 'after:left-[2px]', 'after:bg-white', 'after:border-slate-300', 'after:border',
+  'after:rounded-full', 'after:h-5', 'after:w-5', 'after:transition-all']);
 function isOwned(base) {
-  if (OWNED.has(base)) return true;
+  if (OWNED.has(base) || HAND_AUTHORED.has(base)) return true;
   return OWNED_PREFIX.some((p) => base === p || base.startsWith(p));
 }
 
