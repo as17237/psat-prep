@@ -73,6 +73,7 @@ const EXPECTED_SYMBOLS = [
   // --- score modelling, blueprints, exam scoring, diagnostics --------------
   'SCALING_ASSUMPTIONS',
   'scaleSectionRawScore',
+  'routeAdaptiveTrack',
   'calculateWilsonScoreInterval',
   'calculateScaledScore',
   'calculateSectionScaledScore',
@@ -137,8 +138,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  67,
-  `The hand-written contract must list exactly 67 symbols (56 @66c88cc + 11 from WI-11); found ${EXPECTED_SYMBOLS.length}. ` +
+  68,
+  `The hand-written contract must list exactly 68 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 

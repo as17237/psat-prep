@@ -760,9 +760,23 @@
     };
   }
 
+  /**
+   * WI-16: route module 2 by module-1 accuracy. Returns the upper ('Hard') track
+   * when the raw ratio is at or above SCALING_ASSUMPTIONS.ROUTING_THRESHOLD (0.58 =
+   * >= 16/27 RW, >= 13/22 Math), else the lower ('Easy') track. Centralises the
+   * threshold that was inline-duplicated in the exam runner (js/pages/student.js).
+   * @param {number} rawRatio - module-1 accuracy proportion [0,1]
+   * @returns {'Hard'|'Easy'}
+   */
+  function routeAdaptiveTrack(rawRatio) {
+    var r = (typeof rawRatio === 'number' && !isNaN(rawRatio)) ? rawRatio : 0;
+    return r >= SCALING_ASSUMPTIONS.ROUTING_THRESHOLD ? 'Hard' : 'Easy';
+  }
+
   return {
     SCALING_ASSUMPTIONS: SCALING_ASSUMPTIONS,
     scaleSectionRawScore: scaleSectionRawScore,
+    routeAdaptiveTrack: routeAdaptiveTrack,
     calculateWilsonScoreInterval: calculateWilsonScoreInterval,
     calculateScaledScore: calculateScaledScore,
     calculateSectionScaledScore: calculateSectionScaledScore,

@@ -70,6 +70,7 @@
     scoring: [
       'SCALING_ASSUMPTIONS',
       'scaleSectionRawScore',
+      'routeAdaptiveTrack',
       'calculateWilsonScoreInterval',
       'calculateScaledScore',
       'calculateSectionScaledScore',
