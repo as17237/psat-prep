@@ -47,6 +47,7 @@ APP_FILES=(
   "mistakes.html"
   "feedback.html"
   "design.html"
+  "js/engine/adaptive_config.js"
   "js/engine/grading.js"
   "js/engine/scheduler.js"
   "js/engine/scoring.js"
