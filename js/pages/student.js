@@ -1598,8 +1598,7 @@ function submitCurrentExamModule() {
         const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
         if (ok) m1Correct++;
       });
-      const routingThreshold = (PSAT_ENGINE.SCALING_ASSUMPTIONS && PSAT_ENGINE.SCALING_ASSUMPTIONS.ROUTING_THRESHOLD) || 0.58;
-      const isUpper = (m1Correct / mod.questions.length) >= routingThreshold; // >= 16/27
+      const isUpper = PSAT_ENGINE.routeAdaptiveTrack(m1Correct / mod.questions.length) === 'Hard'; // >= 16/27
       activeExam.routingTracks = activeExam.routingTracks || {};
       activeExam.routingTracks.rw = isUpper ? 'Hard' : 'Easy';
       activeExam.modules[1].questions = isUpper ? activeExam.adaptivePools.rwM2Hard : activeExam.adaptivePools.rwM2Easy;
@@ -1614,8 +1613,7 @@ function submitCurrentExamModule() {
         const ok = isSpr ? PSAT_ENGINE.gradeFreeResponse(ans, q.correct_answer) : (String(ans).trim().toUpperCase() === String(q.correct_answer).trim().toUpperCase());
         if (ok) mathM1Correct++;
       });
-      const routingThreshold = (PSAT_ENGINE.SCALING_ASSUMPTIONS && PSAT_ENGINE.SCALING_ASSUMPTIONS.ROUTING_THRESHOLD) || 0.58;
-      const isUpper = (mathM1Correct / mod.questions.length) >= routingThreshold; // >= 13/22
+      const isUpper = PSAT_ENGINE.routeAdaptiveTrack(mathM1Correct / mod.questions.length) === 'Hard'; // >= 13/22
       activeExam.routingTracks = activeExam.routingTracks || {};
       activeExam.routingTracks.math = isUpper ? 'Hard' : 'Easy';
       activeExam.modules[3].questions = isUpper ? activeExam.adaptivePools.mathM2Hard : activeExam.adaptivePools.mathM2Easy;

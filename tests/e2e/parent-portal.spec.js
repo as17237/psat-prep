@@ -92,4 +92,18 @@ test.describe('parent portal', () => {
     await expect(page.locator('[data-ptab="overview"]').first()).toBeVisible();
     await expect(page.locator('#parent-exam-history-container')).toBeHidden();
   });
+
+  // WI-16 (mode 1): the scaled score is a hand-authored estimate, not a College
+  // Board published table — its label must say "Estimate" and must NOT use the
+  // forbidden words "Projected" / "Official" / "Actual".
+  test('score display is labelled an Estimate, never Projected/Official/Actual', async ({ page }) => {
+    await page.goto('/parent.html');
+    await seedFixtureProfile(page);
+    await expect(page.getByText('Practice Score Estimate', { exact: false }).first()).toBeVisible();
+    // "Projected" is the mode-1-forbidden score label (no legitimate use on this
+    // page; "Official Reference" / "official blueprint" are real CB materials, not
+    // a score claim, so they are intentionally not asserted against).
+    const body = await page.locator('body').innerText();
+    expect(body).not.toContain('Projected');
+  });
 });

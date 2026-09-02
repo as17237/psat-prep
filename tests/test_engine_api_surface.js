@@ -73,6 +73,7 @@ const EXPECTED_SYMBOLS = [
   // --- score modelling, blueprints, exam scoring, diagnostics --------------
   'SCALING_ASSUMPTIONS',
   'scaleSectionRawScore',
+  'routeAdaptiveTrack',
   'calculateWilsonScoreInterval',
   'calculateScaledScore',
   'calculateSectionScaledScore',
@@ -137,8 +138,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  67,
-  `The hand-written contract must list exactly 67 symbols (56 @66c88cc + 11 from WI-11); found ${EXPECTED_SYMBOLS.length}. ` +
+  68,
+  `The hand-written contract must list exactly 68 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
@@ -234,7 +235,9 @@ const path = require('path');
 const vm = require('vm');
 
 const REPO = path.join(__dirname, '..');
-const LOAD_ORDER = ['grading', 'scheduler', 'scoring', 'storage', 'examgen', 'sync'];
+// adaptive_config is a no-dep constants part scoring.js depends on; it must load
+// before scoring exactly as the pages' <script> order has it (WI-16).
+const LOAD_ORDER = ['adaptive_config', 'grading', 'scheduler', 'scoring', 'storage', 'examgen', 'sync'];
 
 /** Evaluates the given files as classic <script>s in a fresh browser-ish global. */
 function loadInBrowserSandbox(files) {
@@ -267,11 +270,13 @@ assert.throws(
 );
 assert.throws(
   () => loadInBrowserSandbox(['js/engine/scoring.js']),
-  /requires js\/engine\/grading\.js/,
+  /requires js\/engine\/adaptive_config\.js/,
   'a part loaded before its dependency must throw and name the missing file'
 );
+// partFiles is [adaptive_config, grading, ..., sync]; take adaptive_config + the
+// first five of srs.js's six parts so only `sync` is missing when srs.js loads.
 assert.throws(
-  () => loadInBrowserSandbox(partFiles.slice(0, 5).concat(['srs.js'])),
+  () => loadInBrowserSandbox(partFiles.slice(0, 6).concat(['srs.js'])),
   /engine part\(s\) not loaded: sync/,
   'srs.js with five of six parts must name the missing part'
 );

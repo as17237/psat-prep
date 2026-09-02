@@ -112,10 +112,10 @@
     <div data-ptab="overview" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
       <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
         
-        <!-- Current Projected Score (PSAT 8/9: 240–1440 Scale) -->
+        <!-- Current Practice Score Estimate (PSAT 8/9: 240–1440 Scale) -->
         <div class="space-y-2 border-b lg:border-b-0 lg:border-r border-indigo-800/60 pb-6 lg:pb-0 lg:pr-8">
           <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-800">
-            Projected PSAT 8/9 Scaled Score
+            Practice Score Estimate (PSAT 8/9)
           </span>
           <div class="flex items-baseline space-x-3 pt-2">
             <h2 id="hero-scaled-score" class="text-5xl font-black tracking-tight text-white">—</h2>
@@ -620,6 +620,7 @@
        and srs.js must come last; a part loaded before its dependency, or srs.js
        loaded without all six, throws immediately rather than leaving a partial
        engine on the page. -->
+  <script src="js/engine/adaptive_config.js?v=20260829-7"></script>
   <script src="js/engine/grading.js?v=20260829-7"></script>
   <script src="js/engine/scheduler.js?v=20260829-7"></script>
   <script src="js/engine/scoring.js?v=20260829-7"></script>
@@ -1094,7 +1095,7 @@
         <div class="space-y-1">
           <div class="flex items-center space-x-2.5">
             <span id="pmod-exam-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950 text-emerald-300 border border-emerald-800">
-              Estimated PSAT 8/9 Score Report (Practice-Based Scaled Projection)
+              Estimated PSAT 8/9 Score Report (Practice-Based Scaled Estimate)
             </span>
             <span id="pmod-exam-date" class="text-xs text-slate-400 font-mono">—</span>
           </div>

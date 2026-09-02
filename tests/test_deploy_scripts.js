@@ -155,6 +155,7 @@ const V2_EXPECTED_BLOBS = [
   'v2/mistakes.html',
   'v2/feedback.html',
   'v2/design.html',
+  'v2/js/engine/adaptive_config.js',
   'v2/js/engine/grading.js',
   'v2/js/engine/scheduler.js',
   'v2/js/engine/scoring.js',
