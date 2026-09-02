@@ -356,20 +356,20 @@ function renderParentMetrics() {
   if (scoreData.rwReady) {
     const rwRangeStr = scoreData.rwRangeFormatted ? ` (${scoreData.rwRangeFormatted})` : '';
     elaBadge.innerText = `Est. Section Score: ${scoreData.rwScore} / 720${rwRangeStr}`;
-    elaBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+    elaBadge.className = 'badge badge-success';
   } else {
     elaBadge.innerText = `${scoreData.rwAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
-    elaBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
+    elaBadge.className = 'badge badge-neutral';
   }
 
   const mathBadge = document.getElementById('math-section-score');
   if (scoreData.mathReady) {
     const mathRangeStr = scoreData.mathRangeFormatted ? ` (${scoreData.mathRangeFormatted})` : '';
     mathBadge.innerText = `Est. Section Score: ${scoreData.mathScore} / 720${mathRangeStr}`;
-    mathBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+    mathBadge.className = 'badge badge-success';
   } else {
     mathBadge.innerText = `${scoreData.mathAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
-    mathBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
+    mathBadge.className = 'badge badge-neutral';
   }
 
   // Render Domain Bars
