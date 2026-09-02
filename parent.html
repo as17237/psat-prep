@@ -98,6 +98,17 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
+    <!-- WI-14 five-tab nav (full-width scrollable strip). Stable #ptab-* ids;
+         switchParentTab toggles [data-ptab] sections. Conditional alert banners
+         (backup/demo) carry no data-ptab and stay visible across tabs. -->
+    <nav class="flex space-x-6 sm:space-x-8 overflow-x-auto whitespace-nowrap min-w-0 border-b border-slate-200">
+      <button onclick="switchParentTab('overview')" id="ptab-overview" class="tab-active inline-flex items-center px-1 py-3 text-sm font-medium transition-colors"><i data-lucide="layout-dashboard" class="w-4 h-4 mr-1.5"></i> Overview</button>
+      <button onclick="switchParentTab('scores')" id="ptab-scores" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors"><i data-lucide="line-chart" class="w-4 h-4 mr-1.5 text-emerald-600"></i> Score &amp; History</button>
+      <button onclick="switchParentTab('mistakes')" id="ptab-mistakes" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors"><i data-lucide="target" class="w-4 h-4 mr-1.5 text-rose-600"></i> Mistakes &amp; Action Plan</button>
+      <button onclick="switchParentTab('builder')" id="ptab-builder" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors"><i data-lucide="wrench" class="w-4 h-4 mr-1.5 text-indigo-600"></i> Exam Builder</button>
+      <button onclick="switchParentTab('data')" id="ptab-data" class="text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors"><i data-lucide="database" class="w-4 h-4 mr-1.5 text-slate-600"></i> Data &amp; Backups</button>
+    </nav>
+
     <!-- Cloud Backup Freshness Warning Banner (hidden while healthy; shown on stale,
          failed, or unavailable status. Every value below is read from /api/backup-status. -->
     <div id="backup-status-banner" class="hidden p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-lg border-2">
@@ -136,7 +147,7 @@
     </div>
 
     <!-- Hero Card: Target Score & Empirical Trajectory -->
-    <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
+    <div data-ptab="overview" class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-8 shadow-xl relative overflow-hidden">
       <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
         
         <!-- Current Projected Score (PSAT 8/9: 240–1440 Scale) -->
@@ -184,7 +195,7 @@
     </div>
 
     <!-- Metrics Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+    <div data-ptab="overview" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4">
         <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
           <i data-lucide="check-circle" class="w-6 h-6"></i>
@@ -227,7 +238,7 @@
     </div>
 
     <!-- Domain Mastery Breakdown -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div data-ptab="overview" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
       
       <!-- Reading and Writing Mastery -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -258,7 +269,7 @@
     </div>
 
     <!-- Student Trouble Spots & Mistake Center Banner -->
-    <div class="bg-gradient-to-r from-rose-50 via-white to-indigo-50 p-6 sm:p-7 rounded-3xl border border-rose-200/80 shadow-sm space-y-4">
+    <div data-ptab="mistakes" class="bg-gradient-to-r from-rose-50 via-white to-indigo-50 p-6 sm:p-7 rounded-3xl border border-rose-200/80 shadow-sm space-y-4">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div class="space-y-1.5">
           <div class="flex items-center space-x-2">
@@ -306,7 +317,7 @@
     </div>
 
     <!-- Completed Full-Length Exams & Test Reports -->
-    <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+    <div data-ptab="scores" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-4">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-2">
         <div>
           <h3 class="text-lg font-bold text-slate-900 flex items-center">
@@ -324,7 +335,7 @@
 
     <!-- Custom Test & Adaptive Spaced Repetition Drill Builder -->
     <!-- Custom Test & Adaptive Spaced Repetition Drill Builder -->
-    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+    <div data-ptab="builder" class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-3">
         <div>
           <h3 class="text-lg font-bold text-slate-900 flex items-center">
@@ -587,7 +598,7 @@
     </div>
 
     <!-- Actionable Coaching Recommendation -->
-    <div id="parent-top-recommendation-box" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div data-ptab="mistakes" id="parent-top-recommendation-box" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div class="flex items-start space-x-3">
         <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
           <i data-lucide="compass" class="w-5 h-5"></i>
@@ -601,6 +612,15 @@
       <a href="index.html?mode=practice&filter=due" id="parent-rec-cta" class="btn btn-md btn-primary whitespace-nowrap self-start sm:self-center">
         Start Practice &rarr;
       </a>
+    </div>
+
+    <!-- WI-14 Data & Backups tab. The working controls (backup status, Cosmos
+         sync, export/import, restore, print) currently live in the header's
+         "Data & Settings" (gear) menu; they are relocated into this tab in this
+         tab's dedicated bite. -->
+    <div data-ptab="data" class="hidden bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+      <h3 class="text-lg font-bold text-slate-900 flex items-center"><i data-lucide="database" class="w-5 h-5 mr-2 text-indigo-600"></i> Data &amp; Backups</h3>
+      <p class="text-sm text-slate-500">Cloud backup status, Cosmos sync, export / import, restore, and print. These controls are in the <strong>Data &amp; Settings</strong> (gear) menu in the header for now and are being moved into this tab.</p>
     </div>
 
   </main>

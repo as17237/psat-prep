@@ -215,6 +215,7 @@ async function refreshBackupStatus(force) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof lucide !== 'undefined') lucide.createIcons();
+  switchParentTab('overview'); // WI-14: default to the Overview tab (hides the other four)
   if (APP_ENV.isBeta) {
     const banner = document.getElementById('beta-sandbox-banner');
     if (banner) banner.classList.remove('hidden');
@@ -964,6 +965,24 @@ function switchBuilderTab(tab) {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// WI-14 five-tab top-level nav. Sections are tagged with data-ptab in
+// parent.html; this shows the active tab's sections and hides the rest.
+// Conditional alert banners (backup/demo) carry no data-ptab, so they stay
+// visible across tabs. All sections still render on load (data populated even
+// while hidden) — this only toggles visibility.
+function switchParentTab(tab) {
+  document.querySelectorAll('[data-ptab]').forEach(el => {
+    el.classList.toggle('hidden', el.getAttribute('data-ptab') !== tab);
+  });
+  const active = 'tab-active inline-flex items-center px-1 py-3 text-sm font-medium transition-colors';
+  const idle = 'text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors';
+  ['overview', 'scores', 'mistakes', 'builder', 'data'].forEach(t => {
+    const btn = document.getElementById('ptab-' + t);
+    if (btn) btn.className = (t === tab) ? active : idle;
+  });
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 function updateGapTestCalculations() {
   const questions = window.QUESTIONS_DATA || [];
   const progress = safeGetStorage('psat_progress', {});
@@ -1429,6 +1448,7 @@ Object.assign(window, {
   closeParentExamReview,
   filterParentExamQuestions,
   switchBuilderTab,
+  switchParentTab,
   updateGapTestCalculations,
   setGapCount,
   launchGapDrill,
