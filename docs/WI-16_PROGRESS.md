@@ -36,7 +36,18 @@ Verified across bites: **21/21 Node suites**, **17/17 Playwright** on the 4
 engine-loading pages, `rebuild_bundle` drift = 0, real-data run → 27/27/22/22
 modules / 98 Q / routing boundary exactly at 0.58 / scale 1.0→720.
 
-## Remaining — Part (c): `tests/e2e/adaptive.spec.js` (researched, ready to write)
+- **Bite 4 — part (c), browser routing proof (this commit).**
+  `tests/e2e/adaptive.spec.js` drives a full Standard mock end-to-end and proves
+  the routing WIRING (`student.js:1591-1621`): answering module-1 MCQ correctly
+  routes both RW and Math module-2 to the **Hard** pool + "Upper Difficulty Track"
+  label; leaving module-1 blank routes both to the **Easy** pool + "Standard
+  Difficulty Track". No production seam — driven via `window.QUESTIONS_DATA` +
+  the persisted snapshot's ordered `questionIds`/`routingTracks`. Watched RED
+  (forced `routeAdaptiveTrack`→'Easy' → UPPER failed `Expected "Hard", Received
+  "Easy"`, LOWER still passed → the pair discriminates). Two consecutive green
+  runs. WI-16 feature work is now **complete**; only the merge-to-main remains.
+
+## (historical) Part (c) plan — now implemented above
 
 Goal: prove the routing WIRING (`js/pages/student.js:1591–1621` — pool swap +
 "(Upper/Standard Difficulty Track)" label) **end-to-end in the browser**, per
