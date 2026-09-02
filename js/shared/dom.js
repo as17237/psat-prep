@@ -46,3 +46,20 @@ export function setClassName(el, value) {
   }
   return false;
 }
+
+/**
+ * WI-14: actually apply a class string to an element that may be an SVG — e.g. a
+ * lucide icon after createIcons() swapped its `<i>` for an `<svg>`. Unlike
+ * setClassName() (a deliberate no-op on SVG to preserve WI-09's frozen
+ * behaviour), this uses setAttribute('class', …), which is writable on both
+ * HTMLElement and SVGElement. This is the "real change" the setClassName header
+ * says belongs to WI-14: the parent portal's gap-focus icon now gets its colour.
+ * @param {Element|null} el
+ * @param {string} value
+ * @returns {boolean} true if applied
+ */
+export function applyClass(el, value) {
+  if (!el) return false;
+  el.setAttribute('class', value);
+  return true;
+}

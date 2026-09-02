@@ -1,0 +1,44 @@
+/* styles/tw-extras.css — hand-authored companion to the generated styles/utilities.css.
+   A few exotic Tailwind utilities that scripts/gen_utilities.js does NOT synthesize
+   (peer/after toggle switches, details group-open, backdrop-blur, zoom-in). These are
+   marked "owned" in gen_utilities.js (HAND_AUTHORED) so the generator skips them.
+   Used only by parent.html (WI-14). Edit by hand. */
+
+.opacity-80 { opacity: 0.8; }
+
+/* modal backdrop blur */
+.backdrop-blur-xs { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+
+/* <details class="group">: hide the closed-state hint when the details is open */
+.group[open] .group-open\:hidden { display: none; }
+
+/* modal entrance (markup: animate-in fade-in zoom-in-95 duration-150) */
+@keyframes twZoomIn95 { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+.zoom-in-95 { animation: twZoomIn95 0.15s ease-out; }
+
+/* ------------------------------------------------------------------
+   Toggle switch: <input type="checkbox" class="sr-only peer"> followed by a
+   sibling track <div> carrying the after:/peer-checked: utilities below.
+   Reproduces Tailwind's standard peer/after toggle.
+   ------------------------------------------------------------------ */
+.peer:focus ~ .peer-focus\:outline-hidden { outline: 2px solid transparent; outline-offset: 2px; }
+
+/* the track establishes a positioning context and draws the knob via ::after */
+.after\:content-\[\'\'\] { position: relative; }
+.after\:content-\[\'\'\]::after { content: ''; }
+.after\:absolute::after { position: absolute; }
+.after\:top-\[2px\]::after { top: 2px; }
+.after\:left-\[2px\]::after { left: 2px; }
+.after\:h-5::after { height: 1.25rem; }
+.after\:w-5::after { width: 1.25rem; }
+.after\:bg-white::after { background-color: #ffffff; }
+.after\:border::after { border-width: 1px; border-style: solid; }
+.after\:border-slate-300::after { border-color: #cbd5e1; }
+.after\:rounded-full::after { border-radius: 9999px; }
+.after\:transition-all::after { transition: all 0.15s ease; }
+
+/* checked state (input:checked): slide the knob and recolour the track */
+.peer:checked ~ .peer-checked\:after\:translate-x-full::after { transform: translateX(100%); }
+.peer:checked ~ .peer-checked\:after\:border-white::after { border-color: #ffffff; }
+.peer:checked ~ .peer-checked\:bg-emerald-500 { background-color: var(--color-success-500, #10b981); }
+.peer:checked ~ .peer-checked\:bg-amber-400 { background-color: #fbbf24; }

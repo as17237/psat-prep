@@ -58,6 +58,7 @@ APP_FILES=(
   "styles/tokens.css"
   "styles/components.css"
   "styles/utilities.css"
+  "styles/tw-extras.css"
   "vendor/chart.min.js"
   "js/shared/html.js"
   "js/shared/dom.js"

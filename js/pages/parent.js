@@ -14,7 +14,7 @@ import { safeGetStorage, safeSetStorage, readSyncBadgeState, onPendingSyncCountC
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { launchTargetedMistakeDrill } from '../shared/drill.js';
-import { setClassName } from '../shared/dom.js';
+import { applyClass } from '../shared/dom.js';
 import { toggleDesmosCalculator, initDesmosCalculator, fallbackDesmosIframe, toggleDesmosSize, toggleScientificCalculator, toggleScientificAngleMode, sciCalcInput, sciCalcClear, sciCalcBackspace, sciCalcEvaluate, updateSciCalcDisplay, toggleReferenceSheet, setFormulaTab, makeDraggable } from '../shared/math_tools.js';
 
 // safeSetStorage bumps the pending-sync counter; this is how it reaches this
@@ -215,6 +215,7 @@ async function refreshBackupStatus(force) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof lucide !== 'undefined') lucide.createIcons();
+  switchParentTab('overview'); // WI-14: default to the Overview tab (hides the other four)
   if (APP_ENV.isBeta) {
     const banner = document.getElementById('beta-sandbox-banner');
     if (banner) banner.classList.remove('hidden');
@@ -355,20 +356,20 @@ function renderParentMetrics() {
   if (scoreData.rwReady) {
     const rwRangeStr = scoreData.rwRangeFormatted ? ` (${scoreData.rwRangeFormatted})` : '';
     elaBadge.innerText = `Est. Section Score: ${scoreData.rwScore} / 720${rwRangeStr}`;
-    elaBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+    elaBadge.className = 'badge badge-success';
   } else {
     elaBadge.innerText = `${scoreData.rwAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
-    elaBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
+    elaBadge.className = 'badge badge-neutral';
   }
 
   const mathBadge = document.getElementById('math-section-score');
   if (scoreData.mathReady) {
     const mathRangeStr = scoreData.mathRangeFormatted ? ` (${scoreData.mathRangeFormatted})` : '';
     mathBadge.innerText = `Est. Section Score: ${scoreData.mathScore} / 720${mathRangeStr}`;
-    mathBadge.className = 'text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg';
+    mathBadge.className = 'badge badge-success';
   } else {
     mathBadge.innerText = `${scoreData.mathAttempted} / ${scoreData.minRequiredPerSection} questions attempted`;
-    mathBadge.className = 'text-xs font-semibold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg';
+    mathBadge.className = 'badge badge-neutral';
   }
 
   // Render Domain Bars
@@ -461,7 +462,7 @@ function renderParentExamHistory() {
   container.innerHTML = '';
   history.forEach((h, idx) => {
     const div = document.createElement('div');
-    div.className = 'p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-200 transition-all flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-xs';
+    div.className = 'card flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 hover:border-indigo-200 transition-all';
 
     const totalSec = Math.round((h.totalTimeSpentMs || 0) / 1000);
     const timeStr = (h.totalTimeSpentMs && h.totalTimeSpentMs > 0) ? 
@@ -964,6 +965,27 @@ function switchBuilderTab(tab) {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// WI-14 five-tab top-level nav. Sections are tagged with data-ptab in
+// parent.html; this shows the active tab's sections and hides the rest.
+// Conditional alert banners (backup/demo) carry no data-ptab, so they stay
+// visible across tabs. All sections still render on load (data populated even
+// while hidden) — this only toggles visibility.
+function switchParentTab(tab) {
+  document.querySelectorAll('[data-ptab]').forEach(el => {
+    el.classList.toggle('hidden', el.getAttribute('data-ptab') !== tab);
+  });
+  const active = 'tab-active inline-flex items-center px-1 py-3 text-sm font-medium transition-colors';
+  const idle = 'text-slate-500 hover:text-slate-700 inline-flex items-center px-1 py-3 text-sm font-medium transition-colors';
+  ['overview', 'scores', 'mistakes', 'builder', 'data'].forEach(t => {
+    const btn = document.getElementById('ptab-' + t);
+    if (btn) btn.className = (t === tab) ? active : idle;
+  });
+  // WI-14: refresh the backup-freshness widget when the Data & Backups tab opens
+  // (replaces the old header dropdown's ontoggle trigger).
+  if (tab === 'data' && typeof refreshBackupStatus === 'function') refreshBackupStatus();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 function updateGapTestCalculations() {
   const questions = window.QUESTIONS_DATA || [];
   const progress = safeGetStorage('psat_progress', {});
@@ -1000,27 +1022,27 @@ function updateGapTestCalculations() {
     if (focusType === 'math_only') {
       summaryBox.className = 'p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col gap-3 text-xs text-emerald-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'calculator');
-      setClassName(focusIcon, 'w-4 h-4 text-emerald-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-emerald-600 shrink-0');
       poolBadge.className = 'font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 shrink-0 text-center';
     } else if (focusType === 'rw_only') {
       summaryBox.className = 'p-4 bg-indigo-50 border border-indigo-200 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'book-open');
-      setClassName(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
       poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
     } else if (focusType === 'srs_only') {
       summaryBox.className = 'p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col gap-3 text-xs text-amber-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'clock');
-      setClassName(focusIcon, 'w-4 h-4 text-amber-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-amber-600 shrink-0');
       poolBadge.className = 'font-bold text-amber-700 bg-white px-2.5 py-1 rounded-lg border border-amber-200 shrink-0 text-center';
     } else if (focusType === 'weak_only') {
       summaryBox.className = 'p-4 bg-rose-50 border border-rose-200 rounded-xl flex flex-col gap-3 text-xs text-rose-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'alert-triangle');
-      setClassName(focusIcon, 'w-4 h-4 text-rose-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-rose-600 shrink-0');
       poolBadge.className = 'font-bold text-rose-700 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shrink-0 text-center';
     } else {
       summaryBox.className = 'p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col gap-3 text-xs text-indigo-950 transition-all';
       focusIcon.setAttribute('data-lucide', 'target');
-      setClassName(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
+      applyClass(focusIcon, 'w-4 h-4 text-indigo-600 shrink-0');
       poolBadge.className = 'font-bold text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shrink-0 text-center';
     }
   }
@@ -1429,6 +1451,7 @@ Object.assign(window, {
   closeParentExamReview,
   filterParentExamQuestions,
   switchBuilderTab,
+  switchParentTab,
   updateGapTestCalculations,
   setGapCount,
   launchGapDrill,

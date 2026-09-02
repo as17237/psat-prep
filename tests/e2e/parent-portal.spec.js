@@ -62,4 +62,34 @@ test.describe('parent portal', () => {
     expect(historyText).toContain(`${FIXTURE.examRwCorrect}/${FIXTURE.examRwTotal} Correct (${FIXTURE.examRwAccuracyPercent}%)`);
     expect(historyText).toContain(`${FIXTURE.examMathCorrect}/${FIXTURE.examMathTotal} Correct (${FIXTURE.examMathAccuracyPercent}%)`);
   });
+
+  // WI-14 shell: the 5-tab nav shows one tab's sections at a time; Overview is
+  // the default. (Text-based assertions above still pass because they read
+  // hidden elements' text, but here we verify visibility toggling.)
+  test('five-tab nav toggles sections (Overview default; other tabs reachable)', async ({ page }) => {
+    await page.goto('/parent.html');
+    await seedFixtureProfile(page);
+
+    // Default: an Overview section is visible; the Score & History section is hidden.
+    await expect(page.locator('[data-ptab="overview"]').first()).toBeVisible();
+    await expect(page.locator('#parent-exam-history-container')).toBeHidden();
+
+    // Score & History
+    await page.click('#ptab-scores');
+    await expect(page.locator('#parent-exam-history-container')).toBeVisible();
+    await expect(page.locator('[data-ptab="overview"]').first()).toBeHidden();
+
+    // Exam Builder
+    await page.click('#ptab-builder');
+    await expect(page.locator('#gap-focus-summary-box')).toBeVisible();
+
+    // Data & Backups (the new tab)
+    await page.click('#ptab-data');
+    await expect(page.locator('[data-ptab="data"]')).toBeVisible();
+
+    // Back to Overview
+    await page.click('#ptab-overview');
+    await expect(page.locator('[data-ptab="overview"]').first()).toBeVisible();
+    await expect(page.locator('#parent-exam-history-container')).toBeHidden();
+  });
 });

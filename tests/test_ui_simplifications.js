@@ -72,11 +72,11 @@ assert.ok(parentHtml.includes('id="parent-top-recommendation-box"'), 'Item 13: R
 assert.ok(!parentHtml.includes('Hard Question Blitz'), 'Item 13: Static generic recommendation cards removed');
 console.log('✓ Item 13 Verified: Parent dashboard recommendations simplified to single top recommendation');
 
-// 14. Parent controls placed in Data & Settings menu
-assert.ok(parentHtml.includes('Data &amp; Settings'), 'Item 14: Data & Settings dropdown menu added');
-assert.ok(parentHtml.includes('id="btn-load-sample-data"'), 'Item 14: Sample data control moved into dropdown');
-assert.ok(parentHtml.includes('downloadCloudBackup()'), 'Item 14: Cloud backup moved into dropdown');
-console.log('✓ Item 14 Verified: Parent admin & debug controls grouped into Data & Settings menu');
+// 14. Parent data/admin controls grouped in the Data & Backups tab (WI-14; formerly a header dropdown)
+assert.ok(parentHtml.includes('data-ptab="data"'), 'Item 14: Data & Backups tab present');
+assert.ok(parentHtml.includes('id="btn-load-sample-data"'), 'Item 14: Sample data control in the Data & Backups tab');
+assert.ok(parentHtml.includes('downloadCloudBackup()'), 'Item 14: Cloud backup control in the Data & Backups tab');
+console.log('✓ Item 14 Verified: Parent admin & data controls grouped into the Data & Backups tab');
 
 // 15. Verbose exam marketing copy removed
 assert.ok(!indexHtml.includes('Generates real score report & parent analytics'), 'Item 15: Exam marketing tagline removed');
