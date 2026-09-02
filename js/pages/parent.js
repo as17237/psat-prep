@@ -462,7 +462,7 @@ function renderParentExamHistory() {
   container.innerHTML = '';
   history.forEach((h, idx) => {
     const div = document.createElement('div');
-    div.className = 'p-5 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-indigo-200 transition-all flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 shadow-xs';
+    div.className = 'card flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 hover:border-indigo-200 transition-all';
 
     const totalSec = Math.round((h.totalTimeSpentMs || 0) / 1000);
     const timeStr = (h.totalTimeSpentMs && h.totalTimeSpentMs > 0) ? 
