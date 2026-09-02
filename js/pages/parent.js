@@ -980,6 +980,9 @@ function switchParentTab(tab) {
     const btn = document.getElementById('ptab-' + t);
     if (btn) btn.className = (t === tab) ? active : idle;
   });
+  // WI-14: refresh the backup-freshness widget when the Data & Backups tab opens
+  // (replaces the old header dropdown's ontoggle trigger).
+  if (tab === 'data' && typeof refreshBackupStatus === 'function') refreshBackupStatus();
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
