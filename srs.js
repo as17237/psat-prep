@@ -119,6 +119,7 @@
     ],
     sync: [
       'getClientVersion',
+      'isReadOnlyMode',
       'pushToCloud',
       'pullFromCloud',
       'mergeProgress',
