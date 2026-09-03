@@ -1,16 +1,18 @@
 {
   "_comment": "WI-07 integrity FLOORS. tests/integrity/run_integrity.js fails if the live database drops BELOW any number here. These are floors, never targets: the suite NEVER raises them automatically, because a floor that follows the live value can never detect a loss. A human raises them BY HAND at a REFACTOR_PLAN.md phase checkpoint, after confirming the growth is legitimate (e.g. with tests/integrity/snapshot_diff.js --expect-no-removals across the two backups spanning the change). Record who raised it and why in _history below.",
   "studentDocsMin": 11,
-  "defaultStudentProgressMin": 406,
-  "_measuredOn": "2026-08-29",
+  "defaultStudentProgressMin": 674,
+  "_measuredOn": "2026-09-03",
   "_measuredValues": {
     "note": "Live values when these floors were set — for context only; the suite reads the floors above, never these.",
-    "uatStudentAnswersDocs": 11,
-    "defaultStudentProgressEntries": 406,
-    "defaultStudentSrsCards": 392,
-    "defaultStudentExamHistory": 9,
-    "defaultStudentDocBytes": 234729,
-    "questionsContainerDocs": 3059
+    "uatStudentAnswersDocs": 52,
+    "defaultStudentProgressEntries": 674,
+    "defaultStudentSrsCards": 661,
+    "defaultStudentExamHistory": 16,
+    "defaultStudentDocBytes": 418501,
+    "defaultStudentGrowableBytes": 16195,
+    "questionsContainerDocs": 3059,
+    "shardsVerifiedAt": 1788443742768
   },
   "_history": [
     {
@@ -19,6 +21,13 @@
       "studentDocsMin": 11,
       "defaultStudentProgressMin": 406,
       "why": "Initial floors, measured directly against psat-cosmos-15958/psat-prep-db."
+    },
+    {
+      "date": "2026-09-03",
+      "by": "WI-18",
+      "studentDocsMin": 11,
+      "defaultStudentProgressMin": 674,
+      "why": "default_student migrated to the sharded model (scripts/migrate_to_shards.js, shardsVerifiedAt=1788443742768): its master progress/srsState are now FROZEN and new records route to shards. Two things were proven before raising this floor: (1) the migration's byte-for-byte round-trip proof through Cosmos, and (2) snapshot_diff.js --expect-no-removals across the pre- and post-migration backups (13-30 vs 14-03) reported SNAPSHOT_DIFF_NO_REMOVALS_OK — 0 progress/SRS/exam removals. Progress floor raised 406->674 to lock in the confirmed count. studentDocsMin left at 11 (a floor; the live count is now 52 incl. 34 shards). The DOC-SIZE check was reframed the same day to budget a frozen master's GROWABLE bytes only (the frozen legacy maps, ~402KB, live in shards and cannot grow); see tests/integrity/test_doc_size_budget.js."
     }
   ]
 }

@@ -45,6 +45,24 @@
 
 
   /**
+   * WI-18 read-only validation mode. When the page URL carries `?readonly=1` the
+   * client may still PULL (GET) from the cloud but must never PUSH (POST) — this is
+   * how /v2/ is validated against the REAL `default_student` document with zero risk
+   * of writing to it. Default OFF: no query, or any value other than exactly `1`,
+   * is normal read-write behaviour. Enforced in pushToCloud() below; a parallel-run
+   * spec also proves via network capture that zero POSTs leave the page in this mode.
+   * @param {{search?:string}} [loc] location-like object; defaults to window.location.
+   * @returns {boolean}
+   */
+  function isReadOnlyMode(loc) {
+    var l = loc || (typeof window !== 'undefined' ? window.location : null);
+    if (!l) return false;
+    var search = l.search || '';
+    return /[?&]readonly=1(?:&|$)/.test(search);
+  }
+
+
+  /**
    * Identifies which deployment lane this client was served from, so the server can
    * attribute a write to the app build that produced it.
    *
@@ -521,6 +539,9 @@
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
     if (!fetchFn) return Promise.resolve({ success: false, error: 'No fetch API available' });
     if (isDemoModeActive(store, loc)) return Promise.resolve({ success: false, reason: 'demo_mode' });
+    // WI-18: read-only validation mode disables every cloud write, client-side,
+    // BEFORE the payload is built or any request is issued. Pull (GET) is untouched.
+    if (isReadOnlyMode(loc)) return Promise.resolve({ success: false, skipped: true, reason: 'readonly' });
 
     var opts = options || {};
     var pushStartedAt = Date.now();
@@ -748,6 +769,7 @@
 
   return {
     getClientVersion: getClientVersion,
+    isReadOnlyMode: isReadOnlyMode,
     buildSyncDelta: buildSyncDelta,
     getSyncCursor: getSyncCursor,
     resetSyncCursor: resetSyncCursor,
