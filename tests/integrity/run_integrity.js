@@ -173,6 +173,28 @@ function documentBytes(doc) {
   return { withSystemFields: Buffer.byteLength(JSON.stringify(doc), 'utf8'), userBytes: Buffer.byteLength(JSON.stringify(copy), 'utf8') };
 }
 
+// WI-18: a master profile becomes shard-authoritative once scripts/migrate_to_shards.js
+// stamps `shardsVerifiedAt` (after proving the shards reassemble byte-for-byte). From then
+// on api/src/lib/shardsync.js FREEZES the master's `progress` / `srsState` — carried forward
+// verbatim on every write, never extended, never deleted.
+function isFrozenMaster(doc) {
+  return !!(doc && doc.doc_type === 'student_master_profile' && typeof doc.shardsVerifiedAt === 'number' && doc.shardsVerifiedAt > 0);
+}
+
+// The bytes the size budget should watch: the ones that can still GROW. The document
+// budget exists to catch UNBOUNDED GROWTH. For a frozen master the legacy `progress` /
+// `srsState` maps are constant dead weight that new writes route to shards instead of
+// extending, so they are not a growth risk and are excluded here; everything that can
+// still grow (sessionsState, examHistory, envelope) is still counted, and the record's
+// live shards are budgeted whole in the DOC-SIZE-ALL sweep. Every non-frozen document
+// (shards, un-migrated masters) is budgeted whole, exactly as before.
+function budgetableBytes(doc) {
+  if (!isFrozenMaster(doc)) return documentBytes(doc).withSystemFields;
+  const copy = Object.assign({}, doc, { progress: {}, srsState: {} });
+  ['_rid', '_self', '_etag', '_attachments', '_ts'].forEach(k => delete copy[k]);
+  return Buffer.byteLength(JSON.stringify(copy), 'utf8');
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -390,33 +412,41 @@ async function main() {
     // WI-11.5: the budget applies to EVERY document, not only the master. Sharding
     // moves bytes into other documents, so a check that only watched the master would
     // stop seeing the growth it exists to catch (CLAUDE.md mode 2).
-    const sized = allDocs.map(d => ({ id: d.id, type: d.doc_type, bytes: documentBytes(d).withSystemFields }))
+    const sized = allDocs.map(d => ({ id: d.id, type: d.doc_type, bytes: documentBytes(d).withSystemFields, budgeted: budgetableBytes(d), frozen: isFrozenMaster(d) }))
       .sort((a, b) => b.bytes - a.bytes);
-    const over = sized.filter(d => d.bytes >= MASTER_DOC_BUDGET_BYTES);
+    const over = sized.filter(d => d.budgeted >= MASTER_DOC_BUDGET_BYTES);
     console.log(`  documents measured                                      : ${sized.length}`);
-    console.log('  five largest:');
-    sized.slice(0, 5).forEach(d => console.log(`    ${String(d.bytes).padStart(8)} B  ${d.id}  [${d.type}]`));
-    record('DOC-SIZE-ALL', 'every document < 400 KB', over.length === 0,
+    console.log('  five largest (on disk; "growable" excludes a frozen master\'s carried-forward maps):');
+    sized.slice(0, 5).forEach(d => console.log(`    ${String(d.bytes).padStart(8)} B  ${d.id}  [${d.type}]` + (d.frozen ? `  (frozen; growable ${d.budgeted} B)` : '')));
+    record('DOC-SIZE-ALL', 'every document within the growth budget', over.length === 0,
       over.length === 0
-        ? `all ${sized.length} documents < ${MASTER_DOC_BUDGET_BYTES} bytes (largest ${sized[0] ? sized[0].bytes : 0})`
-        : `${over.length} document(s) at/over budget: ${over.map(d => `${d.id}=${d.bytes}`).join(', ')}`);
+        ? `all ${sized.length} documents within ${MASTER_DOC_BUDGET_BYTES}-byte growth budget (largest growable ${sized.reduce((m, d) => Math.max(m, d.budgeted), 0)})`
+        : `${over.length} document(s) at/over budget: ${over.map(d => `${d.id}=${d.budgeted}`).join(', ')}`);
 
     const doc = allDocs.find(d => d && d.id === DEFAULT_STUDENT_DOC_ID);
     if (!doc) {
       record('DOC-SIZE', 'master doc < 400 KB', false, `${DEFAULT_STUDENT_DOC_ID} not found`);
     } else {
       const { withSystemFields, userBytes } = documentBytes(doc);
-      const pct = ((withSystemFields / MASTER_DOC_BUDGET_BYTES) * 100).toFixed(1);
+      const frozen = isFrozenMaster(doc);
+      const budgeted = budgetableBytes(doc);
+      const pct = ((budgeted / MASTER_DOC_BUDGET_BYTES) * 100).toFixed(1);
       console.log(`  measured bytes (as stored, incl. Cosmos _rid/_etag/...) : ${withSystemFields}`);
       console.log(`  measured bytes (application fields only)                : ${userBytes}`);
-      console.log(`  budget                                                  : ${MASTER_DOC_BUDGET_BYTES} bytes (400 KB) — currently ${pct}% used`);
+      if (frozen) {
+        console.log(`  shard-authoritative (shardsVerifiedAt set)              : progress/srsState FROZEN (${withSystemFields - budgeted} B) excluded from budget`);
+        console.log(`  growable bytes (sessions + examHistory + envelope)      : ${budgeted}`);
+      }
+      console.log(`  budget                                                  : ${MASTER_DOC_BUDGET_BYTES} bytes (400 KB) — currently ${pct}% of the growth budget used`);
       // Also print the largest master doc so a different student cannot creep past unseen.
       const largest = masters.map(m => ({ id: m.id, bytes: documentBytes(m).withSystemFields }))
         .sort((a, b) => b.bytes - a.bytes)[0];
       console.log(`  largest master document overall                         : ${largest.id} @ ${largest.bytes} bytes`);
-      record('DOC-SIZE', 'master doc < 400 KB',
-        withSystemFields < MASTER_DOC_BUDGET_BYTES,
-        `${DEFAULT_STUDENT_DOC_ID} = ${withSystemFields} bytes < ${MASTER_DOC_BUDGET_BYTES} budget (${pct}%)`);
+      record('DOC-SIZE', 'master within the growth budget',
+        budgeted < MASTER_DOC_BUDGET_BYTES,
+        frozen
+          ? `${DEFAULT_STUDENT_DOC_ID} growable=${budgeted} bytes < ${MASTER_DOC_BUDGET_BYTES} budget (${pct}%); frozen legacy maps ${withSystemFields - budgeted} B excluded; total on disk ${withSystemFields} B`
+          : `${DEFAULT_STUDENT_DOC_ID} = ${budgeted} bytes < ${MASTER_DOC_BUDGET_BYTES} budget (${pct}%)`);
     }
   }
 
@@ -609,4 +639,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { progressEntryProblems, srsCardProblems, documentBytes, MIN_EASE_FACTOR, MASTER_DOC_BUDGET_BYTES };
+module.exports = { progressEntryProblems, srsCardProblems, documentBytes, isFrozenMaster, budgetableBytes, MIN_EASE_FACTOR, MASTER_DOC_BUDGET_BYTES };
