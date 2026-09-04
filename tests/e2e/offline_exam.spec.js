@@ -74,21 +74,46 @@ test.describe('offline exam mode (WI-20)', () => {
     await page.click('#tab-exam', { force: true });
     await expect(page.locator('#offline-prepared-panel')).toBeVisible();
 
-    // 5. Start the prepared exam offline; the question image renders from cache.
+    // 5. Start the prepared exam offline.
     await page.click('button:has-text("Start prepared exam")', { force: true });
     await expect(page.locator('#exam-active')).toBeVisible({ timeout: 15000 });
-    await page.waitForFunction(
-      () => {
-        const img = document.getElementById('exam-q-image');
-        return img && img.complete && img.naturalWidth > 0; // >0 == served from cache
-      },
-      null,
-      { timeout: 15000 }
-    );
 
-    // 6. Answer one question offline (writes to localStorage, needs no network).
-    const mcq = page.locator('#exam-mcq-options button');
-    if (await mcq.count()) await mcq.first().click({ force: true });
+    // 6. WALK SEVERAL QUESTIONS OFFLINE. For each: its question image must render
+    //    FROM CACHE (naturalWidth > 0 with no network), we answer it, and advance.
+    //    This proves real multi-question offline exam-taking, not just one card.
+    //    Reading & Writing Module 1 has 27 questions, so 5 stays inside it.
+    const QUESTIONS_TO_WALK = 5;
+    const seenImages = [];
+    for (let i = 1; i <= QUESTIONS_TO_WALK; i++) {
+      await expect(page.locator('#exam-active-q-pos')).toHaveText(`Question ${i} of 27`, { timeout: 10000 });
+      const src = await page
+        .waitForFunction(
+          () => {
+            const img = document.getElementById('exam-q-image');
+            return img && img.complete && img.naturalWidth > 0 ? (img.currentSrc || img.src) : null;
+          },
+          null,
+          { timeout: 10000 }
+        )
+        .then((h) => h.jsonValue());
+      seenImages.push(src);
+
+      const mcq = page.locator('#exam-mcq-options button');
+      if (await mcq.count()) await mcq.first().click({ force: true });
+      else await page.fill('#exam-spr-input', '1');
+
+      if (i < QUESTIONS_TO_WALK) await page.click('#btn-exam-next', { force: true });
+    }
+    // Every walked question showed a real cached image, and they were distinct
+    // questions (not the same card rendered five times).
+    expect(seenImages.every((s) => typeof s === 'string' && /data\/images\//.test(s))).toBe(true);
+    expect(new Set(seenImages).size).toBe(QUESTIONS_TO_WALK);
+    // The answers are really recorded in the offline exam state.
+    const answered = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('psat_active_exam_state') || '{}');
+      return Object.keys(s.examUserAnswers || {}).length;
+    });
+    expect(answered).toBeGreaterThanOrEqual(QUESTIONS_TO_WALK);
 
     // 7. Back online -> the reconnect handler pushes the queued work.
     const postsBefore = (page.__syncCalls || []).filter((c) => c.method === 'POST').length;
