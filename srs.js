@@ -91,6 +91,9 @@
       'generatePostExamRecoveryPlan',
       'generateSampleDiagnosticPayload',
       'calculateGapFocusMetrics',
+      'collectExamQuestionIds',
+      'toOfflineExamPin',
+      'rehydrateOfflineExamPin',
       '_shuffle',
       '_prioritizeUnseen',
       '_assembleModuleByBlueprint'

@@ -1093,6 +1093,143 @@
     };
   }
 
+  // =========================================================================
+  // WI-20 — offline exam mode (take on a plane, sync on reconnect)
+  // =========================================================================
+  // Three pure helpers backing the "Prepare for offline" flow. They live here,
+  // not in the page, so they are unit-testable against the real question bundle
+  // (tests/test_offline_exam.js) — this project's #1 rule is "run the real code
+  // path against the real dataset", and generation/rehydration is exactly where
+  // a schema mistake (failure mode 3) would silently ship a broken exam.
+
+  /**
+   * Collects the unique question ids an exam can present — every module question
+   * PLUS every adaptive-pool question. Either routing branch may be taken while
+   * offline, so BOTH the Hard and Easy pools count; missing a pool here would
+   * silently leave a whole adaptive branch's images uncached before a flight.
+   */
+  function collectExamQuestionIds(exam) {
+    var ids = {};
+    if (exam && Array.isArray(exam.modules)) {
+      exam.modules.forEach(function (m) {
+        (m && Array.isArray(m.questions) ? m.questions : []).forEach(function (q) {
+          if (q && q.id != null) ids[q.id] = true;
+        });
+      });
+    }
+    if (exam && exam.adaptivePools) {
+      ['rwM2Hard', 'rwM2Easy', 'mathM2Hard', 'mathM2Easy'].forEach(function (k) {
+        var pool = exam.adaptivePools[k];
+        (Array.isArray(pool) ? pool : []).forEach(function (q) {
+          if (q && q.id != null) ids[q.id] = true;
+        });
+      });
+    }
+    return Object.keys(ids);
+  }
+
+  /**
+   * Builds a LEAN, storable pin of a generated exam: full question objects are
+   * dropped and only their ids kept (they rehydrate from the local bundle),
+   * mirroring the in-progress resume snapshot so the pin can never become the
+   * storage bloat of failure mode 6. `meta` carries the honest prefetch tally
+   * (imageTotal/imageCached) and preparedAt, which the lobby shows verbatim —
+   * never an invented number (failure mode 1). A missing tally stays null, not 0.
+   */
+  function toOfflineExamPin(exam, meta) {
+    if (!exam) return null;
+    var m = meta || {};
+    var leanModules = (exam.modules || []).map(function (mod) {
+      return {
+        id: mod.id,
+        section: mod.section,
+        moduleNumber: mod.moduleNumber,
+        name: mod.name,
+        track: mod.track || 'Standard',
+        questionsCount: mod.questionsCount || (mod.questions ? mod.questions.length : 0),
+        timeLimitSeconds: mod.timeLimitSeconds,
+        questionIds: (mod.questions || []).map(function (q) { return q.id; })
+      };
+    });
+    var leanPools = exam.adaptivePools ? {
+      rwM2Hard: (exam.adaptivePools.rwM2Hard || []).map(function (q) { return q.id; }),
+      rwM2Easy: (exam.adaptivePools.rwM2Easy || []).map(function (q) { return q.id; }),
+      mathM2Hard: (exam.adaptivePools.mathM2Hard || []).map(function (q) { return q.id; }),
+      mathM2Easy: (exam.adaptivePools.mathM2Easy || []).map(function (q) { return q.id; })
+    } : null;
+    return {
+      examMeta: {
+        id: exam.id,
+        title: exam.title,
+        type: exam.type,
+        isAdaptive: exam.isAdaptive === true,
+        routingTracks: exam.routingTracks || { rw: 'Baseline', math: 'Baseline' },
+        adaptivePools: leanPools,
+        totalQuestions: exam.totalQuestions,
+        totalTimeMinutes: exam.totalTimeMinutes,
+        breakMinutes: exam.breakMinutes,
+        createdAt: exam.createdAt,
+        modules: leanModules
+      },
+      preparedAt: (typeof m.preparedAt === 'number') ? m.preparedAt : Date.now(),
+      imageTotal: (typeof m.imageTotal === 'number') ? m.imageTotal : null,
+      imageCached: (typeof m.imageCached === 'number') ? m.imageCached : null
+    };
+  }
+
+  /**
+   * Rehydrates a lean pin into a full exam by looking every id up in the bundle.
+   * Returns the exam PLUS an explicit integrity result: if ANY module id fails
+   * to resolve, `ok` is false and `missingIds` lists them — the caller must
+   * refuse to start rather than run a short exam scored as full (failure modes
+   * 3 and 5). Adaptive-pool misses are reported in `missingPoolIds` but are not
+   * fatal on their own (the other routing branch may still be whole).
+   */
+  function rehydrateOfflineExamPin(pin, allQuestions) {
+    var meta = pin && pin.examMeta ? pin.examMeta : null;
+    if (!meta) return { ok: false, exam: null, missingIds: [], missingPoolIds: [], reason: 'no_pin' };
+
+    var qMap = {};
+    (Array.isArray(allQuestions) ? allQuestions : []).forEach(function (q) { if (q && q.id != null) qMap[q.id] = q; });
+
+    var missingIds = [];
+    var modules = (meta.modules || []).map(function (m) {
+      var qs = [];
+      (m.questionIds || []).forEach(function (qid) {
+        if (qMap[qid]) qs.push(qMap[qid]); else missingIds.push(qid);
+      });
+      return {
+        id: m.id, section: m.section, moduleNumber: m.moduleNumber, name: m.name,
+        track: m.track || 'Standard',
+        questionsCount: m.questionsCount || (m.questionIds ? m.questionIds.length : 0),
+        timeLimitSeconds: m.timeLimitSeconds, questions: qs
+      };
+    });
+
+    var missingPoolIds = [];
+    var pools = meta.adaptivePools ? {} : null;
+    if (pools) {
+      ['rwM2Hard', 'rwM2Easy', 'mathM2Hard', 'mathM2Easy'].forEach(function (k) {
+        pools[k] = (meta.adaptivePools[k] || []).map(function (qid) {
+          if (qMap[qid]) return qMap[qid];
+          missingPoolIds.push(qid); return null;
+        }).filter(Boolean);
+      });
+    }
+
+    var exam = {
+      id: meta.id, title: meta.title, type: meta.type,
+      isAdaptive: meta.isAdaptive === true,
+      routingTracks: meta.routingTracks || { rw: 'Baseline', math: 'Baseline' },
+      adaptivePools: pools,
+      totalQuestions: meta.totalQuestions, totalTimeMinutes: meta.totalTimeMinutes,
+      breakMinutes: meta.breakMinutes, createdAt: meta.createdAt, modules: modules
+    };
+
+    return { ok: missingIds.length === 0, exam: exam, missingIds: missingIds, missingPoolIds: missingPoolIds };
+  }
+
+
   /**
    * Demo Mode State & Data Protection Manager
    * Handles safe archival of real student data before sample loading and lossless recovery.
@@ -1109,6 +1246,9 @@
     generateCustomTest: generateCustomTest,
     generateTagCoachingDrill: generateTagCoachingDrill,
     generatePostExamRecoveryPlan: generatePostExamRecoveryPlan,
-    generateSampleDiagnosticPayload: generateSampleDiagnosticPayload
+    generateSampleDiagnosticPayload: generateSampleDiagnosticPayload,
+    collectExamQuestionIds: collectExamQuestionIds,
+    toOfflineExamPin: toOfflineExamPin,
+    rehydrateOfflineExamPin: rehydrateOfflineExamPin
   };
 });

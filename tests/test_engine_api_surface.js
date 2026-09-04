@@ -94,6 +94,9 @@ const EXPECTED_SYMBOLS = [
   'generatePostExamRecoveryPlan',
   'generateSampleDiagnosticPayload',
   'calculateGapFocusMetrics',
+  'collectExamQuestionIds',
+  'toOfflineExamPin',
+  'rehydrateOfflineExamPin',
   '_shuffle',
   '_prioritizeUnseen',
   '_assembleModuleByBlueprint',
@@ -139,8 +142,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  69,
-  `The hand-written contract must list exactly 69 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18); found ${EXPECTED_SYMBOLS.length}. ` +
+  72,
+  `The hand-written contract must list exactly 72 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 

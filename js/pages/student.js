@@ -27,10 +27,28 @@ import { toggleDesmosCalculator, initDesmosCalculator, fallbackDesmosIframe, tog
 // happen -- the inline original called updateSyncStatusBadge() directly.
 onPendingSyncCountChanged(updateSyncStatusBadge);
 
+// WI-20: register the offline service worker from the module (WI-09 keeps page
+// logic out of inline <script>). Relative 'sw.js' scopes it to this page's
+// directory automatically ('/' in prod, '/v2/' in the soak lane), so each lane
+// gets its own worker and caches. A failed registration never breaks the app.
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch((e) => {
+    console.warn('[psat] service worker registration failed:', e && e.message);
+  });
+}
+
 function updateSyncStatusBadge() {
   const badge = document.getElementById('hdr-cloud-badge');
   if (!badge) return;
   const { pending, lastSync, minutesAgo } = readSyncBadgeState();
+
+  // WI-20: when the device is offline, say so honestly — the work is saved
+  // locally and the reconnect handler will push it. Never show "Synced" offline.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Offline${pending > 0 ? ` — ${pending} to sync` : ''} (syncs on reconnect)`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
 
   let timeAgoStr = 'Never';
   if (lastSync) {
@@ -116,6 +134,12 @@ document.addEventListener('DOMContentLoaded', () => {
   applyFilters();
   updateHeaderStats();
   renderExamLobbyHistory();
+  renderOfflineReadyStatus();
+  // WI-20: auto-sync when the connection returns (e.g. the plane lands) and
+  // reflect offline/online in the badge. Registered once, after initial render.
+  window.addEventListener('online', handleNetworkChange);
+  window.addEventListener('offline', handleNetworkChange);
+  updateSyncStatusBadge();
 });
 
 function checkDemoModeBanner() {
@@ -1161,6 +1185,155 @@ function startMiniExam(opts) {
   initExamSession();
 }
 
+// ============================================================
+// WI-20 — OFFLINE EXAM MODE ("take it on the plane, sync on landing")
+// ============================================================
+// The engine already generates/takes/scores/stores an exam with no network, and
+// cloud sync is offline-safe. These controllers add the two missing pieces: (1)
+// a pre-flight "Prepare for offline" that pins one exam and caches EXACTLY its
+// question images (never the 324 MB bank), and (2) starting that pinned exam
+// offline. Honest status only — every count shown is a real cache result, never
+// an assumed number (CLAUDE.md failure mode 1).
+
+const OFFLINE_PIN_KEY = 'psat_offline_prepared_exam';
+
+function setOfflinePrepStatus(msg, kind) {
+  const el = document.getElementById('offline-prep-status');
+  if (!el) return;
+  const colors = { busy: 'text-slate-600', ok: 'text-emerald-700', warn: 'text-amber-700', error: 'text-rose-700' };
+  el.className = 'text-xs font-semibold mt-3 ' + (colors[kind] || 'text-slate-600');
+  el.innerText = msg;
+  el.classList.remove('hidden');
+}
+
+/**
+ * Caches a list of image URLs into the SW's 'psat-images' cache directly via the
+ * Cache Storage API (available on the page, no dependency on the SW controlling
+ * this client yet). Returns the REAL success/failure tally — a failed add is
+ * counted, never swallowed (failure mode 5).
+ */
+async function cacheImageUrls(urls, concurrency) {
+  let ok = 0, fail = 0;
+  let cache = null;
+  try { cache = (typeof caches !== 'undefined') ? await caches.open('psat-images') : null; } catch (e) { cache = null; }
+  let i = 0;
+  async function worker() {
+    while (i < urls.length) {
+      const url = urls[i++];
+      try {
+        if (cache) { await cache.add(url); }
+        else { const r = await fetch(url, { cache: 'reload' }); if (!r.ok) throw new Error('HTTP ' + r.status); }
+        ok++;
+      } catch (e) { fail++; }
+      setOfflinePrepStatus(`Caching questions… ${ok + fail}/${urls.length}`, 'busy');
+    }
+  }
+  const workers = [];
+  for (let w = 0; w < Math.max(1, concurrency || 6); w++) workers.push(worker());
+  await Promise.all(workers);
+  return { ok, fail };
+}
+
+async function prepareOfflineExam() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setOfflinePrepStatus('You appear to be offline. Connect to the internet first, then prepare the exam.', 'warn');
+    return;
+  }
+  if (typeof PSAT_ENGINE === 'undefined' || !PSAT_ENGINE.generateStandardPSAT89Exam) {
+    setOfflinePrepStatus('The app engine did not load. Reload the page and try again.', 'error');
+    return;
+  }
+  setOfflinePrepStatus('Preparing… generating your exam and caching its questions. Keep this tab open.', 'busy');
+  const btn = document.getElementById('offline-prep-btn');
+  if (btn) btn.disabled = true;
+  try {
+    let swReady = false;
+    if ('serviceWorker' in navigator) {
+      try { await navigator.serviceWorker.ready; swReady = true; } catch (e) { swReady = false; }
+    }
+    const exam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, { progressMap: progress, isAdaptive: true });
+    const ids = PSAT_ENGINE.collectExamQuestionIds(exam);
+    const qMap = {}; (window.QUESTIONS_DATA || questions).forEach(q => { qMap[q.id] = q; });
+    const urls = [];
+    ids.forEach(id => { const q = qMap[id]; if (q) { const s = questionImageSrc(q); if (s) urls.push(s); } });
+
+    const { ok: cachedOk, fail } = await cacheImageUrls(urls, 6);
+
+    const pin = PSAT_ENGINE.toOfflineExamPin(exam, { imageTotal: urls.length, imageCached: cachedOk, preparedAt: Date.now() });
+    const stored = safeSetStorage(OFFLINE_PIN_KEY, pin);
+    if (!stored) {
+      setOfflinePrepStatus('Could not save the prepared exam — device storage is full. Nothing was pinned.', 'error');
+      return;
+    }
+
+    renderOfflineReadyStatus();
+    let msg, kind;
+    if (!swReady) {
+      msg = `Cached ${cachedOk}/${urls.length} question images, but this browser can't store the app for offline loading — keep this tab open (don't fully close it) during the flight.`;
+      kind = 'warn';
+    } else if (fail > 0) {
+      msg = `Prepared, but ${fail} of ${urls.length} question images failed to cache; those questions may not display offline. Reconnect and prepare again to fix.`;
+      kind = 'warn';
+    } else {
+      msg = `✓ Offline-ready: all ${cachedOk} question images cached and the app is stored for offline use. Safe to go offline — the exam appears in "Prepared offline exam" below.`;
+      kind = 'ok';
+    }
+    setOfflinePrepStatus(msg, kind);
+  } catch (e) {
+    setOfflinePrepStatus('Preparation failed: ' + ((e && e.message) || 'unknown error') + '. Nothing was pinned.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+function startPreparedOfflineExam() {
+  const pin = safeGetStorage(OFFLINE_PIN_KEY, null);
+  if (!pin) {
+    alert('No offline exam is prepared. Use "Prepare for offline" while connected first.');
+    return;
+  }
+  const res = PSAT_ENGINE.rehydrateOfflineExamPin(pin, window.QUESTIONS_DATA || questions);
+  if (!res.ok) {
+    // Refuse rather than run a short exam scored as a full one (failure modes 3/5).
+    alert('The prepared offline exam could not be fully loaded from the question bank (' +
+      res.missingIds.length + ' question(s) missing), so it will not start. This prevents an ' +
+      'incomplete exam being scored as full. Please prepare a new offline exam while connected.');
+    return;
+  }
+  activeExam = res.exam;
+  initExamSession();
+}
+
+function renderOfflineReadyStatus() {
+  const wrap = document.getElementById('offline-prepared-panel');
+  if (!wrap) return;
+  const pin = safeGetStorage(OFFLINE_PIN_KEY, null);
+  const meta = pin && pin.examMeta ? pin.examMeta : null;
+  if (!meta) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+  const when = pin.preparedAt ? new Date(pin.preparedAt).toLocaleString() : 'earlier';
+  const imgLine = (typeof pin.imageCached === 'number' && typeof pin.imageTotal === 'number')
+    ? `${pin.imageCached}/${pin.imageTotal} question images cached`
+    : 'question images cached';
+  const detail = document.getElementById('offline-prepared-detail');
+  if (detail) detail.innerText = `${meta.title || 'Prepared exam'} • prepared ${when} • ${imgLine}`;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+let onlineSyncDebounce = null;
+function handleNetworkChange() {
+  updateSyncStatusBadge();
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    // Debounce: a flapping connection on landing must not storm the sync API.
+    if (onlineSyncDebounce) clearTimeout(onlineSyncDebounce);
+    onlineSyncDebounce = setTimeout(() => {
+      if (navigator.onLine && typeof manualTriggerCloudSync === 'function') {
+        manualTriggerCloudSync(false);
+      }
+    }, 2500);
+  }
+}
+
 function startGapDrillFromLobby() {
   const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: 20 });
   startCustomTestDirect(drill);
@@ -1761,6 +1934,16 @@ function finishExamAndShowReport() {
 
   // Clear in-progress exam state once completed
   clearActiveExamState();
+  // WI-20: if the exam just finished IS the prepared offline exam, consume its
+  // pin. Only remove an existing, matching key (never write a placeholder that
+  // would leave a spurious psat_offline_prepared_exam behind), and never wipe a
+  // pin belonging to a different, still-prepared exam.
+  try {
+    const finishedPin = safeGetStorage(OFFLINE_PIN_KEY, null);
+    if (finishedPin && finishedPin.examMeta && activeExam && finishedPin.examMeta.id === activeExam.id) {
+      localStorage.removeItem(APP_ENV.storagePrefix + OFFLINE_PIN_KEY);
+    }
+  } catch (e) {}
 
   // Render score report and update lobby
   renderExamLobbyHistory();
@@ -1862,6 +2045,7 @@ function launchPostExamRecoveryDrill() {
 
 function renderExamLobbyHistory() {
   checkActiveExamResume();
+  renderOfflineReadyStatus();
   const container = document.getElementById('exam-history-container');
   const badge = document.getElementById('exam-history-count-badge');
   if (!container) return;
@@ -2426,6 +2610,9 @@ Object.assign(window, {
   showExamSubview,
   startStandardExam,
   startMiniExam,
+  prepareOfflineExam,
+  startPreparedOfflineExam,
+  renderOfflineReadyStatus,
   startGapDrillFromLobby,
   startSectionTest,
   startCustomTestDirect,
