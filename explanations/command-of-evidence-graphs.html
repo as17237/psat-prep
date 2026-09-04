@@ -1,0 +1,695 @@
+<!-- depth: default -->
+<!-- beta: numbers not yet card-verified; miss set from 2026-08-26 worklist. Surfaces only in APP_ENV.isBeta. -->
+<!-- cluster: command-of-evidence-graphs · 8 misses, one model (see explanations/SYSTEM.md) -->
+<title>Don't Read the Graph — Interrogate It</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+
+<div class="wrap">
+
+  <div style="background:#B87415;color:#fff;padding:10px 16px;border-radius:2px;margin:24px 0 8px;font:600 14px/1.5 'Public Sans',Arial,sans-serif;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+    <span>🧪 <strong>BETA</strong> — the figures in this walkthrough are still being verified against the official question cards. Don't treat any number here as final.</span>
+    <a href="../index.html" style="color:#fff;text-decoration:underline;white-space:nowrap;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Command of Evidence · 8 missed questions, one model</p>
+    <h1>Don't read the graph.<br><em>Interrogate it.</em></h1>
+    <p class="standfirst">Every question below shows a graph or a table and asks which choice the data
+    supports. The shared slip: checking whether a choice <em>sounds true</em> instead of whether
+    it <em>proves the claim</em>. Three steps fix all eight.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> First learn the three steps. Then watch them work on three
+      walked-through misses. Then try five siblings yourself — cover the answer, run the steps out
+      loud, and only then open the reveal. The official question card sits above each question; it is
+      the authority whenever text and picture disagree.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Claim → Test → Match</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>Find the CLAIM</h3>
+          <p>Before looking at a single number, find the sentence the data is supposed to support:
+          the underlined conclusion, the blank to fill, or the hypothesis. Say it in your own ten
+          words. If you can't point at the claim, you are not ready for the choices.</p>
+          <div class="keybox"><b>Claim first, numbers second.</b> Every miss below started by reading
+          the graph before reading the sentence.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Turn it into a TEST</h3>
+          <p>Rewrite the claim as a yes-or-no check on the figure: <em>which line should climb?
+          which group should be lowest? should the numbers bounce around or stay flat?</em> A claim
+          like "the program worked" becomes "the wild-bird line should rise over the years." Now you
+          know exactly what to look for.</p>
+          <div class="keybox"><b>No test, no answer.</b> If you can't say what pattern would prove
+          the claim, any choice can fool you.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>MATCH every word against the figure</h3>
+          <p>Take each choice number by number, word by word. A choice is right only if it
+          <em>passes your test</em> — being true is not enough. The test-makers breed three trap
+          species; learn their shapes and you will see them coming:</p>
+          <div class="traps">
+            <div class="trapitem"><span class="trapkey">T1</span><p><strong>True-but-useless.</strong>
+            Every number checks out — but it answers a different question than the claim asked.</p></div>
+            <div class="trapitem"><span class="trapkey">T2</span><p><strong>Backwards.</strong>
+            Says higher when the data says lower, says fell when it rose. One flipped word.</p></div>
+            <div class="trapitem"><span class="trapkey">T3</span><p><strong>Half-right.</strong>
+            Starts true, then one clause quietly breaks — a wrong year, a wrong group, a word like
+            "constant" where the claim needed "bouncy".</p></div>
+          </div>
+          <div class="keybox" style="margin-top:14px"><b>The question is never "is this true?"</b>
+          It is always "does this prove the claim?"</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-858be80e">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 1 of 3</span>
+        <span class="qid">858be80e</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>What would success look like?</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/858be80e_question.png" alt="Line graph of California condor populations 2014 to 2020, captive versus wild">
+      <figcaption>The official card. Wild birds (squares) climb from about 230 to about 330;
+      captive birds (triangles) hover near 170–195 the whole time.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The California Condor Recovery Program is working to protect this large, rare
+      American vulture from extinction. The program captured 27 wild condors in 1987 in order to
+      protect and breed them. Captive birds have been reintroduced into the wild since 1992. Although
+      the California condor is still a rare species, many biologists claim that the program has been
+      reasonably successful.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes data from the graph that
+      <span class="u">support the biologists' claim</span>?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>The number of captive California condors steadily decreased between 2014 and 2020.</span></li>
+        <li class="trap"><span class="key">B</span><span>The numbers of California condors living both in captivity and in the wild decreased only slightly from 2019 to 2020.</span></li>
+        <li class="trap"><span class="key">C</span><span>The difference between the number of captive and wild California condors remained relatively steady between 2014 and 2017.</span></li>
+        <li class="right"><span class="key">D</span><span>The number of wild California condors increased overall from 2014 to 2020 and exceeded the number of those living in captivity.</span><span class="verdict">Correct</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the biologists say "it worked" — which pattern in the graph would show that?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>CLAIM: the program was reasonably successful</h3>
+          <p>Ten words: <em>breeding plus release brought wild condors back.</em> Notice the claim is
+          about the <em>wild</em> population recovering — not about captivity shrinking, not about one
+          quiet year. Hold that thought; it eliminates two choices before you touch the graph.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>TEST: the wild line should climb and overtake the captive line</h3>
+          <p>If released birds survive and breed, wild numbers rise year after year — and a truly
+          recovered population outnumbers the captive one. So: find the square-marked line, check it
+          goes up from 2014 to 2020, and check it sits above the triangle line.</p>
+          <div class="keybox"><b>Read the legend first, always.</b> Squares = wild, triangles =
+          captive. Mixing them up answers a different question.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>MATCH: only D passes the test</h3>
+          <p>Wild squares: about 230 → about 330, rising nearly every year, and above the captive
+          line from 2015 on. Every word of D checks out — and it is exactly the pattern success
+          would produce.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>D — wild condors rose overall and outnumbered captive ones.</strong></p>
+      <p>Step 2 did the work: success has a shape (a climbing wild line), and D is the only choice
+      describing that shape.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>Fails the Match.</strong> The
+      captive line dips once (2014→2015) then sits flat near 170–195 — that is not a "steady
+      decrease." And even if it were, fewer captive birds alone wouldn't prove wild recovery.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T1, True-but-useless.</strong>
+      The 2019→2020 dip is real but tiny — and one quiet year says nothing about whether the
+      program worked. It answers "what happened last year?", not the claim.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T1, True-but-useless.</strong>
+      A steady gap between two lines is a fact about the gap, not evidence of recovery. The claim
+      needs growth, and C never mentions any.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-6488f498">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 2 of 3</span>
+        <span class="qid">6488f498</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>The word that decides</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/6488f498_question.png" alt="Table of delta 15-N values in seagrass at four Yucatan sites across 2016 and 2017">
+      <figcaption>The official card. Track the two middle-tourism rows (Akumal Bay, Tulum) across
+      the three dated columns: 3.3 → 2.0 → 6.3, and 5.9 → 2.3 → 5.5. That bounce is the whole question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Water from natural, uncontaminated sources carries less of the nitrogen form
+      <sup>15</sup>N than wastewater from human activities does — so scientists can sniff out wastewater
+      by measuring delta 15-N values in seagrass. Karla Camacho-Cruz and colleagues measured seagrass
+      at Yucatan sites with middling tourism (Akumal Bay, Tulum) and low tourism (Mahahual, Xahuayxol)
+      through 2016–2017. The data suggest the middling-tourism sites got influxes of human wastewater.
+      <span class="u">However, the researchers concluded that this happened intermittently.</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes data from the table that
+      support the underlined conclusion?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>Although delta 15-N values were generally higher in Akumal Bay and Tulum than in Mahahual and Xahuayxol, the values were lower in Akumal Bay than in Mahahual and Xahuayxol in February 2017.</span></li>
+        <li class="trap"><span class="key">B</span><span>Delta 15-N values reached their lowest level in February 2017 in both Akumal Bay and Tulum, but no data were available for Akumal Bay in February 2016, when the values reached their highest level in Tulum.</span></li>
+        <li class="trap"><span class="key">C</span><span>Although all sites showed considerable variation in delta 15-N values, the values remained relatively constant in Akumal Bay from October 2016 to February 2017 and in Tulum from February 2016 to October 2016.</span></li>
+        <li class="right"><span class="key">D</span><span>In Akumal Bay and Tulum, delta 15-N values fluctuated considerably across the three measurements made from October 2016 to October 2017.</span><span class="verdict">Correct</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the researchers say the pollution came and went — which table pattern shows coming-and-going?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>CLAIM: the influxes happened <em>intermittently</em></h3>
+          <p>Ten words: <em>wastewater arrived in bursts, not in a steady stream.</em> One word carries
+          the entire question — <em>intermittently</em>. Circle it. Everything you do next serves
+          that one word.</p>
+          <div class="word"><b>Intermittently.</b> Starting and stopping; on, then off, then on again.
+          The opposite of steady.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>TEST: the numbers must bounce, not sit still</h3>
+          <p>If pollution comes in bursts, the readings at the two touristy sites should jump around
+          across the dates: high one visit, low the next, high again. Steady readings would prove the
+          <em>opposite</em>. So run your finger across the Akumal Bay and Tulum rows and feel for a bounce.</p>
+          <div class="vt"><table class="vals">
+            <caption>Finger-tracing the two touristy rows, Oct 2016 → Feb 2017 → Oct 2017.</caption>
+            <tr><th>Site</th><th>Oct 2016</th><th>Feb 2017</th><th>Oct 2017</th></tr>
+            <tr><td>Akumal Bay</td><td class="lo">3.3</td><td class="lo">2.0</td><td class="lo">6.3</td></tr>
+            <tr><td>Tulum</td><td class="lo">5.9</td><td class="lo">2.3</td><td class="lo">5.5</td></tr>
+          </table></div>
+          <div class="keybox"><b>Bounce confirmed:</b> 3.3 → 2.0 → 6.3 and 5.9 → 2.3 → 5.5. Down,
+          then up. That is what "intermittent" looks like in numbers.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>MATCH: D is the only choice describing a bounce</h3>
+          <p>"Fluctuated considerably across the three measurements" — that is exactly the pattern
+          your finger just traced. Done.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>D — the values swung up and down across the three dates.</strong></p>
+      <p>Step 1 did the work: once <em>intermittently</em> is the claim, only a fluctuation can
+      support it — and D is the only fluctuation on offer.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T3, Half-right.</strong> The first
+      half is true (touristy sites run higher overall) — but the February 2017 detail breaks: Akumal
+      Bay's 2.0 beats Xahuayxol's −0.9, so it was <em>not</em> lower than both. One false clause sinks
+      the whole choice.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>Missing-data hand-wringing.</strong>
+      "No data available" is a hole, not evidence. There is still plenty of table left to show a
+      bounce — a missing cell never cancels the cells you can see.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T3, Half-right — and self-defeating.</strong>
+      "Remained relatively constant" is the <em>opposite</em> of intermittent; a constant stretch
+      cannot support a coming-and-going claim. Plus it cherry-picks two quiet windows while ignoring
+      the big swings right next to them (Akumal 2.0 → 6.3, Tulum 5.9 → 2.3).</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-1b9fa866">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 3 of 3</span>
+        <span class="qid">1b9fa866</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>Follow the chain</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/1b9fa866_question.png" alt="Bar graph of nonhexagonal cell percentages in hives of three honeybee species">
+      <figcaption>The official card. Black dwarf and dwarf hives run near 2–2.6% odd-shaped cells;
+      western hives barely reach 0.5%. The shortest bars decide this question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Honeybee hives consist mainly of hexagonal (six-sided) units called cells, in
+      which queens lay eggs. Hexagonal cells for eggs that develop into nonreproductive workers are
+      smaller than those for eggs that develop into reproductive drones, though the size difference
+      varies by species. Difference in cell size results in a construction problem — it's hard to
+      neatly connect sections of small cells to sections of large cells — that worsens as the
+      difference increases. To fill in gaps between the sections when building a hive, bees rely on
+      cells that have more or fewer than six sides. A student studying beehive structure consults data
+      on three species, concluding that <span class="u">______</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice most effectively uses data from the graph
+      to complete the student's conclusion?</p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span>cells for worker eggs are probably closer in size to cells for drone eggs in the hives of the western honeybee than in the hives of the dwarf honeybee and the black dwarf honeybee.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span>both the western honeybee and the black dwarf honeybee probably reserve eight-sided cells for drone eggs, while the dwarf honeybee likely deposits drone eggs in seven-sided cells.</span></li>
+        <li class="trap"><span class="key">C</span><span>the western honeybee probably relies on many more geometrical shapes when constructing cells than either the dwarf honeybee or the black dwarf honeybee does.</span></li>
+        <li class="trap"><span class="key">D</span><span>the percentage of hexagonal cells is probably slightly lower in the hives of the western honeybee than in the hives of the dwarf honeybee and the black dwarf honeybee.</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the graph never mentions cell sizes — so how can it prove anything about them?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>CLAIM: a blank — so build it from the passage</h3>
+          <p>When the conclusion is a blank, the passage hands you the reasoning chain. Here it is,
+          link by link: (1) worker cells and drone cells differ in size; (2) bigger difference → worse
+          construction problem → bees fill the gaps with odd-shaped (non-six-sided) cells. So the
+          chain runs: <em>size gap → gap-filler cells</em>. Read it backwards and the graph can speak:
+          <em>fewer gap-filler cells → smaller size gap</em>.</p>
+          <div class="word"><b>Nonhexagonal.</b> Any cell that isn't six-sided: the 5-, 7-, and
+          8-sided bars in the graph. Bees use them as filler where two cell sizes meet.</div>
+          <div class="keybox"><b>Blank-filler rule:</b> the answer must complete the passage's own
+          chain of reasoning — not merely describe the graph.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>TEST: which species has the shortest odd-shape bars?</h3>
+          <p>Running the chain backwards: the species with the <em>fewest</em> gap-filler cells has
+          the <em>smallest</em> worker/drone size gap. Compare totals: black dwarf ≈ 2.5 + 2.4,
+          dwarf ≈ 2.6 + 2.1 + 0.2, western ≈ 0.45 + 0.4 + 0.1. Western wins by a mile — its bars
+          barely leave the floor.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>MATCH: A says exactly that, in size words</h3>
+          <p>"Worker-egg cells are probably closer in size to drone-egg cells in the western
+          honeybee" — smallest filler → smallest gap. The graph never shows a ruler, but the chain
+          turns bar heights into a size conclusion.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A — western worker and drone cells are closest in size.</strong></p>
+      <p>Step 1 did the work: without the passage's chain, the bars are just bars. The model turns
+      "fewest odd cells" into "smallest size difference."</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>Text-trap.</strong> The passage
+      says eggs go into <em>hexagonal</em> cells; the odd-shaped ones are just gap filler. Any choice
+      parking eggs in 7- or 8-sided cells contradicts the text — the graph can't rescue it. Always
+      check the choice against the passage too, not only the figure.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>Exaggeration.</strong> All three
+      species use the same shapes (5-, 7-, and 8-sided; black dwarf just shows no 8-sided bar).
+      "Many more" is doing all the lying — one-word upgrades like this are a favorite trap.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T2, Backwards.</strong> Hives are
+      <em>mainly</em> hexagonal, so fewer odd cells means <em>more</em> hexagonal ones. Western has
+      the fewest odd cells, so its hexagonal share is the <em>highest</em> — D says lowest.</p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — five siblings</h3>
+      <p class="intro">Same model, fresh figures. For each one: state the claim in ten words, name the
+      test, then match. Open the reveal only after you've picked — and check you can name the trap
+      species on every wrong choice.</p>
+
+      <div class="pq" id="q-7c1e22ca">
+        <p class="pqtag">7c1e22ca · Hard · tree growth with and without nitrogen</p>
+        <figure class="card">
+          <img src="../data/images/7c1e22ca_question.png" alt="Bar graph of modeled sugar maple radial growth with and without nitrogen under three climate scenarios">
+        </figure>
+        <p class="q-text">Researchers concluded that extra nitrogen can make up for climate harm to
+        tree growth when the change is <em>moderate</em>, but not when it is <em>extreme</em>. Which
+        choice describes data supporting that conclusion?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>Growth with nitrogen under the current climate exceeded growth with nitrogen under moderate change, but the latter exceeded growth without nitrogen under extreme change.</span></li>
+          <li><span class="key">B</span><span>Growth without nitrogen under the current climate exceeded growth without nitrogen under moderate change, but the latter exceeded growth with nitrogen under extreme change.</span></li>
+          <li><span class="key">C</span><span>Growth with nitrogen under moderate change exceeded growth without nitrogen under moderate change, but the latter exceeded growth without nitrogen under extreme change.</span></li>
+          <li><span class="key">D</span><span>Growth with nitrogen under moderate change exceeded growth without nitrogen under the current climate, but the latter exceeded growth with nitrogen under extreme change.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>D.</b> Step 3 did the work — and this is the purest T1 trap in
+          the set: A, B, and C are all <em>true about the graph</em>, but none runs the comparison
+          the conclusion needs (no-nitrogen-now versus nitrogen-later, under <em>both</em> moderate
+          and extreme change). Only D tests the claim, and it passes (~0.18 beats ~0.16, but ~0.16
+          beats ~0.06).</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-9f55dec4">
+        <p class="pqtag">9f55dec4 · Medium · bonding vs bridging trust, 2005–2022</p>
+        <figure class="card">
+          <img src="../data/images/9f55dec4_question.png" alt="Graph of UK survey trust percentages for people known personally versus met for the first time">
+        </figure>
+        <p class="q-text">Bonding trust = trust in people you know; bridging trust = trust in
+        strangers. After analyzing the survey data, the researchers concluded that the level of
+        bonding trust in the UK ______</p>
+        <p class="q-text" style="margin-top:12px">Which choice most effectively uses data from the
+        graph to complete the statement?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>remained largely consistent from 2005 to 2022, whereas the level of bridging trust showed more variability from 2005 to 2022.</span></li>
+          <li><span class="key">B</span><span>consistently grew from 2005 to 2022, whereas the level of bridging trust largely declined from 2005 to 2022.</span></li>
+          <li><span class="key">C</span><span>was the same in 2018 as it was in 2022 but remained lower than the level of bridging trust in 2018 and 2022.</span></li>
+          <li><span class="key">D</span><span>declined from 2005 to 2022 but remained higher than the level of bridging trust from 2005 to 2018.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A.</b> Step 2 did the work — steady-versus-bouncy across the
+          years: bonding runs ~96 → ~97 → ~97 (flat), bridging runs ~46 → ~55 → ~53 (a hump). B
+          invents a climb, C flips the order (bonding towers over bridging), D invents a decline.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-a795332a">
+        <p class="pqtag">a795332a · Medium · maple table, two constraints</p>
+        <figure class="card">
+          <img src="../data/images/a795332a_question.png" alt="Table of five maple trees with maximum heights and native status">
+        </figure>
+        <p class="q-text">A student needs a maple that is <em>native to North America</em> AND
+        <em>stays at or under 60 feet</em>. Which one meets both?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>silver maple.</span></li>
+          <li><span class="key">B</span><span>sugar maple.</span></li>
+          <li><span class="key">C</span><span>red maple.</span></li>
+          <li><span class="key">D</span><span>Norway maple.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C, red maple.</b> Step 2 did the work — filter twice: silver
+          (70 ft) and sugar (75 ft) fail the height test, Norway fails the native test. Only the red
+          maple (60 ft, yes) survives both filters. Two-condition claims need two passes.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-cc4d3cac">
+        <p class="pqtag">cc4d3cac · Hard · pulsar table, define first</p>
+        <figure class="card">
+          <img src="../data/images/cc4d3cac_question.png" alt="Table of rotating radio transients with periods and frequencies">
+        </figure>
+        <p class="q-text">A pulsar's <em>period</em> is the time between consecutive pulses. Looking
+        at the table, which statement about the listed RRATs is correct?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>J0614-03 has the shortest amount of time between consecutive pulses of all the RRATs in the table.</span></li>
+          <li><span class="key">B</span><span>J0545-03 and J0121+53 have the same amount of time between consecutive pulses.</span></li>
+          <li><span class="key">C</span><span>J1654-2335 has the longest amount of time between consecutive pulses of all the RRATs in the table.</span></li>
+          <li><span class="key">D</span><span>J0103+54 and J0121+53 both have more than one second of time between consecutive pulses.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A.</b> Step 1 did the work — the passage defines period as
+          time-between-pulses, so "shortest time" means the <em>smallest period number</em>: 0.136
+          (J0614-03). B compares 1.074 with 2.725 (not equal), C misses J0121+53's 2.725 (the true
+          longest), D trips on J0103+54's 0.354. Definitions first, scanning second.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-ac8cfb10">
+        <p class="pqtag">ac8cfb10 · Hard · the finding variant (same model, text-only card)</p>
+        <figure class="card">
+          <img src="../data/images/ac8cfb10_question.png" alt="Question card for the Gidra newsletter hypothesis question">
+        </figure>
+        <p class="q-text"><em>Gidra</em>, a 1969 Asian American student newsletter, printed ~4,000
+        copies a month. A student hypothesizes its influence <em>can't be measured by copies alone</em>.
+        Which finding would most directly support that?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>The students who initially formed Gidra each contributed financially to its creation.</span></li>
+          <li><span class="key">B</span><span>In addition to covering current events, Gidra also featured works of art and literature.</span></li>
+          <li><span class="key">C</span><span>Gidra was initially based out of the Asian American Studies Center at UCLA.</span></li>
+          <li><span class="key">D</span><span>People would often give their copies of Gidra to others once they had finished reading an issue.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>D.</b> Step 2 did the work — "influence beyond copies" is proven
+          by <em>readers beyond copies</em>, and only passed-along copies create those. A (funding),
+          B (contents), and C (address) are all plausibly true background that never touch the
+          copies-versus-readers test: T1, three times over.</p></div>
+        </details>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Claim first, numbers second.</strong> Restate the conclusion in ten words before touching the figure.</span></li>
+      <li><span class="n">2</span><span><strong>No test, no answer.</strong> Turn the claim into one yes-or-no pattern check (climb? lowest? bounce?).</span></li>
+      <li><span class="n">3</span><span><strong>True is not enough.</strong> A choice must prove <em>this</em> claim — accurate numbers for a different question are always wrong here.</span></li>
+      <li><span class="n">4</span><span><strong>Name the trap.</strong> True-but-useless, Backwards, Half-right — say which species each wrong choice is, out loud.</span></li>
+      <li><span class="n">5</span><span><strong>Chain blank-fillers through the passage.</strong> If the conclusion is a blank, the passage holds the links; the figure only weighs the last one.</span></li>
+    </ul>
+  </section>
+
+</div>

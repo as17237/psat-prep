@@ -44,15 +44,22 @@ function updateParentSyncStatusBadge() {
 }
 
 let currentGapCount = 20;
-// Explainer index: question id -> published step-by-step explainer
-let explainerIndex = null;
+// Explainer index: question id -> step-by-step explainer.
+// `questions` are the verified, always-on links. `betaQuestions` (model-first
+// cluster pages whose numbers are not yet card-verified) surface ONLY in the beta
+// lane (APP_ENV.isBeta) — CLAUDE.md failure mode 1. Twin site with the same gate:
+// student.js explainerHitFor()/showExplainerLink().
+let explainerIndex = { questions: {}, betaQuestions: {} };
 fetch('explanations/index.json')
   .then(r => r.ok ? r.json() : null)
-  .then(d => { explainerIndex = (d && d.questions) || {}; })
-  .catch(() => { explainerIndex = {}; });
+  .then(d => { explainerIndex = { questions: (d && d.questions) || {}, betaQuestions: (d && d.betaQuestions) || {} }; })
+  .catch(() => { explainerIndex = { questions: {}, betaQuestions: {} }; });
 
 function explainerFor(questionId) {
-  const hit = explainerIndex && explainerIndex[String(questionId).slice(0, 8)];
+  const id8 = String(questionId).slice(0, 8);
+  const verified = explainerIndex.questions[id8];
+  const beta = APP_ENV.isBeta ? explainerIndex.betaQuestions[id8] : null;
+  const hit = beta || verified || null;   // in beta the model-first page wins; otherwise verified only
   return (hit && hit.url) ? hit : null;
 }
 
@@ -672,6 +679,8 @@ function openMistakeRationaleModal(qid) {
     const ex = explainerFor(q.id);
     if (ex) {
       exBar.href = ex.url;
+      const betaEl = document.getElementById('pmd-explainer-beta');
+      if (betaEl) betaEl.innerText = ex.beta ? ' · 🧪 Beta (numbers being verified)' : '';
       exBar.classList.remove('hidden');
       exBar.classList.add('flex');
     } else {
