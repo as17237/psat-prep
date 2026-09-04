@@ -1,6 +1,6 @@
 {
   "betaQuestions": {},
-  "generated": "2026-09-04T04:33:23",
+  "generated": "2026-09-04T09:33:42",
   "pages": {
     "explainers/five-hard-questions.html": {
       "beta": false,
@@ -8,6 +8,20 @@
       "questionCount": 5,
       "title": "Sketch, Don't Solve",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509"
+    },
+    "explanations/area-and-volume.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 8,
+      "title": "Find the Length Hiding Inside",
+      "url": "explanations/area-and-volume.html"
+    },
+    "explanations/boundaries.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 7,
+      "title": "Stop Listening for the Pause",
+      "url": "explanations/boundaries.html"
     },
     "explanations/command-of-evidence-graphs.html": {
       "beta": false,
@@ -23,6 +37,20 @@
       "title": "Does It Do The Job?",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3"
     },
+    "explanations/inferences.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 9,
+      "title": "Take Exactly One Step",
+      "url": "explanations/inferences.html"
+    },
+    "explanations/nonlinear-equations.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 10,
+      "title": "They Never Want x",
+      "url": "explanations/nonlinear-equations.html"
+    },
     "explanations/nonlinear-functions-model.html": {
       "beta": false,
       "primary": true,
@@ -36,6 +64,20 @@
       "questionCount": 3,
       "title": "Test It, Don't Solve It",
       "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd"
+    },
+    "explanations/text-structure-and-purpose.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 8,
+      "title": "What Does This Sentence Do for a Living?",
+      "url": "explanations/text-structure-and-purpose.html"
+    },
+    "explanations/words-in-context.html": {
+      "beta": false,
+      "primary": true,
+      "questionCount": 11,
+      "title": "Don't Pick the Word \u2014 Predict It",
+      "url": "explanations/words-in-context.html"
     }
   },
   "questions": {
@@ -46,6 +88,38 @@
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-0664c858"
+    },
+    "070e995b": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-070e995b"
+    },
+    "0a44345a": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-0a44345a"
+    },
+    "0c4a6c16": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-0c4a6c16"
+    },
+    "11de53df": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-11de53df"
     },
     "1224cb23": {
       "beta": false,
@@ -63,6 +137,22 @@
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-1b9fa866"
     },
+    "1d2c5e42": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-1d2c5e42"
+    },
+    "1f222de0": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-1f222de0"
+    },
     "25161d0e": {
       "beta": false,
       "file": "explanations/nonlinear-functions-model.html",
@@ -70,6 +160,46 @@
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-25161d0e"
+    },
+    "25273a8d": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-25273a8d"
+    },
+    "263bcdbf": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-263bcdbf"
+    },
+    "283a952a": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-283a952a"
+    },
+    "29d97f27": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-29d97f27"
+    },
+    "32578cc7": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-32578cc7"
     },
     "36e2afc3": {
       "beta": false,
@@ -79,6 +209,30 @@
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-36e2afc3"
     },
+    "39d18414": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-39d18414"
+    },
+    "45659801": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-45659801"
+    },
+    "49568189": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-49568189"
+    },
     "4aab1fa5": {
       "beta": false,
       "file": "explanations/nonlinear-functions-model.html",
@@ -87,6 +241,62 @@
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-4aab1fa5"
     },
+    "4c4fe342": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-4c4fe342"
+    },
+    "4e1d4a38": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-4e1d4a38"
+    },
+    "5422f370": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-5422f370"
+    },
+    "5438bcd5": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-5438bcd5"
+    },
+    "5e15c33b": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-5e15c33b"
+    },
+    "606eef9b": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-606eef9b"
+    },
+    "64641343": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-64641343"
+    },
     "6488f498": {
       "beta": false,
       "file": "explanations/command-of-evidence-graphs.html",
@@ -94,6 +304,30 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-6488f498"
+    },
+    "6a25adb2": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-6a25adb2"
+    },
+    "6d7897fa": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-6d7897fa"
+    },
+    "737870c6": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-737870c6"
     },
     "7c1e22ca": {
       "beta": false,
@@ -111,6 +345,22 @@
       "test": "Math",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-7ced5c84"
     },
+    "7e989974": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-7e989974"
+    },
+    "828a628e": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-828a628e"
+    },
     "858be80e": {
       "beta": false,
       "file": "explanations/command-of-evidence-graphs.html",
@@ -118,6 +368,46 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-858be80e"
+    },
+    "85fae948": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-85fae948"
+    },
+    "885c51ec": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-885c51ec"
+    },
+    "89fc8507": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-89fc8507"
+    },
+    "8b49ee2b": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-8b49ee2b"
+    },
+    "95aee254": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-95aee254"
     },
     "987887cd": {
       "beta": false,
@@ -127,6 +417,30 @@
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-987887cd"
     },
+    "998edce5": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-998edce5"
+    },
+    "99bd56d8": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-99bd56d8"
+    },
+    "9c2a8ff4": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-9c2a8ff4"
+    },
     "9f55dec4": {
       "beta": false,
       "file": "explanations/command-of-evidence-graphs.html",
@@ -134,6 +448,14 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-9f55dec4"
+    },
+    "a181bd86": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-a181bd86"
     },
     "a795332a": {
       "beta": false,
@@ -143,6 +465,14 @@
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-a795332a"
     },
+    "aa3f6ab0": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-aa3f6ab0"
+    },
     "ac8cfb10": {
       "beta": false,
       "file": "explanations/command-of-evidence-graphs.html",
@@ -150,6 +480,54 @@
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "explanations/command-of-evidence-graphs.html#q-ac8cfb10"
+    },
+    "ae662dda": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-ae662dda"
+    },
+    "b2578d47": {
+      "beta": false,
+      "file": "explanations/area-and-volume.html",
+      "primary": true,
+      "skill": "Area and volume",
+      "test": "Math",
+      "url": "explanations/area-and-volume.html#q-b2578d47"
+    },
+    "b46f4b75": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-b46f4b75"
+    },
+    "bc9c696f": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-bc9c696f"
+    },
+    "c188a048": {
+      "beta": false,
+      "file": "explanations/inferences.html",
+      "primary": true,
+      "skill": "Inferences",
+      "test": "Reading and Writing",
+      "url": "explanations/inferences.html#q-c188a048"
+    },
+    "c795962b": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-c795962b"
     },
     "cc4d3cac": {
       "beta": false,
@@ -167,6 +545,14 @@
       "test": "Math",
       "url": "explanations/nonlinear-functions-model.html#q-ce6b914c"
     },
+    "d423172b": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-d423172b"
+    },
     "d98c3c8c": {
       "beta": false,
       "file": "explainers/five-hard-questions.html",
@@ -174,6 +560,30 @@
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-d98c3c8c"
+    },
+    "dbece047": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-dbece047"
+    },
+    "dd948d66": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-dd948d66"
+    },
+    "e3051a8e": {
+      "beta": false,
+      "file": "explanations/boundaries.html",
+      "primary": true,
+      "skill": "Boundaries",
+      "test": "Reading and Writing",
+      "url": "explanations/boundaries.html#q-e3051a8e"
     },
     "e465d17e": {
       "beta": false,
@@ -183,13 +593,61 @@
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-e465d17e"
     },
-    "fde9312b": {
+    "e52f6f74": {
       "beta": false,
-      "file": "explainers/five-hard-questions.html",
-      "primary": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
       "skill": "Text Structure and Purpose",
       "test": "Reading and Writing",
-      "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-fde9312b"
+      "url": "explanations/text-structure-and-purpose.html#q-e52f6f74"
+    },
+    "e545b111": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-e545b111"
+    },
+    "e80003f5": {
+      "beta": false,
+      "file": "explanations/nonlinear-equations.html",
+      "primary": true,
+      "skill": "Nonlinear equations in one variable and systems of equations in two variables",
+      "test": "Math",
+      "url": "explanations/nonlinear-equations.html#q-e80003f5"
+    },
+    "e9798f2b": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-e9798f2b"
+    },
+    "f11dff59": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-f11dff59"
+    },
+    "fb17d540": {
+      "beta": false,
+      "file": "explanations/words-in-context.html",
+      "primary": true,
+      "skill": "Words in Context",
+      "test": "Reading and Writing",
+      "url": "explanations/words-in-context.html#q-fb17d540"
+    },
+    "fde9312b": {
+      "beta": false,
+      "file": "explanations/text-structure-and-purpose.html",
+      "primary": true,
+      "skill": "Text Structure and Purpose",
+      "test": "Reading and Writing",
+      "url": "explanations/text-structure-and-purpose.html#q-fde9312b"
     }
   }
 }

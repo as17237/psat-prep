@@ -1,0 +1,697 @@
+<!-- depth: default -->
+<!-- primary: front door for area-and-volume misses 070e995b, 0c4a6c16, 606eef9b, 885c51ec, 998edce5, b2578d47 plus drills 0a44345a, 1d2c5e42. -->
+<!-- verified: 2026-09-04 — every cited figure checked against all 8 card PNGs; all answers reworked by hand and matched to correct_answer. -->
+<!-- cluster: area-and-volume · 6 misses, one model (see explanations/SYSTEM.md) -->
+<title>Find the Length Hiding Inside</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+
+<div class="wrap">
+
+  <div style="margin:24px 0 0;font:600 14px/1.5 'Public Sans',Arial,sans-serif;">
+    <a href="../index.html" style="color:var(--teal);text-decoration:none;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Area and volume · 6 misses, one model</p>
+    <h1>Find the length<br><em>hiding inside.</em></h1>
+    <p class="standfirst">Six hard misses, one shared slip: every question handed you a number in
+    one dimension and asked for something in another — a height hiding in a volume, an area hiding
+    in a side factor. Every wrong answer is what you get by skipping exactly one unwrap. Four
+    steps close the gap.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps first — they fit on one screen. Then
+      watch them fire on three walked-through misses. Then try three more yourself, plus two drills
+      from questions you already got right. The official card sits above each question; it is the
+      authority whenever text and picture disagree.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Ask → Strip → Power → Check</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>ASK: what power is the answer?</h3>
+          <p>Read the unit, not the story. <span class="eq-in">cm</span> is a length (power 1),
+          <span class="eq-in">cm²</span> is an area (power 2), <span class="eq-in">cm³</span> is a
+          volume (power 3). Say it out loud: "they want a <em>length</em>." Two of the six misses
+          below ask for a length while handing you only areas and volumes — and the other four still
+          force you to cross dimensions to get there. That mismatch <em>is</em> the question.</p>
+          <div class="keybox"><b>Circle the unit before you read the numbers.</b> If the answer is a
+          length, any choice still wearing a ² or ³ — or built without unwrapping one — is dead.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STRIP: peel everything down to plain lengths</h3>
+          <p>Undo whatever the shape did to its lengths: subtract the faces you don't need, multiply
+          away the <span class="eq-in">⅓</span>, square-root an area back to a side, measure dot to
+          dot. Keep peeling until every number you hold is a length. The cone miss needs two peels
+          (volume → height → radius); the pyramid miss needs three.</p>
+          <div class="keybox"><b>Never compute with a wrapped number.</b> A volume is not a height.
+          A face's slant is not the pyramid's height. Peel first.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>POWER: cross dimensions only with the exponent</h3>
+          <p>Sides <span class="eq-in">×k</span> → area <span class="eq-in">×k²</span> → volume
+          <span class="eq-in">×k³</span>. A radius goes into <span class="eq-in">πr²</span>
+          <em>squared</em>. No number crosses from one dimension to another unchanged — that illegal
+          crossing is exactly what the circle miss (43 → <span class="eq-in">43π</span>) and the
+          squares miss (246 → 246) charge full price for.</p>
+          <div class="vt"><table class="vals">
+            <caption>The toll booth between dimensions. Pay it every time.</caption>
+            <tr><th>Lengths ×</th><th>Areas ×</th><th>Volumes ×</th></tr>
+            <tr><td class="lo">5</td><td class="lo">25</td><td class="lo">125</td></tr>
+            <tr><td class="lo">2</td><td class="lo">4</td><td class="lo">8</td></tr>
+            <tr><td class="lo">246</td><td class="lo">60,516</td><td class="lo">—</td></tr>
+          </table></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>CHECK: plug back into the shape</h3>
+          <p>Ten seconds: does the unit match step 1? Is the slant the longest line in the cone?
+          Does cubing your answer return the given volume? Is your area factor wildly bigger than
+          your side factor (it must be)? Every trap on this page dies to one of these.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The trap species — one table</h3>
+      <div class="trapitem"><span class="trapkey">S1</span><p><strong>Forgot to Square.</strong>
+      Glued <span class="eq-in">π</span> onto the bare radius (<span class="eq-in">43π</span>),
+      or copied the side factor straight across (246, and the parallelogram's 10). The ten-second
+      kill: no ² anywhere — dead.</p></div>
+      <div class="trapitem"><span class="trapkey">S2</span><p><strong>Doubled-or-Halved.</strong>
+      Swapped squaring for <span class="eq-in">×2</span> or <span class="eq-in">÷2</span>:
+      <span class="eq-in">86π</span>, 492, 123, <span class="eq-in">43π/2</span>. The kill: doubling
+      is a length move, and this question lives in squares.</p></div>
+      <div class="trapitem"><span class="trapkey">S3</span><p><strong>Stopped One Peel Early.</strong>
+      Answered with a middle number: the cone's height (36) or face number (106), half the base
+      side (90), X's own volume (10), the area ratio (25). The kill: ask "is this the unit step 1
+      named?" — if it still needs unwrapping, keep going.</p></div>
+      <div class="trapitem"><span class="trapkey">S4</span><p><strong>Grabbed the Wrong Length.</strong>
+      A real length from the right shape answering the wrong question: the cone's radius (77), the
+      pyramid's base side (180). The kill: point at the segment the question names — is your number
+      <em>that</em> segment?</p></div>
+      <div class="trapitem"><span class="trapkey">S5</span><p><strong>Boxed the Tilt.</strong>
+      Drew straight horizontal-and-vertical sides around a tilted shape and multiplied those. The
+      kill: if the sides aren't flat on the grid, no side length equals an <span class="eq-in">x
+      </span>-or-<span class="eq-in">y</span> difference — measure dot to dot.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-0c4a6c16">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 1 of 6</span>
+        <span class="qid">0c4a6c16</span>
+        <span class="qtopic">Geometry and Trigonometry · Hard</span>
+      </div>
+      <h2>The cone that makes you unwrap twice</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/0c4a6c16_question.png" alt="Cone question card: volume 71,148 pi cubic centimeters, base area 5,929 pi square centimeters, asking for slant height">
+      <figcaption>The official card. Volume <span class="eq-in">71,148π</span> cubic centimeters,
+      base area <span class="eq-in">5,929π</span> square centimeters. The question asks for a length
+      — nothing you are given is one.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">A right circular cone has a volume of <strong>71,148π</strong> cubic
+      centimeters and the area of its base is <strong>5,929π</strong> square centimeters. What is
+      the <span class="u">slant height</span>, in centimeters, of this cone?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span><span class="eq-in">12</span></span></li>
+        <li class="trap"><span class="key">B</span><span><span class="eq-in">36</span></span></li>
+        <li class="trap"><span class="key">C</span><span><span class="eq-in">77</span></span></li>
+        <li class="right"><span class="key">D</span><span><span class="eq-in">85</span></span><span class="verdict">Correct</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: they hand you a volume and an area, but the answer is a length — so you unwrap twice, then climb one triangle.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>ASK + STRIP, first peel: volume → height</h3>
+          <p>A cone's volume is a third of (base × height): <span class="eq-in">V = ⅓Bh</span>.
+          Undo it — multiply by 3, divide by the base:</p>
+          <div class="eq"><var>h</var> = 3 · 71,148π / 5,929π = 36</div>
+          <p>The <span class="eq-in">π</span>s cancel first, then 3 · 71,148 = 213,444, and
+          213,444 ÷ 5,929 = 36. You now hold one length: height 36. But the question wants the
+          slant — keep peeling.</p>
+          <div class="word"><b>Slant height.</b> Not the straight-down height. The slant runs up the
+          outside of the cone, from the edge of the base to the tip — always the longest line in
+          the cone.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STRIP, second peel: base area → radius</h3>
+          <p>The base is a circle: <span class="eq-in">πr² = 5,929π</span>, so
+          <span class="eq-in">r² = 5,929</span> and <span class="eq-in">r = 77</span>.
+          Second length in hand. Now build: height, radius, and slant form a right triangle, so</p>
+          <div class="eq">slant = √(36² + 77²) = √7,225 = 85</div>
+          <div class="keybox"><b>Step 4, the one-line kill:</b> the slant must be the longest line
+          in the cone. 12, 36, and 77 are all shorter than — or equal to — lines already on the
+          table. Only 85 clears the bar.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>D — 85.</strong></p>
+      <p>Strip did the work twice (volume → 36 → 77), then one right triangle built the answer.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>S3, Stopped One Peel Early —
+      then peeled air.</strong> 12 is 36 ÷ 3: the ⅓ undone twice. Ten-second kill: you already
+      divided by the third when you multiplied by 3 — and a 12-cm slant can't span a base of
+      radius 77.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>S3, Stopped One Peel Early.</strong>
+      36 is the height — a genuine length from the right shape, but the question asked for the
+      slant. Kill: point at the slant on an imaginary cone. Is 36 that segment? No — it's the
+      straight-down one.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>S4, Grabbed the Wrong Length.</strong>
+      77 is the radius — again a real length, again the wrong segment. Kill: the slant must beat
+      every other line in the cone, and 77 ties the radius instead of beating it.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-885c51ec">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 2 of 6</span>
+        <span class="qid">885c51ec</span>
+        <span class="qtopic">Geometry and Trigonometry · Hard</span>
+      </div>
+      <h2>The pyramid with three peels</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/885c51ec_question.png" alt="Pyramid question card: total surface area 70,560 square inches, lateral faces 38,160 square inches, asking for height">
+      <figcaption>The official card. Total 70,560, four side faces 38,160 together. The base is
+      hiding in the subtraction — and the height is hiding two more peels deeper.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">A right square pyramid has a total surface area of <strong>70,560</strong>
+      square inches, and the combined surface area of the four lateral faces of this pyramid is
+      <strong>38,160</strong> square inches. What is the <span class="u">height</span>, in inches,
+      of this pyramid?</p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span><span class="eq-in">56</span></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span><span class="eq-in">90</span></span></li>
+        <li class="trap"><span class="key">C</span><span><span class="eq-in">106</span></span></li>
+        <li class="trap"><span class="key">D</span><span><span class="eq-in">180</span></span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the height sits at the bottom of three wrappers — subtract, square-root, then climb one triangle.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>STRIP, peel one: subtract to find the base</h3>
+          <p>Total = sides + base, so base = 70,560 − 38,160 = 32,400. The base is a square, so
+          un-square it: side = √32,400 = 180. Half of that — the distance from the middle of the
+          base to the middle of one edge — is 90.</p>
+          <div class="word"><b>Lateral face.</b> One of the four triangles leaning against the
+          pyramid's sides. "Lateral" just means "side" — the bottom square is not one.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STRIP, peels two and three: face slant → height</h3>
+          <p>One triangle face has area 38,160 ÷ 4 = 9,540. Its base is the 180 side, so
+          <span class="eq-in">½ · 180 · m = 9,540</span> gives the face's slant
+          <span class="eq-in">m = 106</span>. That slant is the hypotenuse of a small right
+          triangle whose other leg is the 90 from step 1:</p>
+          <div class="eq"><var>h</var> = √(106² − 90²) = √3,136 = 56</div>
+          <div class="keybox"><b>Step 4, longest-line check:</b> the face slant (106) must beat the
+          pyramid height — 56 clears it. And 56² + 90² = 3,136 + 8,100 = 11,236 = 106². ✓</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A — 56.</strong></p>
+      <p>Strip did the work three times (subtract → square-root → un-triangle), and each peel's
+      answer was sitting in the choices waiting to be grabbed early.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>S3, Stopped One Peel Early.</strong>
+      90 is half the base edge — a helper number, not a height. Kill: 90 runs flat along the
+      ground; the question asked for straight up.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>S3, Stopped One Peel Early.</strong>
+      106 is the face's slant, not the pyramid's height — the cone miss's 36 wearing a new hat.
+      Kill: the face slant leans; the height stands straight. A leaning line is always longer.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>S4, Grabbed the Wrong Length.</strong>
+      180 is the base side — the biggest number on the page, and a whole different segment. Kill:
+      point at the height. Now point at the base edge. Different arrows, different numbers.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-606eef9b">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 3 of 6</span>
+        <span class="qid">606eef9b</span>
+        <span class="qtopic">Geometry and Trigonometry · Hard</span>
+      </div>
+      <h2>The scale ladder you must climb twice</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/606eef9b_question.png" alt="Prism question card: surface area of X 58 square centimeters, of Y 1,450 square centimeters, volume of Y 1,250 cubic centimeters, asking the sum of the volumes">
+      <figcaption>The official card. Small prism X: 58 <span class="eq-in">cm²</span> of skin.
+      Big prism Y: 1,450 <span class="eq-in">cm²</span> of skin, 1,250 <span class="eq-in">cm³</span>
+      of guts. The question wants the guts added up.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Right rectangular prism X is similar to right rectangular prism Y. The
+      surface area of right rectangular prism X is <strong>58</strong> square centimeters
+      (<span class="eq-in">cm²</span>), and the surface area of right rectangular prism Y is
+      <strong>1,450</strong> <span class="eq-in">cm²</span>. The volume of right rectangular prism
+      Y is <strong>1,250</strong> cubic centimeters (<span class="eq-in">cm³</span>). What is the
+      <span class="u">sum of the volumes</span>, in <span class="eq-in">cm³</span>, of right
+      rectangular prism X and right rectangular prism Y?</p>
+    </div>
+
+    <p class="plain">In plain words: you know how the skins compare and how one gut measures — climb the ladder from skin to length to guts, then add.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>POWER, rung one: skin ratio → length ratio</h3>
+          <p>Surface areas compare as 1,450 ÷ 58 = 25. But that 25 lives in squares (power 2).
+          Square-root it to cross down to lengths:</p>
+          <div class="eq">length factor = √25 = 5</div>
+          <p>Every edge of Y is 5 times the matching edge of X.</p>
+          <div class="word"><b>Similar.</b> Same shape, different size — every length scaled by one
+          number. Areas scale by that number squared, volumes by it cubed. That sentence is the
+          whole question.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>POWER, rung two: length ratio → volume, then add</h3>
+          <p>Climb back up to cubes: volume factor = 5³ = 125. So Y's 1,250 is 125 X-boxes, and one
+          X-box is 1,250 ÷ 125 = 10. The question asked for the <em>sum</em>:</p>
+          <div class="eq">10 + 1,250 = 1,260</div>
+          <div class="keybox"><b>Step 4, size check:</b> X is much smaller (58 vs 1,450 of skin),
+          so the sum must sit just above 1,250 — and 1,260 does.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>1260.</strong></p>
+      <p>Power did the work twice — square-root down (25 → 5), cube back up (5 → 125) — and Ask
+      collected the sum at the end instead of stopping at X's volume.</p>
+    </div>
+
+    <div class="traps">
+      <h3>The four ways to fall off the ladder</h3>
+      <div class="trapitem"><span class="trapkey">25</span><p><strong>S3, Stopped One Peel Early.</strong>
+      The skin ratio, answered as if it were the volume ratio. Kill: 25 wears a ² and the answer
+      needs a ³ — wrong power, wrong rung.</p></div>
+      <div class="trapitem"><span class="trapkey">10</span><p><strong>Answered half the question.</strong>
+      X's volume is correct — and it isn't what was asked. Kill: re-read the last line. "Sum"
+      means add Y back in.</p></div>
+      <div class="trapitem"><span class="trapkey">125</span><p><strong>Stopped One Peel Early.</strong>
+      The volume <em>factor</em>, never multiplied onto a real volume. Kill: 125 is smaller than
+      Y's volume alone — a sum of two positive volumes can't shrink.</p></div>
+      <div class="trapitem"><span class="trapkey">1,250</span><p><strong>Echoed the question.</strong>
+      Y's volume, copied straight down. Kill: the sum must beat each part — anything ≤ 1,250 is
+      dead on arrival.</p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — three misses plus two drills</h3>
+      <p class="intro">Same model, fresh numbers. Cover each answer, run Ask → Strip → Power →
+      Check out loud, and only then open the reveal. Name the trap species on every wrong choice
+      before you peek.</p>
+
+      <div class="pq" id="q-070e995b">
+        <p class="pqtag">070e995b · Hard · multiple choice</p>
+        <figure class="card">
+          <img src="../data/images/070e995b_question.png" alt="Circle question card: radius 43 meters, asking for area">
+        </figure>
+        <p class="q-text">A circle has a radius of <strong>43</strong> meters. What is the area, in
+        square meters, of the circle?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span><span class="eq-in">43π/2</span></span></li>
+          <li><span class="key">B</span><span><span class="eq-in">43π</span></span></li>
+          <li><span class="key">C</span><span><span class="eq-in">86π</span></span></li>
+          <li><span class="key">D</span><span><span class="eq-in">1,849π</span></span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>D — 1,849π.</b> Power did the work:
+          <span class="eq-in">π · 43² = 1,849π</span>. B is S1 (Forgot to Square — no ², dead),
+          A is S2 (halved for no reason), C is S2 (that's the circumference,
+          <span class="eq-in">2 · 43 · π</span> — a length, and the question asked for an area).
+          Ten-second kill for the whole question: the answer must contain 43 <em>squared</em>.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-b2578d47">
+        <p class="pqtag">b2578d47 · Hard · multiple choice</p>
+        <figure class="card">
+          <img src="../data/images/b2578d47_question.png" alt="Squares question card: square A sides 246 times square B, area of A is k times area of B, asking for k">
+        </figure>
+        <p class="q-text">Square A has side lengths that are <strong>246</strong> times the side
+        lengths of square B. The area of square A is <span class="eq-in"><var>k</var></span> times
+        the area of square B. What is the value of <span class="eq-in"><var>k</var></span>?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span><span class="eq-in">60,516</span></span></li>
+          <li><span class="key">B</span><span><span class="eq-in">492</span></span></li>
+          <li><span class="key">C</span><span><span class="eq-in">246</span></span></li>
+          <li><span class="key">D</span><span><span class="eq-in">123</span></span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A — 60,516.</b> Power did the work: sides ×246 means area
+          ×246², and 246² = (250 − 4)² = 62,500 − 2,000 + 16 = 60,516. C is S1 (copied the side
+          factor across unchanged), B is S2 (doubled), D is S2 (halved). The Check that ends it:
+          an area factor must be <em>wildly</em> bigger than its side factor — only A is.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-998edce5">
+        <p class="pqtag">998edce5 · Hard · free response</p>
+        <figure class="card">
+          <img src="../data/images/998edce5_question.png" alt="Grid showing four dots at (4,5), (7,1), (-1,-5), and (-4,-1) forming a tilted rectangle">
+        </figure>
+        <p class="q-text">A rectangle is formed by the four points shown: (4, 5), (7, 1),
+        (−1, −5), and (−4, −1). What is the area, in square units, of the rectangle?</p>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>50.</b> Strip did the work — dot to dot, not across the axes.
+          From (4, 5) to (7, 1): across 3, down 4, so the side is √(9 + 16) = 5. From (7, 1) to
+          (−1, −5): across 8, down 6, so the side is √(64 + 36) = 10. Area = 5 · 10 = 50. The S5
+          Boxed-the-Tilt answer multiplies the flat spans (11 wide × 10 tall = 110) — sides that
+          aren't the rectangle's sides.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-0a44345a">
+        <p class="pqtag">0a44345a · Hard · drill from a question you got right</p>
+        <figure class="card">
+          <img src="../data/images/0a44345a_question.png" alt="Parallelogram question card: PQRS sides 2 times ABCD, area of ABCD 5 square centimeters, asking area of PQRS">
+        </figure>
+        <p class="q-text">Parallelogram <span class="eq-in"><var>ABCD</var></span> is similar to
+        parallelogram <span class="eq-in"><var>PQRS</var></span>. The length of each side of
+        parallelogram <span class="eq-in"><var>PQRS</var></span> is <strong>2</strong> times the
+        length of its corresponding side of parallelogram <span class="eq-in"><var>ABCD</var></span>.
+        The area of parallelogram <span class="eq-in"><var>ABCD</var></span> is <strong>5</strong>
+        square centimeters. What is the area, in square centimeters, of parallelogram
+        <span class="eq-in"><var>PQRS</var></span>?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span><span class="eq-in">7</span></span></li>
+          <li><span class="key">B</span><span><span class="eq-in">10</span></span></li>
+          <li><span class="key">C</span><span><span class="eq-in">20</span></span></li>
+          <li><span class="key">D</span><span><span class="eq-in">25</span></span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C — 20.</b> Power did the work: sides ×2 means area ×2² = ×4,
+          so 5 · 4 = 20. B is S1 (doubled instead of squared), A added the 2 onto the 5 (length
+          thinking in a squares question), D squared the wrong number (5² — the 5 was already an
+          area, and areas don't get squared again).</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-1d2c5e42">
+        <p class="pqtag">1d2c5e42 · Hard · stretch drill from a question you got right</p>
+        <figure class="card">
+          <img src="../data/images/1d2c5e42_question.png" alt="Glass diagram card: top width k, height k, bottom width k over 2, volume 7 pi k cubed over 48, asking for k given 473 cubic centimeters">
+        </figure>
+        <p class="q-text">The glass pictured above can hold a maximum volume of <strong>473</strong>
+        cubic centimeters, which is approximately 16 fluid ounces. The diagram labels the top width
+        and the height as <span class="eq-in"><var>k</var></span>, the bottom width as
+        <span class="eq-in"><var>k</var>/2</span>, and gives Volume =
+        <span class="eq-in">7π<var>k</var>³/48</span>. What is the value of
+        <span class="eq-in"><var>k</var></span>, in centimeters?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span><span class="eq-in">2.52</span></span></li>
+          <li><span class="key">B</span><span><span class="eq-in">7.67</span></span></li>
+          <li><span class="key">C</span><span><span class="eq-in">7.79</span></span></li>
+          <li><span class="key">D</span><span><span class="eq-in">10.11</span></span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>D — 10.11.</b> Strip did the work, backwards through a cube:
+          <span class="eq-in">7πk³/48 = 473</span>, so <span class="eq-in">k³ = 473 · 48 / 7π ≈
+          1,032</span> and <span class="eq-in">k ≈ 10.11</span> (10³ = 1,000 — the right
+          neighborhood). C is the cube root of the raw 473 — the whole formula skipped. A is the
+          cube root of 16 — the fluid-ounce distractor, in the wrong unit entirely. Step 4 ends it:
+          cube your pick and check it lands on 473; only D does. And notice the 16 fluid ounces
+          never entered the math — Ask threw it out at step 1.</p></div>
+        </details>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Circle the unit first.</strong> Length, area, or volume — the unit names the power your answer must wear.</span></li>
+      <li><span class="n">2</span><span><strong>Peel to lengths before you compute.</strong> Subtract faces, undo thirds, square-root areas, measure dot to dot.</span></li>
+      <li><span class="n">3</span><span><strong>Pay the toll between dimensions.</strong> Sides ×k → area ×k² → volume ×k³. Nothing crosses free.</span></li>
+      <li><span class="n">4</span><span><strong>Never stop at a middle number.</strong> Heights, radii, and face-slants are ingredients, not answers — unless the question named them.</span></li>
+      <li><span class="n">5</span><span><strong>Plug back for ten seconds.</strong> Slant longest? Cubed returns the volume? Area factor dwarfs the side factor? Then you're done.</span></li>
+    </ul>
+  </section>
+
+</div>

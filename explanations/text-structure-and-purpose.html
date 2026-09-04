@@ -1,0 +1,909 @@
+<!-- depth: default -->
+<!-- primary: model-first front door for these ids. For fde9312b it supersedes explainers/five-hard-questions.html#q-fde9312b, which stays as the slow line-by-line version and is linked from the practice item. -->
+<!-- verified: 2026-09-04 - every quoted sentence and every answer choice checked against all 8 card PNGs (6 misses + 2 easier siblings). -->
+<!-- cluster: text-structure-and-purpose - 6 misses, one model (see explanations/SYSTEM.md) -->
+<title>What Does This Sentence Do for a Living?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+
+<div class="wrap">
+
+  <div style="margin:24px 0 0;font:600 14px/1.5 'Public Sans',Arial,sans-serif;">
+    <a href="../index.html" style="color:var(--teal);text-decoration:none;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Text Structure and Purpose · 6 missed questions, one model</p>
+    <h1>What does this sentence<br><em>do for a living?</em></h1>
+    <p class="standfirst">Not one of these six questions asks what the text <em>says</em>. Every one asks what a
+    piece of it is <em>for</em> — the job it does for the sentences around it. Miss that difference and all four
+    choices look true, because they were built to. Four steps fix all six.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps first — they take two minutes and they are the
+      whole page. Then watch them fire on three walked-through misses. Then do five on your own: cover the
+      choices, say the job out loud, and only then open the reveal. The official question card sits above
+      every question; whenever the card and anything else disagree, the card wins.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>The Job Test: Cover → Say → Split → Plug</h2>
+    </div>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER the choices</h3>
+          <p>Put your hand over A, B, C, D. Every question on this page is easy before you read them and
+          nasty afterwards, because the wrong choices are written to sound like reasonable things a text
+          might do. Read the choices first and you spend the whole question asking "could this be true?"
+          — which is the wrong question.</p>
+          <div class="word"><b>Function.</b> The <em>job</em> a sentence does for the argument around it.
+          Not what it means — what it’s <em>there for</em>.</div>
+          <div class="keybox"><b>Meaning is what it says. Function is what it’s for.</b> These questions
+          only ever ask the second one.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY the job, out loud, in one sentence</h3>
+          <p>Finish this sentence before you uncover anything: <em>"It’s here to ______."</em> Start with a
+          verb — to back up, to knock down, to give a reason, to show, to add. For a whole-text question,
+          finish <em>"This whole text is here to ______."</em></p>
+          <p>You usually get the answer for free, because writers put up signposts. Five of the six cards
+          in this cluster hand you one:</p>
+          <div class="vt"><table class="vals">
+            <caption>Signpost words that announce a job. Every one of these appears on a card in this cluster.</caption>
+            <tr><th>The word</th><th>The job it announces</th></tr>
+            <tr><td>For example</td><td class="lo">here comes the evidence for what I just claimed</td></tr>
+            <tr><td>given</td><td class="lo">here comes my reason</td></tr>
+            <tr><td>Though / Although</td><td class="lo">I’ll admit this first, then disagree with it</td></tr>
+            <tr><td>whereas / but</td><td class="lo">here comes the contrast</td></tr>
+            <tr><td>In addition</td><td class="lo">second punch, same fight</td></tr>
+            <tr><td>nevertheless</td><td class="lo">despite what I just said, I’m keeping the idea</td></tr>
+          </table></div>
+          <div class="keybox"><b>No sentence of your own, no answer.</b> If you can’t say the job in your
+          own words, every choice will sound plausible — and one of them is designed to.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SPLIT every choice into VERB + REST</h3>
+          <p>Each choice is two things glued together: a job word, then what the job is about.
+          <em>To summarize</em> | <em>how her style changed over her career</em>. <em>It compares</em> |
+          <em>the Tapestry with other tapestries</em>. Cut every choice at that seam and check the halves
+          separately. <strong>Both must survive.</strong> A right verb with a wrong object is still wrong;
+          so is a right object with a wrong verb.</p>
+          <p>Watch for choices with <em>two</em> verbs joined by "and" — "to describe … <em>and</em>
+          explain", "to indicate … <em>and</em> explain". That’s two jobs, and the text has to be doing
+          <em>both</em>. Half a match is a miss.</p>
+          <div class="keybox"><b>Check the verb before the topic.</b> The topic is always about right —
+          that’s the bait. The verb is where the lie lives.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>PLUG it into the rest of the text</h3>
+          <p>Look at the last four words of the question: <em>"in the text as a whole."</em> They are not
+          decoration. They mean the answer has to say what this piece <em>connects to</em> — the claim it
+          backs, the stance it attacks, the idea it adds to, the reason it supplies.</p>
+          <p>Here is the thread running through all six misses. Look at what the correct answers actually
+          say: it <em>challenges the stance of the investors mentioned earlier</em>; it <em>supports an
+          argument about the workers</em>; it <em>notes a factor that led</em> the researchers not to give
+          up <em>despite their evidence</em>; it <em>adds to the idea</em> that the footsteps reveal
+          something. Every single one names <strong>two things and hooks them together.</strong></p>
+          <div class="keybox"><b>A choice that leaves the sentence alone on an island is wrong.</b> If it
+          describes the piece without saying who or what the piece is working for, it isn’t a function —
+          it’s a summary wearing a function’s coat.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The six trap species — name it and you stop picking it</h3>
+      <div class="trapitem"><span class="trapkey">T1</span><p><strong>Recap.</strong> Retells what the
+      sentence <em>says</em> and never names a job. Calls a punch in an argument "a historical anecdote."
+      This is the species this whole skill exists to punish.</p></div>
+      <div class="trapitem"><span class="trapkey">T2</span><p><strong>Wrong Window.</strong> Describes a
+      different part of the passage than the one you were asked about. True somewhere; wrong here.</p></div>
+      <div class="trapitem"><span class="trapkey">T3</span><p><strong>Wrong Verb.</strong> Names a job
+      nothing in the text performs — <em>argues</em>, <em>compares</em>, <em>summarizes a change</em> — or
+      the right verb pointed at the wrong objects.</p></div>
+      <div class="trapitem"><span class="trapkey">T4</span><p><strong>Off the Page.</strong> Content that
+      simply isn’t there: a background, a habit, a reaction, a rival, a question nobody asked.</p></div>
+      <div class="trapitem"><span class="trapkey">T5</span><p><strong>Backwards.</strong> Props up the very
+      thing the text is knocking down, or flips a comparison — or an "only" — the wrong way round.</p></div>
+      <div class="trapitem"><span class="trapkey">T6</span><p><strong>Stretch.</strong> Takes a real word
+      and cranks it: "documentary-<em>like</em>" becomes "documentaries", one night becomes "always", a
+      plant family becomes every plant on the islands.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-5438bcd5">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 1 of 3</span>
+        <span class="qid">5438bcd5</span>
+        <span class="qtopic">Craft and Structure · Hard · whole-text purpose</span>
+      </div>
+      <h2>Her choices, her themes</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/5438bcd5_question.png" alt="Question card: a paragraph about filmmaker Chloé Zhao and a main-purpose question with four choices">
+      <figcaption>The official card. Two halves: what Zhao <em>does</em> when she makes a film, then what
+      that <em>gets</em> her. The purpose is the bridge between them.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Though Chloé Zhao’s films are fictional, she incorporates real events into them in a
+      documentary-like style and casts nonprofessional actors who reside in the places that she aims to
+      portray. She also encourages these actors, whether they are teenagers living on the Pine Ridge Indian
+      Reservation or adults who travel the country for work, to put as much of themselves into their roles
+      as possible. Her approach adds powerful resonance to films that explore the highly personal
+      experiences of place and home, and often the difficult decision to stay or leave.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best states the main purpose of the text?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>To argue that Chloé Zhao’s films are best understood as documentaries</span></li>
+        <li class="trap"><span class="key">B</span><span>To discuss how Chloé Zhao’s background in documentary filmmaking has influenced her storytelling style in films</span></li>
+        <li class="right"><span class="key">C</span><span>To emphasize that Chloé Zhao’s decisions during the filmmaking process reinforce the themes of her films</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">D</span><span>To summarize how Chloé Zhao’s style of filmmaking changed over the course of her career</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: why did anybody bother writing this paragraph?</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY the job before you look</h3>
+          <div class="word"><b>Resonance.</b> The extra emotional punch something has — the way it keeps
+          ringing after it’s over, like a struck bell.</div>
+          <p>Cover the choices and retell the paragraph in two beats:</p>
+          <ul>
+            <li><strong>What she does:</strong> real events, a documentary-like style, actors who actually
+            live in the place, and she tells them to pour themselves into the part.</li>
+            <li><strong>What it gets her:</strong> "powerful resonance" in films about place, home, and
+            whether to stay or leave.</li>
+          </ul>
+          <p>So say it: <em>"This text is here to show that the way she makes her films makes the films’
+          subjects hit harder."</em> That’s the job. Now uncover.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SPLIT each choice at the seam</h3>
+          <div class="anat">
+            <div class="anat-row">
+              <div class="anat-tag">A · To argue</div>
+              <div>
+                <div class="anat-txt">…that her films are best understood as <span class="hi">documentaries</span></div>
+                <div class="anat-why">The card’s very first word is <em>Though</em>, and its very first
+                clause is "Zhao’s films are fictional." Documentary-<em>like</em> is a comparison, not a
+                label. Dead on the object.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">B · To discuss</div>
+              <div>
+                <div class="anat-txt">…how her <span class="hi">background in documentary filmmaking</span> influenced her storytelling</div>
+                <div class="anat-why">Find that background on the card. It isn’t there. Nothing about her
+                training, her earlier career, or any documentary she ever made.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">C · To emphasize</div>
+              <div>
+                <div class="anat-txt">…that her <span class="hi">decisions during the filmmaking process</span> reinforce the <span class="hi">themes</span> of her films</div>
+                <div class="anat-why">Decisions = casting locals, using real events, pushing actors to bring
+                themselves. Themes = place, home, staying or leaving. Both halves are on the card, and it
+                hooks them together. That’s the bridge you said out loud in step 2.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">D · To summarize</div>
+              <div>
+                <div class="anat-txt">…how her style <span class="hi">changed over the course of her career</span></div>
+                <div class="anat-why">A change needs a before and an after. There is no timeline anywhere on
+                this card — no "early films", no "later she began". Dead on the verb.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>PLUG: only C connects the two halves</h3>
+          <p>A, B and D each talk about one thing. C is the only choice that names <em>both</em> halves of
+          the paragraph and says the first one serves the second. When a text is built as
+          "here’s what she does … here’s what it achieves", the purpose is always the arrow between them.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — her filmmaking decisions reinforce her films’ themes.</strong></p>
+      <p>Step 2 did the work. Once you’d said "the way she makes them makes them hit harder", C was the
+      only choice left standing — and you never had to weigh whether the other three "sounded true".</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T6, Stretch.</strong>
+      "Documentary-<em>like</em> style" gets cranked into "are documentaries". One suffix does all the
+      lying. Whenever a choice drops a hedge word the text was careful to include, that’s your kill.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T4, Off the Page.</strong> Her
+      "background in documentary filmmaking" appears nowhere on the card. It’s invented from the word
+      <em>documentary-like</em> — plausible in real life, absent from the text, and that’s all that counts.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T3, Wrong Verb.</strong> You cannot
+      summarize a change that the text never describes. No years, no stages, no "at first … but later".
+      Kill any choice whose verb needs evidence the passage doesn’t contain.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-e52f6f74">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 2 of 3</span>
+        <span class="qid">e52f6f74</span>
+        <span class="qtopic">Craft and Structure · Hard · underlined sentence</span>
+      </div>
+      <h2>"For example" is a job description</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/e52f6f74_question.png" alt="Question card: a paragraph about the Bayeux Tapestry with the final sentence underlined, and four choices">
+      <figcaption>The official card. The underlined sentence is the last one, and it opens with the two
+      most helpful words in the whole question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The Bayeux Tapestry, from eleventh-century France, depicts 75 scenes over 250 feet
+      of fabric. It was likely produced by workers embroidering in sections and then joining the resulting
+      panels together. It’s plausible that the workshop that produced the tapestry had never produced one
+      so large, and some researchers claim that a close examination of the joins—the places where the panels
+      are stitched together—suggests that the workers developed and refined their joining process over the
+      course of production. <span class="u">For example, the first join the workers completed exhibits a
+      clear misalignment of the borders of the two panels, whereas the later joins are virtually
+      invisible.</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes the function of the underlined
+      sentence in the text as a whole?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>It identifies the people and events depicted in the Bayeux Tapestry.</span></li>
+        <li class="right"><span class="key">B</span><span>It supports an argument about the workers who produced the Bayeux Tapestry.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span>It compares the Bayeux Tapestry with other tapestries from eleventh-century France.</span></li>
+        <li class="trap"><span class="key">D</span><span>It describes how researchers determined where the Bayeux Tapestry was produced.</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the sentence starts with "For example." An example of <em>what</em>?</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY the job — the signpost hands it to you</h3>
+          <div class="word"><b>Join.</b> The card defines it for you: "the places where the panels are
+          stitched together." Read parenthetical definitions; they are free marks.</div>
+          <p>"For example" means: <em>what follows is evidence for the thing I just claimed.</em> So put
+          your finger on the sentence immediately before the underline and read the claim it makes:
+          researchers say the workers <strong>developed and refined their joining process over the course of
+          production</strong> — in other words, they got better as they went.</p>
+          <p>Now check that the underlined sentence really is that evidence:</p>
+          <div class="vt"><table class="vals">
+            <caption>The before-and-after inside the underlined sentence, word for word off the card.</caption>
+            <tr><th>Which join</th><th>What the card says about it</th></tr>
+            <tr><td>the first join</td><td class="lo">a clear misalignment of the borders</td></tr>
+            <tr><td>the later joins</td><td class="lo">virtually invisible</td></tr>
+          </table></div>
+          <p>Sloppy first, flawless later. That is exactly what "got better with practice" looks like. Say
+          it: <em>"It’s here to back up the researchers’ claim that the workers improved as they went."</em></p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SPLIT: check the verbs</h3>
+          <p><em>Identifies</em> · <em>supports</em> · <em>compares</em> · <em>describes</em>. Only one of
+          those is a job you can do with the word "for example" — and it’s <em>supports</em>. Then check
+          B’s object: an argument about <strong>the workers</strong>. The claim was about the workers
+          refining their process. Both halves hold.</p>
+          <div class="faster"><span class="tag">The ten-second version</span><b>Signpost → previous
+          sentence → done.</b> "For example" points backwards. Read the sentence before the underline,
+          find the choice that says "it backs that up", and move on. You can finish this question without
+          understanding a single thing about tapestries.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>PLUG: B is the only choice with a second thing in it</h3>
+          <p>A, C and D each describe the sentence as if it were floating alone. B names something else in
+          the text — "an argument" — and says the sentence serves it. That’s what a function <em>is</em>.
+          When two choices are close, the one that connects the piece to the passage wins.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — it supports an argument about the workers who produced the Tapestry.</strong></p>
+      <p>Step 2 did the work: the phrase "For example" is a job description printed on the front of the
+      sentence, and the job it names is <em>evidence for the claim just made</em>.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T2, Wrong Window.</strong> "Scenes"
+      belong to the card’s <em>first</em> sentence — 75 of them over 250 feet. The underlined sentence never
+      mentions a single person or event; it’s entirely about seams. Right passage, wrong sentence.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T3, Wrong Verb.</strong> This one is
+      sneaky, because the sentence <em>does</em> compare — look at "whereas". But it compares the first join
+      with the later joins <em>on the same tapestry</em>. No other tapestry exists anywhere on the card.
+      Right verb, wrong objects.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T4, Off the Page.</strong> Nobody is
+      hunting for <em>where</em> the tapestry was made — the card tells you in its first six words
+      ("from eleventh-century France"). The argument is about <em>how</em> it was made. Swapping
+      <em>how</em> for <em>where</em> is a one-word forgery.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-dd948d66">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 3 of 3</span>
+        <span class="qid">dd948d66</span>
+        <span class="qtopic">Craft and Structure · Hard · underlined portion</span>
+      </div>
+      <h2>Whose side is this sentence on?</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/dd948d66_question.png" alt="Question card: a paragraph about literary scholar Jeremy Douglass and interactive texts, with part of the second sentence underlined">
+      <figcaption>The official card. Two sides are in this room: the investors who predict books are
+      finished, and Douglass, who thinks they’re wrong. The underlined portion belongs to one of them.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">In 2023 literary scholar Jeremy Douglass cautioned technology investors and
+      enthusiasts who predict conventional books’ ultimate displacement by newer forms of media. Douglass
+      observed that <span class="u">the concept of an “interactive” text is much older than technologists
+      assume, extending back to the first time readers scratched notes into a text’s margins</span>. In
+      addition, newer media, such as video games, haven’t replaced older forms of entertainment, such as
+      comic books, but rather exist alongside them. Douglass believes that rather than supplanting books,
+      technology is simply making new forms of expression possible.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes the function of the underlined
+      portion in the text as a whole?</p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span>It challenges the stance of the investors and enthusiasts who are mentioned earlier in the text.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span>It explains the basis for the claim made by the technologists mentioned in the text.</span></li>
+        <li class="trap"><span class="key">C</span><span>It suggests that academics are better suited than investors to see the potential uses of contemporary interactive texts.</span></li>
+        <li class="trap"><span class="key">D</span><span>It provides a historical anecdote about the technological challenges involved in reading the earliest interactive texts.</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: is this sentence helping the investors, or hitting them?</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER, then find the two sides</h3>
+          <div class="word"><b>Displacement / supplanting.</b> Both mean the same thing here: being shoved
+          out and replaced. The investors predict books get shoved out by new media.</div>
+          <div class="word"><b>Stance.</b> The side someone has taken in an argument — their position.</div>
+          <p>The word <em>cautioned</em> in the first line sets up a fight, and once there’s a fight, every
+          sentence is wearing a jersey. Map the beats:</p>
+          <div class="anat">
+            <div class="anat-row">
+              <div class="anat-tag">Side 1</div>
+              <div>
+                <div class="anat-txt">Investors and enthusiasts: books will be <span class="hi">displaced</span> by newer media.</div>
+                <div class="anat-why">The prediction Douglass is about to attack.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">Punch 1</div>
+              <div>
+                <div class="anat-txt"><span class="hi">"Interactive" is much older than technologists assume</span> — readers scratched notes in margins.</div>
+                <div class="anat-why">This is the underlined bit. New media isn’t new-new; books were doing "interactive" centuries ago.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">Punch 2</div>
+              <div>
+                <div class="anat-txt"><span class="hi">In addition</span>, video games haven’t replaced comic books — they exist alongside them.</div>
+                <div class="anat-why">"In addition" = second punch, same fight. Two punches means the first one was a punch too.</div>
+              </div>
+            </div>
+            <div class="anat-row">
+              <div class="anat-tag">Side 2</div>
+              <div>
+                <div class="anat-txt">Douglass: technology is <span class="hi">making new forms of expression possible</span>, not supplanting books.</div>
+                <div class="anat-why">The conclusion both punches were softening up.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY the job</h3>
+          <p><em>"It’s here to knock down what the investors assume."</em> Notice that you can say this
+          without knowing what a margin note is, or caring. Once the jerseys are on, the job is obvious.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SPLIT: the verbs pick the sides for you</h3>
+          <p><em>Challenges</em> (against the investors) · <em>explains the basis for</em> (for the
+          technologists) · <em>suggests</em> (a comparison of two groups) · <em>provides an anecdote</em>
+          (no side at all — a story). You already know the sentence is against the investors, so three
+          verbs die on contact.</p>
+          <div class="keybox"><b>The sharpest single question in this cluster:</b> does this choice put the
+          sentence on the attacking side or the defending side? Get that wrong and nothing else matters.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>PLUG: A names the target</h3>
+          <p>"…the stance of the investors and enthusiasts <em>who are mentioned earlier in the text</em>."
+          That last clause is A telling you it has done the plug step: it connects the underlined portion
+          to a specific thing elsewhere on the card. None of the other three names anything the sentence
+          is working on.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A — it challenges the investors’ and enthusiasts’ stance.</strong></p>
+      <p>Step 1 did the work: the moment you find the two sides, the underlined portion has to belong to
+      one of them, and "cautioned" told you which.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T5, Backwards.</strong> The perfect
+      wrong-jersey trap. The underlined portion says technologists <em>assume</em> wrongly — it attacks
+      their claim. B has it propping their claim up. Same words, opposite direction.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T4, Off the Page.</strong> Nobody on
+      this card ranks academics against investors. Douglass being a scholar is a fact about the author,
+      not a claim in the argument.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T1, Recap.</strong> The purest example
+      on the page. Yes, the sentence mentions old readers and their margins — so D "sounds like" the
+      sentence. But calling it "a historical anecdote" turns a punch into a bedtime story, and it names no
+      job at all. ("Technological challenges" is invented too; nothing on the card says margin-scratching
+      was hard.)</p></div>
+    </div>
+  </section>
+
+  <div class="practice">
+    <h3>Your turn — five to run yourself</h3>
+    <p class="intro">Three more of your misses, then two easier ones from the same skill. For each: cover
+    the choices, say the job in one sentence starting with a verb, split each choice at the seam, then
+    plug. Open the reveal only after you’ve committed — and check you can name the trap species on every
+    wrong choice.</p>
+
+    <div class="pq" id="q-b46f4b75">
+      <p class="pqtag">b46f4b75 · Hard · whole-text purpose · every choice has TWO jobs in it</p>
+      <figure class="card">
+        <img src="../data/images/b46f4b75_question.png" alt="Question card: a paragraph about the Hawaiian silversword alliance and a main-purpose question with four choices">
+      </figure>
+      <div class="word"><b>Phenotype.</b> What a living thing physically turns out like — its shape, size,
+      form. Here: some become vines, some shrubs, some trees.</div>
+      <p class="q-text">Dubautia carrii is a species in a family of plants known collectively as the
+      silversword alliance, all of which grow only on the Hawaiian Islands. Members of this alliance exhibit
+      an extraordinary range of phenotypes, with some species maturing into vines and others into shrubs and
+      trees. All species in the alliance descended from a single ancestral tarweed plant that arrived on the
+      islands around 5 million years ago. The tarweed’s descendants diversified into distinct species as
+      they adapted to live in the wide variety of habitats found on the Hawaiian Islands.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best states the main purpose of the text?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>To indicate the specific tarweed ancestor of all plants that grow on the Hawaiian Islands and explain why the plants have such varied physical characteristics</span></li>
+        <li><span class="key">B</span><span>To describe the specific habitat where Dubautia carrii are found and identify other plants that share a common ancestor with them</span></li>
+        <li><span class="key">C</span><span>To describe the silversword alliance and explain how the plant family became so varied</span></li>
+        <li><span class="key">D</span><span>To advance the claim that all plants on the Hawaiian Islands are part of the silversword alliance and list possible ancestors of the plants that make up the alliance</span></li>
+      </ul>
+      <details class="reveal">
+        <summary>Show the answer</summary>
+        <div class="revealed"><p><b>C.</b> <b>Step 3, SPLIT,</b> did the work, and this card is the reason
+        the two-verb rule exists: three of the four choices bolt two jobs together with "and", so you get
+        two chances to kill each one. Half-jobs: A’s second half is fine, but its first half hands the
+        tarweed to <em>all plants on the Hawaiian Islands</em> — <b>T6 Stretch</b>. B invents a "specific
+        habitat" (the card says the opposite: a <em>wide variety</em> of habitats) and never identifies
+        another plant — <b>T4 Off the Page</b>. D reverses the card’s "only": the alliance grows only on
+        Hawaii, which does not make every Hawaiian plant a silversword — <b>T5 Backwards</b>, and its
+        "list possible ancestors" fails too, since the card names one known ancestor. C does exactly the
+        two things the paragraph does: describe the family, then explain how it got so varied.</p></div>
+      </details>
+    </div>
+
+    <div class="pq" id="q-99bd56d8">
+      <p class="pqtag">99bd56d8 · Medium · underlined sentence · fiction, and a metaphor</p>
+      <figure class="card">
+        <img src="../data/images/99bd56d8_question.png" alt="Question card: an excerpt from Akwaeke Emezi’s novel Pet with the final sentence underlined, and four choices">
+      </figure>
+      <p class="q-text" style="color:var(--ink-soft);font-size:16px">The following text is adapted from Akwaeke
+      Emezi’s 2019 novel Pet. Jam is a teenager who lives with her father, Aloe, and her mother, Bitter, who
+      is a painter.</p>
+      <p class="q-text">Bitter finished the painting in the dark morning of a day—it was well past midnight
+      when Jam heard the studio door creak open. She stared into the velvet black of her room and listened
+      to her mother’s footsteps walking in her [mother] and Aloe’s bedroom. There was a weight thrumming
+      through the floorboards in a low song, and that was how Jam knew the painting was done.
+      <span class="u">Bitter’s feet were singing the news.</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice best states the function of the underlined
+      sentence in the text as a whole?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>It indicates that Jam is more interested in music than in art.</span></li>
+        <li><span class="key">B</span><span>It adds to the idea that Bitter’s footsteps reveal something to Jam.</span></li>
+        <li><span class="key">C</span><span>It indicates that Bitter always sings when working on a painting.</span></li>
+        <li><span class="key">D</span><span>It describes Aloe’s reaction upon seeing the painting for the first time.</span></li>
+      </ul>
+      <details class="reveal">
+        <summary>Show the answer</summary>
+        <div class="revealed"><p><b>B.</b> <b>Step 4, PLUG,</b> did the work — and look at B’s first two
+        words, "adds to": it is the only choice that connects the last sentence to the sentence before it.
+        The card already told you the footsteps thrummed "in a low song" and "that was how Jam knew the
+        painting was done"; the underlined line says the same thing again, shorter and prettier. Nobody
+        literally sings. A reads the metaphor as a fact about Jam’s taste in music (<b>T6 Stretch</b>);
+        C turns one night into "always" (<b>T6 Stretch</b> again); D gives Aloe a reaction the card never
+        describes — he’s simply in the bedroom (<b>T4 Off the Page</b>). In a fiction passage, ask what the
+        pretty sentence is <em>doing</em>: usually it repeats or intensifies the idea just before it.</p></div>
+      </details>
+    </div>
+
+    <div class="pq" id="q-fde9312b">
+      <p class="pqtag">fde9312b · Hard · underlined portion · the cost-versus-effect one</p>
+      <figure class="card">
+        <img src="../data/images/fde9312b_question.png" alt="Question card: a paragraph about risk-disclosure messaging research with the final phrase underlined, and four choices">
+      </figure>
+      <div class="word"><b>Negligible.</b> So small it hardly counts. Nearly nothing.</div>
+      <div class="word"><b>Nevertheless.</b> Even so; despite what I just said.</div>
+      <p class="q-text">In response to concerns that some recent financial crises were exacerbated by
+      consumers misunderstanding risks associated with credit cards, loans, and other financial products,
+      policymakers in many countries have instituted risk-disclosure requirements on sellers of those
+      products. Enrique Seira et al. investigated a variety of risk-disclosure messages sent to thousands of
+      credit card customers and found that the messages had only small and short-lived effects on behavior.
+      Seira et al. asserted that such effects may nevertheless be worth pursuing, <span class="u">given the
+      negligible cost of messaging</span>.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes the function of the underlined
+      portion in the text as a whole?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>It notes a factor that led Seira et al. to not dismiss risk-disclosure messaging altogether despite their evidence of its limited utility.</span></li>
+        <li><span class="key">B</span><span>It acknowledges a type of risk-disclosure messaging that Seira et al. may not have fully accounted for in their study.</span></li>
+        <li><span class="key">C</span><span>It describes a consideration that explains why Seira et al. recommended risk-disclosure messaging even though its effects may be small relative to its costs.</span></li>
+        <li><span class="key">D</span><span>It points out a circumstance that Seira et al. conceded may make risk-disclosure messaging more effective than their study suggests.</span></li>
+      </ul>
+      <details class="reveal">
+        <summary>Show the answer</summary>
+        <div class="revealed"><p><b>A.</b> <b>Step 2, SAY,</b> did the work, and two signposts hand it to
+        you: <em>nevertheless</em> ("despite my own weak result, I’m keeping the idea") and <em>given</em>
+        ("here comes my reason"). So the job is: <em>the reason they didn’t give up</em>. B calls the phrase
+        "a type of messaging" — it isn’t a type of anything, it’s a statement about price (<b>T3 Wrong
+        Verb</b>). C is the dangerous one: it says the effects are small <em>relative to its costs</em>,
+        which is the deal running the wrong way — the card’s whole point is that the <em>cost</em> is tiny
+        next to the effect (<b>T5 Backwards</b>). D promises the messaging is <em>more effective</em> than
+        measured; cheap does not mean effective, and nothing on the card upgrades the results (<b>T4 Off
+        the Page</b>). Cheap-and-barely-works is still worth it — that’s A.</p>
+        <p>Want this one slowed right down, word by word? There’s a line-by-line version at
+        <a href="../explainers/five-hard-questions.html#q-fde9312b">five-hard-questions.html</a>, including
+        a translation of every hard word in the passage.</p></div>
+      </details>
+    </div>
+
+    <div class="pq" id="q-5e15c33b">
+      <p class="pqtag">5e15c33b · Easy sibling · whole-text purpose · fiction</p>
+      <figure class="card">
+        <img src="../data/images/5e15c33b_question.png" alt="Question card: an excerpt from Pam Muñoz Ryan’s novel Mañanaland with an overall-purpose question and four choices">
+      </figure>
+      <p class="q-text" style="color:var(--ink-soft);font-size:16px">The following text is adapted from Pam
+      Muñoz Ryan’s 2020 novel Mañanaland.</p>
+      <p class="q-text">In the village where Max lives, there is an old fortress called La Reina. Children in
+      the village say that the fortress is haunted. — "For as long as he could remember, Max had begged Papá
+      [his father] to take him to see La Reina and the ruins up close. He’d be a hero among his friends if he
+      was the first boy to cross the haunted gates! Just because Papá didn’t believe in ghosts didn’t mean
+      they weren’t there. Maybe this summer Papá would finally take him. He was almost twelve."</p>
+      <p class="q-text" style="margin-top:12px">Which choice best describes the overall purpose of the text?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>To portray how proud Max’s father is of Max</span></li>
+        <li><span class="key">B</span><span>To explain why Max doesn’t want to grow up yet</span></li>
+        <li><span class="key">C</span><span>To criticize Max for disliking summer</span></li>
+        <li><span class="key">D</span><span>To show how much Max wants to visit La Reina</span></li>
+      </ul>
+      <details class="reveal">
+        <summary>Show the answer</summary>
+        <div class="revealed"><p><b>D.</b> <b>Step 2, SAY,</b> did the work — every single sentence is Max
+        wanting: begged, for as long as he could remember, he’d be a hero, maybe this summer. Say "it’s here
+        to show how badly he wants to go" and you’re done in ten seconds. A gives the father a feeling the
+        card never mentions (<b>T4 Off the Page</b>); B reverses him — he’s counting on being nearly twelve,
+        not clinging to being small (<b>T5 Backwards</b>); C invents a dislike of summer <em>and</em> a
+        criticizing narrator (<b>T4 Off the Page</b>). Easy questions use the same four steps; they just
+        forgive you for skipping them.</p></div>
+      </details>
+    </div>
+
+    <div class="pq" id="q-f11dff59">
+      <p class="pqtag">f11dff59 · Medium sibling · whole-text purpose · the "one thing" test</p>
+      <figure class="card">
+        <img src="../data/images/f11dff59_question.png" alt="Question card: a paragraph about Luis von Ahn and the invention of reCAPTCHA with a main-purpose question and four choices">
+      </figure>
+      <p class="q-text">In 2007, computer scientist Luis von Ahn was working on converting printed books into
+      a digital format. He found that some words were distorted enough that digital scanners couldn’t
+      recognize them, but most humans could easily read them. Based on that finding, von Ahn invented a
+      simple security test to keep automated “bots” out of websites. The first version of the reCAPTCHA test
+      asked users to type one known word and one of the many words scanners couldn’t recognize. Correct
+      answers proved the users were humans and added data to the book-digitizing project.</p>
+      <p class="q-text" style="margin-top:12px">Which choice best states the main purpose of the text?</p>
+      <ul class="choices">
+        <li><span class="key">A</span><span>To discuss von Ahn’s invention of reCAPTCHA</span></li>
+        <li><span class="key">B</span><span>To explain how digital scanners work</span></li>
+        <li><span class="key">C</span><span>To call attention to von Ahn’s book-digitizing project</span></li>
+        <li><span class="key">D</span><span>To indicate how popular reCAPTCHA is</span></li>
+      </ul>
+      <details class="reveal">
+        <summary>Show the answer</summary>
+        <div class="revealed"><p><b>A.</b> <b>Step 3, SPLIT,</b> did the work. Every choice here is one verb
+        plus one noun, so all you’re choosing is <em>which noun the whole paragraph is about</em> — and
+        four of the five sentences are the story of reCAPTCHA being invented. B’s noun (scanners) is a
+        detail used to set up the invention, not the subject (<b>T2 Wrong Window</b>); C’s noun (the
+        digitizing project) is where the story starts and ends, but the card never asks you to care about
+        it — it’s scaffolding (<b>T2 Wrong Window</b>); D needs popularity numbers, and there isn’t a single
+        one on the card (<b>T4 Off the Page</b>). Test for a main-purpose answer: could you delete that
+        noun and still have a paragraph? Delete reCAPTCHA and nothing is left.</p></div>
+      </details>
+    </div>
+  </div>
+
+  <section class="close">
+    <h2>The whole page in six lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Cover the choices.</strong> They’re built to sound like
+      reasonable jobs. Read them first and you’ll spend the question asking "could this be true?" instead of
+      "is this the job?"</span></li>
+      <li><span class="n">2</span><span><strong>Say the job out loud, starting with a verb.</strong>
+      "It’s here to ______." One sentence, your own words, before you uncover anything.</span></li>
+      <li><span class="n">3</span><span><strong>Signposts are free answers.</strong> <em>For example</em>,
+      <em>given</em>, <em>though</em>, <em>whereas</em>, <em>in addition</em>, <em>nevertheless</em> — each
+      one announces the job of whatever follows it.</span></li>
+      <li><span class="n">4</span><span><strong>Split every choice into verb + rest, and check the verb
+      first.</strong> Both halves must survive. Two verbs joined by "and" means two jobs, and the text has
+      to be doing both.</span></li>
+      <li><span class="n">5</span><span><strong>"In the text as a whole" means plug it in.</strong> The right
+      answer names what the piece connects to — the claim it backs, the stance it attacks, the idea it adds
+      to. A choice that leaves it stranded is a summary, not a function.</span></li>
+      <li><span class="n">6</span><span><strong>Name the trap.</strong> Recap, Wrong Window, Wrong Verb, Off
+      the Page, Backwards, Stretch. Say the species out loud and you stop picking it.</span></li>
+    </ul>
+  </section>
+
+</div>

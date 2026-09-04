@@ -1,0 +1,894 @@
+<!-- depth: default -->
+<!-- primary: model-first front door for these ids; the only Words in Context cluster page. -->
+<!-- verified: 2026-09-04 — every quoted sentence, choice and word checked against all 11 card PNGs (8 misses + 3 siblings). -->
+<!-- cluster: words-in-context · 8 misses, one model (see explanations/SYSTEM.md) -->
+<title>Don't Pick the Word — Predict It</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+
+<div class="wrap">
+
+  <div style="margin:24px 0 0;font:600 14px/1.5 'Public Sans',Arial,sans-serif;">
+    <a href="../index.html" style="color:var(--teal);text-decoration:none;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Words in Context · 8 missed questions, one model</p>
+    <h1>Don't pick the word.<br><em>Predict it.</em></h1>
+    <p class="standfirst">Eight blanks, eight misses — and in every single one, the word that decided
+    the answer was already sitting on the page, usually in the half of the sentence <em>after</em> the
+    blank. The shared slip: meeting the four choices first and taking the one that sounds smartest
+    about the topic. Four steps fix all eight.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps — they fit on one screen. Then check the
+      table of all eight <em>tells</em>: the exact words that decided each question. Then watch the
+      model fire on three walked-through misses, and finish with seven you run yourself. The official
+      question card sits above every question; when card and typing disagree, the card wins.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Cover → Job → Say → Swap</h2>
+    </div>
+    <div class="steps">
+
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER the choices</h3>
+          <p>Thumb over A–D. Actually do it. Four expensive-looking words parked under a sentence will
+          bend how you read that sentence — you start shopping for the one that matches the
+          <em>subject</em> (space, statistics, museums, fossils) instead of the one that does the
+          sentence's <em>work</em>. The choices are the last thing you look at, never the first.</p>
+          <div class="keybox"><b>The choices are three lies and a truth.</b> Reading them first means
+          reading three lies first. Cover them.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>Find the blank's JOB — hunt the tell</h3>
+          <p>The blank is never free. Somewhere in the passage is the piece that says exactly what the
+          blank has to do. Call it <strong>the tell</strong>. It is almost always <em>after</em> the
+          blank, and very often in the next sentence. Four shapes cover nearly all of them:</p>
+          <ul>
+            <li><b>a but / although / however</b> → the blank must be the opposite of what follows it;</li>
+            <li><b>an example, a list, or evidence</b> → the blank is the label that fits the list;</li>
+            <li><b>a because / since / two reasons</b> → the blank is a cause word;</li>
+            <li><b>a suggesting… / confirming… tail</b> → the blank must be strong enough to earn that
+            conclusion.</li>
+          </ul>
+          <div class="keybox"><b>Read to the period, then read one more sentence.</b> Every miss on
+          this page had its tell in text he had already read past.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SAY your own word — plain and ugly</h3>
+          <p>Out loud, in the plainest word you own. Not a PSAT word. <em>miss it. simple. unclear.
+          varied. caused by. known for. look like.</em> Ugly is the point: your word is a ruler, not a
+          decoration. Once you own the ruler, three choices measure wrong instantly and you stop
+          arguing yourself into them.</p>
+          <div class="keybox"><b>If you can't say your own word, you haven't found the tell.</b> Go
+          back to step 2 rather than guessing forward.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>SWAP each choice in and read the whole sentence back</h3>
+          <p>Not the phrase — the <em>whole sentence</em>, tell included, in your head, out to the
+          period. Three of them will break something: a "but" that no longer flips, a conclusion that
+          no longer follows, a double negative that quietly says the opposite. Keep the one that
+          leaves your ugly word's meaning intact.</p>
+          <div class="keybox"><b>If two choices survive the swap, you skipped the tell.</b> There is
+          exactly one right answer, so the sentence must contain the thing that separates them.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The five trap species — and which step kills each</h3>
+      <div class="trapitem"><span class="trapkey">T1</span><p><strong>Topic Magnet.</strong> The word
+      smells like the subject — or is literally lifted from a nearby sentence. Feels supported; does
+      no work. <em>Killed by COVER.</em></p></div>
+      <div class="trapitem"><span class="trapkey">T2</span><p><strong>Off-Duty.</strong> Makes a
+      perfectly fine English sentence while doing a job the tell never asked for. <em>Killed by
+      JOB.</em></p></div>
+      <div class="trapitem"><span class="trapkey">T3</span><p><strong>Other Door.</strong> A real
+      meaning of the word — just not the meaning this sentence opened. <em>Killed by SAY.</em></p></div>
+      <div class="trapitem"><span class="trapkey">T4</span><p><strong>Almost.</strong> Right family,
+      one notch off in strength or direction: <em>advises</em> where the text needs <em>requires</em>.
+      <em>Killed by SWAP.</em></p></div>
+      <div class="trapitem"><span class="trapkey">T5</span><p><strong>Backwards.</strong> Reverses the
+      sentence. Watch for hidden double negatives — <em>lacked an inconclusive explanation</em> secretly
+      means it <em>had</em> a conclusive one. <em>Killed by SWAP.</em></p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="tells">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The thread</span></div>
+      <h2>All eight tells, on one page</h2>
+    </div>
+    <p class="plain">Every one of these was decided by words he had already read. None needed a bigger
+    vocabulary — they needed step 2.</p>
+    <div class="vt"><table class="vals">
+      <caption>The tell is quoted from the official card. The ugly word is what you'd say before
+      uncovering the choices.</caption>
+      <tr><th>Question</th><th>The tell (already on the page)</th><th>Your ugly word</th><th>The answer</th></tr>
+      <tr><td>e545b111</td><td>“is essential viewing”</td><td class="lo">don't miss it</td><td>overlook</td></tr>
+      <tr><td>6d7897fa</td><td>“a complex set of factors”</td><td class="lo">simple</td><td>a straightforward</td></tr>
+      <tr><td>c795962b</td><td>“confirming the signal at a confidence level of over 99%”</td><td class="lo">unclear</td><td>ambiguity</td></tr>
+      <tr><td>dbece047</td><td>“weren't all ground-dwelling insectivores”</td><td class="lo">varied</td><td>diverse</td></tr>
+      <tr><td>32578cc7</td><td>“light from other centuries, only now”</td><td class="lo">getting here</td><td>Arriving at</td></tr>
+      <tr><td>d423172b</td><td>“the relatively small pool of potential pollinators”</td><td class="lo">caused by</td><td>attributed to</td></tr>
+      <tr><td>e9798f2b</td><td>“These characteristic works include his esteemed portraits”</td><td class="lo">known for</td><td>reputation for</td></tr>
+      <tr><td>fb17d540</td><td>“suggesting that Little Foot had adapted to life in the trees”</td><td class="lo">look like</td><td>comparable to</td></tr>
+    </table></div>
+    <div class="keybox"><b>Eight for eight.</b> Not one of these blanks needed a word he didn't already
+    know. They needed him to read eight more words before choosing.</div>
+  </section>
+
+  <section class="qsec" id="q-c795962b">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 1 of 3</span>
+        <span class="qid">c795962b</span>
+        <span class="qtopic">Craft and Structure · Hard</span>
+      </div>
+      <h2>The word the topic wants</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/c795962b_question.png" alt="Question card: gravitational waves, statistical analysis, blank about the event">
+      <figcaption>The official card. Read past the blank to the end of the sentence — the words after
+      the comma decide this question, and three of the four choices are physics-flavoured bait.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">In 2016, Gabriela González and team announced that a chirping sound captured by
+      Laser Interferometer Gravitational-Wave Observatory antennas was direct evidence of gravitational
+      waves, which skeptics had argued would be too faint for detection. Detailed statistical analysis
+      helped preclude claims of the event's ______, <span class="u">confirming the signal at a
+      confidence level of over 99%</span>.</p>
+      <p class="q-text" style="margin-top:12px">Which choice completes the text with the most logical
+      and precise word or phrase?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>inconspicuousness</span></li>
+        <li class="trap"><span class="key">B</span><span>discretion</span></li>
+        <li class="right"><span class="key">C</span><span>ambiguity</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">D</span><span>probability</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: statistics ruled something out, and that ruling-out is what let
+    them say "we're 99% sure." What kind of doubt does a 99% figure kill?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER + JOB: the tell is the tail after the comma</h3>
+          <p>Highlighted above: <em>confirming the signal at a confidence level of over 99%</em>. That
+          tail is the tell, and it does two things at once — it tells you the analysis <strong>ended a
+          doubt</strong>, and it tells you which doubt: whether the chirp really was a gravitational
+          wave rather than something else.</p>
+          <div class="word"><b>Preclude.</b> Rule out; make impossible. "Preclude claims of X" = stop
+          anyone from being able to say X.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY: "ruled out claims that the signal was unclear"</h3>
+          <p>Ugly word: <strong>unclear-ness</strong>. Could-be-something-else-ness. That is the whole
+          prediction, and it took four seconds. Now uncover the choices.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SWAP: only one choice is a word for unclear-ness</h3>
+          <p>Read C back through the whole sentence: <em>analysis helped preclude claims of the
+          event's ambiguity, confirming the signal at over 99%</em>. Rule out "it could be read two
+          ways" and confirmation is exactly what you get left with. Clean.</p>
+          <div class="word"><b>Ambiguity.</b> Being open to more than one reading. An ambiguous signal
+          is one you can't yet say for sure what it was.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — ambiguity.</strong></p>
+      <p>Step 1 did the work: the tail after the comma <em>is</em> the question. Cover the choices and
+      the sentence hands you the answer before you've met a single one of them.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A · T1 Topic Magnet</span><p><strong>Baited by a word
+      already in the sentence.</strong> "Too faint for detection" is right there, so
+      <em>inconspicuousness</em> feels supported. But the sentence has already granted the chirp
+      <em>was</em> captured — statistics can't make a quiet signal loud. They make a doubtful signal
+      certain.</p></div>
+      <div class="trapitem"><span class="trapkey">B · T3 Other Door</span><p><strong>You're hearing
+      "discreet."</strong> Discretion means being careful about what you reveal, or freedom to choose
+      — a chirp in an antenna has neither. Real word, wrong door.</p></div>
+      <div class="trapitem"><span class="trapkey">D · T5 Backwards</span><p><strong>The purest magnet
+      on the page, and it points the wrong way.</strong> Statistics, confidence level, 99% — every
+      signpost says <em>probability</em>. Now swap it in: the analysis "precluded claims of the event's
+      probability, confirming the signal at a confidence level of over 99%." A confidence level
+      <em>is</em> a probability claim. The sentence would be ruling out the very thing it confirms one
+      comma later. Dead.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-dbece047">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 2 of 3</span>
+        <span class="qid">dbece047</span>
+        <span class="qtopic">Craft and Structure · Hard</span>
+      </div>
+      <h2>Two of these wrong words are lying in the passage</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/dbece047_question.png" alt="Question card: Mesozoic mammals, Zhe-Xi Luo, blank describing the group">
+      <figcaption>The official card. Two of the three wrong choices are echoes of words printed later
+      in the same passage — "insectivores" and "China". That is not a coincidence; it is the design.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Some scientists have suggested that mammals in the Mesozoic era were not a very
+      ______ group, but paleontologist Zhe-Xi Luo's research suggests that <span class="u">early
+      mammals living in the shadow of dinosaurs weren't all ground-dwelling insectivores</span>. Fossils
+      of various plant-eating mammals have been found in China, including species like
+      <em>Vilevolodon diplomylos</em>, which Luo says could glide like a flying squirrel.</p>
+      <p class="q-text" style="margin-top:12px">Which choice completes the text with the most logical
+      and precise word or phrase?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>predatory</span></li>
+        <li class="trap"><span class="key">B</span><span>obscure</span></li>
+        <li class="right"><span class="key">C</span><span>diverse</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">D</span><span>localized</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: an old idea gets knocked down by a list of very different animals.
+    What idea does a list of different animals knock down?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>JOB: the "but" is the tell, and the list behind it is the evidence</h3>
+          <p>"Some scientists suggested X, <strong>but</strong> Luo's research suggests Y." Whatever
+          the blank makes X mean, Luo's evidence must contradict it. So look at his evidence and
+          nothing else: not all ground-dwellers, not all insect-eaters — plant-eaters too, and one that
+          <em>glides like a flying squirrel</em>. That is a list of <strong>different ways of
+          living</strong>.</p>
+          <div class="word"><b>Insectivore.</b> An animal that eats insects. <b>Mesozoic era:</b> the
+          age of the dinosaurs.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY: mind the "not" — predict the positive word first</h3>
+          <p>The blank sits inside a negative: "were <em>not</em> a very ______ group." So say the word
+          Luo's list <em>proves</em>, then hang the "not" back on it. His list proves the mammals were
+          <strong>varied</strong>. So the old idea was "not very varied" — and the "but" flips it
+          properly.</p>
+          <div class="keybox"><b>Negatives flip your ruler, not your reading.</b> Predict the word the
+          evidence supports, then check the sentence's <em>not</em> is pointing the other way.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SWAP: "not a very diverse group, but… all sorts of different mammals"</h3>
+          <p>The flip works. Every other choice leaves the "but" flipping nothing.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — diverse.</strong></p>
+      <p>Step 2 did the work: read the evidence as a <em>list</em>, and a list of unlike things has
+      exactly one label. The "not" is bookkeeping, not difficulty.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A · T1 Topic Magnet</span><p><strong>Stolen from the
+      next clause.</strong> "Insectivores" sits in the same sentence, just past the "but", and
+      insect-eaters sound predatory. Swap it back: "not a very predatory group, <em>but</em> they weren't all
+      insectivores." The "but" flips nothing — insectivores <em>are</em> predators, so the second half
+      supports the first instead of contradicting it.</p></div>
+      <div class="trapitem"><span class="trapkey">B · T2 Off-Duty</span><p><strong>A fine sentence
+      doing the wrong job.</strong> "Mammals in the shadow of dinosaurs weren't very obscure" reads
+      well — <em>obscure</em> is even baited by "in the shadow of". But obscure is about how well known
+      something is, and Luo's evidence is a menu of lifestyles. A list of lifestyles proves variety,
+      never fame.</p></div>
+      <div class="trapitem"><span class="trapkey">D · T1 Topic Magnet</span><p><strong>Stolen from a
+      place name.</strong> "Found in China" makes a place word feel evidenced. Swap it back: fossils
+      turning up in <em>one country</em> is an argument <em>for</em> localized, not against it — so the
+      "but" collapses again. Whenever a choice is a word the passage handed you, that's the moment to
+      get suspicious, not comfortable.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-32578cc7">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 3 of 3</span>
+        <span class="qid">32578cc7</span>
+        <span class="qtopic">Craft and Structure · Medium</span>
+      </div>
+      <h2>One word, two right answers</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/32578cc7_question.png" alt="Question card: Exit West passage with the word reaching underlined">
+      <figcaption>The official card. The underlined word is <em>reaching</em>. Hold on to your answer —
+      the second card below asks about the same word and the answer changes.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The following text is adapted from Mohsin Hamid's 2017 novel <em>Exit West</em>.
+      Saeed lives with his mother and father.</p>
+      <p class="q-text" style="margin-top:12px">On cloudless nights after a daytime rain, Saeed's
+      father would sometimes bring out the telescope, and the family would sip green tea on their
+      balcony, enjoying a breeze, and take turns to look up at objects whose light, often,
+      <span class="u">had been emitted before any of these three viewers had been born—light from other
+      centuries</span>, only now <strong>reaching</strong> Earth.</p>
+      <p class="q-text" style="margin-top:12px">As used in the text, what does the word "reaching" most
+      nearly mean?</p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span>Arriving at</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span>Consulting with</span></li>
+        <li class="trap"><span class="key">C</span><span>Running to</span></li>
+        <li class="trap"><span class="key">D</span><span>Clinging to</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: the light left ages ago and is only now getting here. Which word
+    means "getting here"?</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>JOB: on a "most nearly mean" question, the tell is the clause around the word</h3>
+          <p>Highlighted above: the light <em>had been emitted</em> centuries ago, and it is
+          <em>only now</em> doing whatever the blank word does to Earth. So the word marks the
+          <strong>end of a very long journey</strong> — the moment of getting there, not the travelling.</p>
+          <div class="keybox"><b>Cover the word too.</b> On these, black out the underlined word and
+          ask what verb the sentence needs there. If you keep staring at "reaching," you'll answer from
+          your own habits with the word instead of from the sentence.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SAY: "getting here at last"</h3>
+          <p>Ugly, and exactly right. A is <em>Arriving at</em>. Done in six seconds.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SWAP: now do it again on the twin — and watch the answer move</h3>
+          <p>Below is a different Words-in-Context question about the very same word. Cover the
+          choices, find the tell, say your own word — then look at what happens.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="q-6a25adb2">
+      <figure class="card">
+        <img src="../data/images/6a25adb2_question.png" alt="Question card: The Enchanted April passage with the phrase reaching across to underlined">
+        <figcaption>The twin card (6a25adb2, Easy). Same word. Different sentence. Different answer —
+        and the right answer from the card above is now a wrong choice.</figcaption>
+      </figure>
+
+      <div class="q">
+        <p class="q-label">The twin question</p>
+        <p class="q-text">The following text is adapted from Elizabeth von Arnim's 1922 novel
+        <em>The Enchanted April</em>. Mrs. Wilkins and her friend Rose are traveling in Italy.</p>
+        <p class="q-text" style="margin-top:12px">"I'm going to have one of these gorgeous oranges,"
+        said Mrs. Wilkins, <span class="u">staying where she was</span> and <strong>reaching across
+        to</strong> a black bowl piled with them. "Rose, how can you resist them. Look—have this one.
+        Do have this beauty—" And she held out a big one.</p>
+        <p class="q-text" style="margin-top:12px">As used in the text, what does the phrase "reaching
+        across to" most nearly mean?</p>
+        <ul class="choices">
+          <li class="trap"><span class="key">A</span><span>Joining with</span></li>
+          <li class="trap"><span class="key">B</span><span>Gaining on</span></li>
+          <li class="right"><span class="key">C</span><span>Stretching toward</span><span class="verdict">Correct</span></li>
+          <li class="trap"><span class="key">D</span><span>Arriving at</span></li>
+        </ul>
+      </div>
+
+      <div class="keybox"><b>The tell is four words long: <em>staying where she was</em>.</b> Mrs.
+      Wilkins doesn't go anywhere. Only her arm moves. So the word marks the <em>start</em> of a
+      motion, not the end of one — <strong>Stretching toward</strong>. And D, <em>Arriving at</em>, is
+      the exact answer that was correct one card earlier.</div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A — Arriving at</strong> in <em>Exit West</em>. <strong>C — Stretching toward</strong>
+      in <em>The Enchanted April</em>.</p>
+      <p>Steps 1 and 2 did the work, twice. A word has no meaning until a sentence gives it one — which
+      is why memorising "reaching = arriving" would have cost you the second question. Predict from the
+      sentence in front of you, every time.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the others are wrong — in both</h3>
+      <div class="trapitem"><span class="trapkey">B · T3 Other Door</span><p><strong>Consulting with.</strong>
+      That's <em>reach out to</em> — a real, common meaning of reach, and completely useless here.
+      Light doesn't consult Earth.</p></div>
+      <div class="trapitem"><span class="trapkey">C · T4 Almost</span><p><strong>Running to.</strong>
+      Right direction — motion toward Earth — wrong everything else. "Running" gives the light legs and
+      a hurry, when the point of the sentence is that it has been in transit for centuries.</p></div>
+      <div class="trapitem"><span class="trapkey">D · T3 Other Door</span><p><strong>Clinging to.</strong>
+      That's <em>reach for and grab</em>. Nothing in the sentence has hands.</p></div>
+      <div class="trapitem"><span class="trapkey">twin A · T3 Other Door</span><p><strong>Joining with.</strong>
+      <em>Reach an agreement</em> lives behind this door. Mrs. Wilkins is not negotiating with a fruit
+      bowl.</p></div>
+      <div class="trapitem"><span class="trapkey">twin B · T4 Almost</span><p><strong>Gaining on.</strong>
+      Motion toward again — but gaining on something means closing a gap while both of you move. The
+      tell says she is <em>staying where she was</em>.</p></div>
+      <div class="trapitem"><span class="trapkey">twin D · T3 Other Door</span><p><strong>Arriving at.</strong>
+      A perfectly real meaning of "reach" — the one that won the previous question. Here it walks
+      straight into "staying where she was" and dies. Doors are per-sentence.</p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — five misses and two easy siblings</h3>
+      <p class="intro">Same model, fresh sentences. For each: cover the choices, find the tell and
+      point at it, say your own ugly word out loud, then swap. Open the reveal only after you've
+      picked — and check you can name the trap species on all three wrong choices.</p>
+
+      <div class="pq" id="q-6d7897fa">
+        <p class="pqtag">6d7897fa · Hard · planets in binary star systems</p>
+        <figure class="card">
+          <img src="../data/images/6d7897fa_question.png" alt="Question card: binary star systems, Rafikov and Silsbee, blank before explanation">
+        </figure>
+        <p class="q-text">Given that the conditions in binary star systems should make planetary
+        formation nearly impossible, it's not surprising that the existence of planets in such systems
+        has lacked ______ explanation. Roman Rafikov and Kedron Silsbee shed light on the subject when
+        they used modeling to determine a complex set of factors that could support planets'
+        development.</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>a discernible</span></li>
+          <li><span class="key">B</span><span>a straightforward</span></li>
+          <li><span class="key">C</span><span>an inconclusive</span></li>
+          <li><span class="key">D</span><span>an unbiased</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — a straightforward.</b> <b>Step 2 (JOB)</b> did the work: the
+          tell is "a complex set of factors". The explanation that finally arrived is
+          <em>complicated</em> — so the explanation that was missing all along was a <em>simple</em>
+          one. That also makes "it's not surprising" make sense: impossible-looking conditions don't
+          get easy explanations.</p>
+          <p>A <em>a discernible</em> is <b>T4 Almost</b> — right family (an adjective about the
+          explanation's availability), wrong notch: nobody says the explanation was invisible, only that
+          it turned out to be complex. C <em>an inconclusive</em> is <b>T5 Backwards</b>, the double
+          negative — "lacked an inconclusive explanation" means it <em>had</em> a conclusive one, the
+          opposite of the sentence. D <em>an unbiased</em> is <b>T1 Topic Magnet</b>: science register,
+          but nobody in this sentence is accused of bias.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-e545b111">
+        <p class="pqtag">e545b111 · Easy · the Lenape beadwork exhibit</p>
+        <figure class="card">
+          <img src="../data/images/e545b111_question.png" alt="Question card: Joe Baker exhibit at the Brooklyn Public Library">
+        </figure>
+        <p class="q-text">It would be a mistake to ______ the exhibit that artist and curator Joe
+        Baker, who is a member of the Lenape (Delaware) people, has organized at the Brooklyn Public
+        Library. The exhibit, which includes Lenape beadwork from the 1850s as well as modern works
+        that use traditional patterns, is essential viewing.</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>complicate</span></li>
+          <li><span class="key">B</span><span>amplify</span></li>
+          <li><span class="key">C</span><span>overlook</span></li>
+          <li><span class="key">D</span><span>assemble</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C — overlook.</b> <b>Step 2 (JOB)</b>: the tell is the last two
+          words, "essential viewing". There is exactly one mistake you can make with essential
+          viewing — not viewing it.</p>
+          <p>A <em>complicate</em> is <b>T2 Off-Duty</b>: a fine sentence about nothing the text
+          mentions. B <em>amplify</em> is <b>T5 Backwards</b> — amplifying an essential exhibit is the
+          <em>right</em> thing to do, not the mistake. D <em>assemble</em> is <b>T1 Topic Magnet</b>:
+          curators assemble exhibits, and this one says so ("has organized") — which is exactly why it
+          feels safe and why it's bait.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-d423172b">
+        <p class="pqtag">d423172b · Medium · why zygomorphic flowers stay open longer</p>
+        <figure class="card">
+          <img src="../data/images/d423172b_question.png" alt="Question card: zygomorphic versus actinomorphic flowers and pollinators">
+        </figure>
+        <p class="q-text">Zygomorphic (bilaterally symmetric) flowers remain open and functional on
+        average 1.1 days longer than actinomorphic (radially symmetric) flowers do. Ruby E. Stephens
+        and colleagues claim that this extended period could be ______ the relatively small pool of
+        potential pollinators available to zygomorphic flowers and the greater chance at successful
+        pollination that remaining open affords them.</p>
+        <div class="word"><b>Zygomorphic / actinomorphic.</b> The card defines both for you:
+        bilaterally symmetric (two matching halves, like a snapdragon) versus radially symmetric (the
+        same all the way round, like a daisy). You never need the words themselves — only that one kind
+        stays open 1.1 days longer.</div>
+        <ul class="choices">
+          <li><span class="key">A</span><span>analogous to</span></li>
+          <li><span class="key">B</span><span>converted by</span></li>
+          <li><span class="key">C</span><span>attributed to</span></li>
+          <li><span class="key">D</span><span>magnified by</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C — attributed to.</b> <b>Step 2 (JOB)</b> then <b>Step 3
+          (SAY)</b>: the two things after the blank are <em>reasons</em> — a small pollinator pool, and
+          a better chance if you stay open. Two reasons behind one effect means the blank is a cause
+          word. Ugly word: <em>caused by</em>. "Attributed to" is the cause word.</p>
+          <p>A <em>analogous to</em> is <b>T2 Off-Duty</b> — it does a comparing job, and a length of
+          time isn't similar to a pool of pollinators. B <em>converted by</em> is <b>T4 Almost</b>: the
+          passive "by" smells causal, but converted means turned into something else, and nothing here
+          turns into anything. D <em>magnified by</em> is <b>T4 Almost</b> too, and the tempting one —
+          "greater chance" sits right there — but magnified means made bigger, while the researchers
+          are explaining why the extra time <em>exists</em>, not what enlarged it.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-e9798f2b">
+        <p class="pqtag">e9798f2b · Medium · the portrait painter</p>
+        <figure class="card">
+          <img src="../data/images/e9798f2b_question.png" alt="Question card: British painter Peter Edwards and his portraits">
+        </figure>
+        <p class="q-text">British painter Peter Edwards has a ______ painting portraits of notable
+        figures from a variety of different fields. These characteristic works include his esteemed
+        portraits of poet Wendy Cope and soccer player and coach Ryan Griggs.</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>complaint about</span></li>
+          <li><span class="key">B</span><span>reputation for</span></li>
+          <li><span class="key">C</span><span>question about</span></li>
+          <li><span class="key">D</span><span>requirement for</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — reputation for.</b> <b>Step 2 (JOB)</b>: the tell is two
+          words in the second sentence — <em>characteristic</em> (he does this a lot) and
+          <em>esteemed</em> (people rate it). Does a lot + admired for it = known for it.</p>
+          <p>This is the purest slot-versus-job question on the page: all four choices fit the grammar
+          perfectly — "has a complaint about painting portraits" is a real English sentence. A, C and D
+          are all <b>T2 Off-Duty</b>, three times over. Nothing in the text complains, questions, or
+          requires anything. Fitting the hole is not the same as doing the job.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-fb17d540">
+        <p class="pqtag">fb17d540 · Medium · Little Foot's shoulder bones</p>
+        <figure class="card">
+          <img src="../data/images/fb17d540_question.png" alt="Question card: Little Foot clavicle and shoulder bones compared with modern apes">
+        </figure>
+        <p class="q-text">Anthropologist Kristian J. Carlson and colleagues examined the fossilized
+        clavicle and shoulder bones of a 3.6-million-year-old early hominin known as "Little Foot."
+        They found that these bones were ______ the clavicle and shoulder bones of modern apes that are
+        frequent climbers, such as gorillas and chimpanzees, suggesting that Little Foot had adapted to
+        life in the trees.</p>
+        <div class="word"><b>Clavicle.</b> Your collarbone. <b>Hominin:</b> a human or a close extinct
+        relative of humans.</div>
+        <ul class="choices">
+          <li><span class="key">A</span><span>surpassed by</span></li>
+          <li><span class="key">B</span><span>comparable to</span></li>
+          <li><span class="key">C</span><span>independent of</span></li>
+          <li><span class="key">D</span><span>obtained from</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — comparable to.</b> <b>Step 2 (JOB)</b>: the tell is the
+          <em>suggesting…</em> tail. The conclusion "Little Foot had adapted to life in the trees" only
+          follows if his bones <em>look like</em> the bones of apes that climb a lot. Ugly word:
+          <em>like</em>.</p>
+          <p>A <em>surpassed by</em> is <b>T4 Almost</b> — a comparison word, right family, but "the
+          apes' bones beat his" says nothing about whether he climbed. C <em>independent of</em> is
+          <b>T5 Backwards</b>: no relationship means no conclusion, and the tail dies. D <em>obtained
+          from</em> is <b>T1 Topic Magnet</b> — it sounds like lab work, and it literally claims the
+          fossil bones came out of living gorillas.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-4e1d4a38">
+        <p class="pqtag">4e1d4a38 · Easy sibling · same skill, gentler sentence</p>
+        <figure class="card">
+          <img src="../data/images/4e1d4a38_question.png" alt="Question card: A Little Princess passage with the word invent underlined">
+        </figure>
+        <p class="q-text">Sara not only could tell stories, but she adored telling them. When she sat
+        or stood in the midst of a circle and began to <strong>invent</strong> wonderful things, her
+        green eyes grew big and shining, her cheeks flushed… As used in the text, what does the word
+        "invent" most nearly mean?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>Mislead</span></li>
+          <li><span class="key">B</span><span>Disguise</span></li>
+          <li><span class="key">C</span><span>Create</span></li>
+          <li><span class="key">D</span><span>Discover</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C — Create.</b> <b>Step 3 (SAY)</b>: cover the word, and ask what
+          a storyteller does with "wonderful things" in front of a circle of listeners. She makes them
+          up. That's Create.</p>
+          <p>A <em>Mislead</em> and B <em>Disguise</em> are both <b>T3 Other Door</b> — inventing
+          <em>can</em> mean making up a lie, but nobody here is being fooled; the circle knows it's a
+          story. D <em>Discover</em> is <b>T5 Backwards</b>: you invent what didn't exist, you discover
+          what did.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-263bcdbf">
+        <p class="pqtag">263bcdbf · Easy sibling · the cause-word drill</p>
+        <figure class="card">
+          <img src="../data/images/263bcdbf_question.png" alt="Question card: US-Mexico border environmental management and coordination">
+        </figure>
+        <p class="q-text">Urban planning expert Francisco Lara-Valencia and colleagues have argued that
+        managing environmental matters along the US-Mexico border ______ coordination between the two
+        countries' governments. Since ecosystems extend across the border, actions taken on one side
+        can have environmental effects on the other side, making international cooperation essential.</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>requires</span></li>
+          <li><span class="key">B</span><span>praises</span></li>
+          <li><span class="key">C</span><span>reports</span></li>
+          <li><span class="key">D</span><span>advises</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A — requires.</b> <b>Step 2 (JOB)</b>: the tell is the very last
+          word of the passage — <em>essential</em>. Essential means you cannot do without it.</p>
+          <p>B <em>praises</em> and C <em>reports</em> are <b>T2 Off-Duty</b>. D <em>advises</em> is the
+          instructive one: <b>T4 Almost</b>. Right direction, wrong strength — advising is a suggestion
+          you may ignore, and "essential" leaves no room to ignore anything. Strength mismatches are the
+          most common way an Almost gets picked.</p></div>
+        </details>
+      </div>
+
+      <div class="pq">
+        <p class="pqtag">stretch · retry in the app</p>
+        <p class="q-text">Hard Words in Context questions you already got right — prove the model holds
+        under pressure by running Cover → Job → Say → Swap on each <em>before</em> you answer, and
+        naming the tell out loud: <span class="qid">1445de2f</span> <span class="qid">5c80bb1c</span>
+        <span class="qid">a69693e0</span>.</p>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Cover the choices.</strong> Three of the four are built to bend your reading. Read the sentence before you meet them.</span></li>
+      <li><span class="n">2</span><span><strong>Find the tell.</strong> Something already written decides the blank — usually after it, often in the next sentence. Point at it before choosing.</span></li>
+      <li><span class="n">3</span><span><strong>Say your own ugly word.</strong> Plain beats fancy. If you can't say one, you haven't found the tell yet.</span></li>
+      <li><span class="n">4</span><span><strong>Swap and read the whole sentence back.</strong> If two choices still survive, the tell is still out there. If none do, you predicted the wrong job.</span></li>
+      <li><span class="n">5</span><span><strong>Name the trap.</strong> Topic Magnet, Off-Duty, Other Door, Almost, Backwards — a species with a name can't sneak past you twice.</span></li>
+    </ul>
+  </section>
+
+</div>

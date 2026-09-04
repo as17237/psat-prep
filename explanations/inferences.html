@@ -1,0 +1,869 @@
+<!-- depth: default -->
+<!-- primary: model-first front door for these ids (Inferences cluster). -->
+<!-- verified: 2026-09-04 — every cited figure and every answer choice checked against all 12 Inferences card PNGs (9 on the page, 3 deferred). -->
+<!-- cluster: inferences · 12 misses, one model (see explanations/SYSTEM.md) -->
+<title>Take Exactly One Step</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+<div class="wrap">
+
+  <div style="margin:24px 0 0;font:600 14px/1.5 'Public Sans',Arial,sans-serif;">
+    <a href="../index.html" style="color:var(--teal);text-decoration:none;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Inferences · 12 misses, one model</p>
+    <h1>The text stops one step short.<br><em>Take exactly one step.</em></h1>
+    <p class="standfirst">Every question here ends in a blank. The passage stacks up two or three facts,
+    says <em>therefore</em>, and hands you the pen. The shared slip in all twelve: writing an
+    <strong>interesting</strong> ending instead of the <strong>next</strong> one. On this page the
+    correct answer is nearly always the most boring choice on the list — the smallest claim that still
+    says something new.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps — they fit on one screen and you should be
+      able to say them from memory before a test. Then watch them fire on three walked-through misses.
+      Then run them yourself on six more, out loud, <em>before</em> opening any reveal. The official
+      question card sits above each one; whenever the card and anything else disagree, the card wins.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Spot → Stack → Say → Size</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SPOT the hinge — and whose it is</h3>
+          <p>Right before the blank there is always a hinge word: <em>therefore, thus, this suggests,
+          contends, it can be inferred, could serve as</em>. It tells you two things. One: the blank is a
+          <em>conclusion</em>, so it can only be built from what is already on the page. Two: it belongs
+          to somebody — Ghisbain, Purcell, Klump, "the defenders," "both of them." Say the owner's name
+          out loud.</p>
+          <div class="keybox"><b>Whose sentence is this?</b> An answer that would be a fine conclusion
+          for the <em>other</em> person in the passage is wrong every single time.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STACK the bricks</h3>
+          <p>The two or three sentences before the blank are your only building material. Say each one
+          back as a short fact — that is your stack of bricks. Nothing else is allowed in: not what you
+          know about bees, not what sounds grown-up, not what is probably true in real life.</p>
+          <div class="keybox"><b>No brick, no claim.</b> If you can't point at the sentence a word came
+          from, that word can't be in your answer.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SAY it yourself, choices covered</h3>
+          <p>Cover the four choices with your hand and finish the sentence in your own ten words. This is
+          the step everyone skips, and skipping it is exactly why the exciting choice wins: with no
+          sentence of your own in your head, the boldest one sounds like the smartest one.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>SIZE the choices against your sentence</h3>
+          <p>Now uncover them and ask each choice two questions:</p>
+          <ul>
+            <li><strong>Is it bigger than my bricks?</strong> Then it's an Overstep — cross it out even
+            though it sounds impressive.</li>
+            <li><strong>Is it a brick I already had?</strong> Then it's an Echo — the text already said
+            it, so it isn't a conclusion.</li>
+          </ul>
+          <p>Keep the smallest claim that still adds a step. Then <strong>match the hedges</strong>: if
+          the text says <em>some</em>, <em>may</em>, <em>a possible explanation</em>, the answer should
+          sound just as careful. A choice more certain than the passage is a wrong choice.</p>
+          <div class="traps">
+            <h3>The five trap species</h3>
+            <div class="trapitem"><span class="trapkey">T1</span><p><strong>Overstep.</strong> One step
+            too far — the right idea cranked up too loud. Alarm words: <em>any, all, never, must,
+            chiefly, should not</em>.</p></div>
+            <div class="trapitem"><span class="trapkey">T2</span><p><strong>Echo.</strong> Repeats a fact
+            the passage already gave you. Small and safe and still wrong: an inference has to <em>add</em>
+            a step, not replay one.</p></div>
+            <div class="trapitem"><span class="trapkey">T3</span><p><strong>Import.</strong> Smuggles in a
+            fact the text never gave — a comparison nobody measured, a reason nobody offered. True in the
+            world is not the same as given on the page.</p></div>
+            <div class="trapitem"><span class="trapkey">T4</span><p><strong>Backspin.</strong> Right facts,
+            wrong direction: cause and effect swapped, or a conclusion the evidence actually argues
+            against.</p></div>
+            <div class="trapitem"><span class="trapkey">T5</span><p><strong>Sidestep.</strong> A perfectly
+            sensible sentence — finishing a different sentence than the hinge started. Right topic, wrong
+            question.</p></div>
+          </div>
+          <div class="keybox" style="margin-top:14px"><b>The question is never "which of these is
+          true?"</b> It is always "which of these is the <em>next</em> thing this person said?"</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-29d97f27">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 1 of 3</span>
+        <span class="qid">29d97f27</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>What can two people who disagree still agree on?</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/29d97f27_question.png" alt="Question card: Jack Whitten, the developer tool, and gesture in painting">
+      <figcaption>The official card. Read the hinge clause slowly: <em>regardless of whether using the
+      developer constitutes a gesture, both Whitten and these art historians likely agree that ___</em>.
+      That "regardless" is the whole question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">"Gestures" in painting are typically thought of as bold, expressive brushstrokes.
+      In the 1970s, American painter Jack Whitten built a 12-foot (3.7-meter) tool he named the
+      "developer" to apply paint to an entire canvas in one motion, resulting in his series of "slab"
+      paintings from that decade. Whitten described this process as making an entire painting in "one
+      gesture," signaling a clear departure from the prevalence of gestures in his work from the 1960s.
+      Some art historians claim this shift represents "removing gesture" from the process.
+      <span class="u">Therefore, regardless of whether using the developer constitutes a gesture, both
+      Whitten and these art historians likely agree that ______</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice most logically completes the text?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>any tool that a painter uses to create an artwork is capable of creating gestures.</span></li>
+        <li class="right"><span class="key">B</span><span>Whitten’s work from the 1960s exhibits many more gestures than his work from the 1970s does.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span>Whitten became less interested in exploring the role of gesture in his work as his career progressed.</span></li>
+        <li class="trap"><span class="key">D</span><span>Whitten’s work from the 1960s is much more realistic than his work from the 1970s is.</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: two sides argue about one thing. The blank wants the part they'd both nod at.</p>
+
+    <div class="word"><b>Gesture</b> (in painting): a bold, expressive brushstroke — the visible mark of
+    the artist's hand moving.</div>
+    <div class="word"><b>Prevalence.</b> How common something is. "The prevalence of gestures in his
+    1960s work" just means his 1960s paintings are full of them.</div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SPOT: the owner is <em>both of them</em> — so cross out the fight</h3>
+          <p>The hinge says <em>regardless of whether using the developer constitutes a gesture</em>.
+          That names the argument and then throws it out of the room. Whitten says the developer makes
+          one gesture; the historians say it removes gesture. Whatever the blank is, it has to be true
+          on <strong>both</strong> stories.</p>
+          <div class="keybox"><b>Two-sides rule.</b> When a blank says both sides agree, find the thing
+          they're fighting about and delete it. The answer lives in what's left standing.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STACK: three bricks, and they point the same way</h3>
+          <ul>
+            <li>1960s work: gestures were <em>prevalent</em> — lots of them.</li>
+            <li>Whitten on the 1970s slabs: an entire painting in <em>one</em> gesture, "a clear
+            departure" from the 1960s.</li>
+            <li>Historians on the same shift: gesture <em>removed</em> — call it zero.</li>
+          </ul>
+          <p>Lots, versus one-or-zero. The two sides disagree about whether the 1970s number is one or
+          none — and it doesn't matter, because both are smaller than "lots."</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SAY: "his 1960s paintings have more gestures than his 1970s ones"</h3>
+          <p>Ten words, built only from bricks. Now uncover the choices.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>SIZE: B is your sentence, word for word</h3>
+          <p>"Whitten's work from the 1960s exhibits many more gestures than his work from the 1970s
+          does." Nothing added, nothing exciting, and it survives both stories. That's the answer.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — more gestures in the 1960s than in the 1970s.</strong></p>
+      <p>Step 1 did the work: once you delete the argument itself, only one choice is left that both
+      sides could sign.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T1, Overstep.</strong> "<em>Any</em>
+      tool ... is capable of creating gestures" is a rule about every tool in the world. The historians
+      deny it about even one tool — the developer. Ten-second kill: a choice both sides must agree on
+      cannot be a claim one side is arguing against.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T3, Import.</strong> The passage
+      gives you a change in <em>method</em>, never a change in <em>interest</em> — and a man who builds a
+      12-foot tool to make one giant gesture is not obviously bored of gesture. "As his career
+      progressed" also stretches two decades into a whole life. No brick, no claim.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T3, Import.</strong> Realism appears
+      nowhere on the card. Gesture is about <em>how the paint got there</em>, not about whether the
+      picture looks like something. Scan the passage for the word; if it isn't there, the choice is
+      dead.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-45659801">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 2 of 3</span>
+        <span class="qid">45659801</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>Let the dates do the arguing</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/45659801_question.png" alt="Question card: single origin hypothesis of iron metallurgy, Anatolia and Central African excavation dates">
+      <figcaption>The official card. Four date ranges are printed on it. Find all four before you read a
+      single choice — the oldest one settles the question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The single origin hypothesis of iron metallurgy posits that the craft originated
+      in Anatolia (West Asia) circa 2200–2000 BCE before diffusing to other parts of the world, including
+      Africa. Some proponents of the hypothesis argue that iron production technologies first arrived in
+      North Africa through Carthage, where the earliest evidence of ironworking dates to approximately
+      800–600 BCE, before these technologies spread to sub-Saharan Africa over the following centuries.
+      However, excavation of multiple sites on the Adamawa plateau in Central Africa conducted by Étienne
+      Zangato and Augustin Holl uncovered evidence of iron workshops that may have been in operation as
+      late as 900–750 BCE in Gbabari and as early as 2300–1900 BCE in Ôboui and Gbatoro.
+      <span class="u">These findings suggest that ______</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice most logically completes the text?</p>
+      <ul class="choices">
+        <li class="right"><span class="key">A</span><span>iron production may have developed independently and relatively simultaneously in Anatolia and parts of Central Africa.</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">B</span><span>iron production technologies found in Gbabari likely derived directly from technologies transmitted from Anatolia, but those found in Ôboui and Gbatoro did not.</span></li>
+        <li class="trap"><span class="key">C</span><span>iron production technologies were likely transmitted from Anatolia to Central Africa via an alternate route than the one suggested by some proponents of the single origin hypothesis.</span></li>
+        <li class="trap"><span class="key">D</span><span>iron production may have originated in Anatolia much earlier than the available evidence currently indicates.</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: a theory says iron started in one place and travelled. A dig just found iron that's too old to have travelled.</p>
+
+    <div class="word"><b>BCE dates run backwards.</b> The bigger the number, the longer ago. 2300 BCE is
+    older than 800 BCE — by fifteen centuries. Get this backwards and the whole question flips.</div>
+    <div class="word"><b>Diffusing.</b> Spreading out from one starting place to other places, the way a
+    rumour spreads from one kid.</div>
+    <div class="word"><b>Posits.</b> Puts forward as a claim. A hypothesis <em>posits</em>; it hasn't
+    proved anything yet.</div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SPOT: "These findings suggest" — the <em>findings</em> own the blank</h3>
+          <p>Not the hypothesis, not its proponents. The blank belongs to the new dig, and the dig
+          arrives after a big fat <strong>However</strong>. A "however" tells you the conclusion pushes
+          <em>against</em> what came before it.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STACK: put all four dates in one column</h3>
+          <div class="vt"><table class="vals">
+            <caption>Every value here is printed on the card. Ôboui and Gbatoro is the oldest row —
+            older than the supposed birthplace.</caption>
+            <tr><th>Place</th><th>Dates on the card</th></tr>
+            <tr><td>Anatolia — where the craft supposedly began</td><td>2200–2000 BCE</td></tr>
+            <tr><td>Carthage, North Africa — earliest evidence</td><td>800–600 BCE</td></tr>
+            <tr><td>Gbabari, Central Africa</td><td>900–750 BCE</td></tr>
+            <tr><td>Ôboui and Gbatoro, Central Africa</td><td class="lo">2300–1900 BCE</td></tr>
+          </table></div>
+          <p>Stare at the shaded row. Central Africa was making iron at 2300 BCE. Anatolia is credited
+          with 2200 BCE. The place the iron was supposed to come <em>from</em> is not older than the
+          place it supposedly went <em>to</em>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SAY: "Central Africa had iron just as early, so it didn't need Anatolia"</h3>
+          <p>Notice how careful your own sentence is. It doesn't say Africa was first. It says the two
+          happened around the same time, so one need not have caused the other.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>SIZE: A matches, hedge for hedge</h3>
+          <p>"<em>May</em> have developed independently and <em>relatively</em> simultaneously." The card
+          says the workshops "<em>may</em> have been in operation" — same amount of caution. That match
+          is a fingerprint: the College Board writes the answer with the passage's own hedges.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>A — iron may have developed independently in both places at roughly the same time.</strong></p>
+      <p>Step 2 did the work. One column of dates, and three choices die without any argument at all.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T3, Import.</strong> It invents a
+      link — Gbabari's iron came "directly from Anatolia" — that no sentence on the card provides. And
+      the dates refuse it anyway: Gbabari's workshops start at 900 BCE, a century <em>before</em> the
+      earliest North African evidence at Carthage (800 BCE). Iron can't arrive down a road that isn't
+      open yet.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T4, Backspin.</strong> This is the
+      rescue attempt: keep the single-origin story alive by changing the route. But the findings argue
+      against diffusion, not against a particular road. No route, however clever, delivers 2200 BCE
+      Anatolian technology to a workshop already running in 2300 BCE.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T5, Sidestep.</strong> A fine
+      sentence about the wrong continent. The dig was in Central Africa; a Central African date cannot
+      push an Anatolian date back. It also quietly does the opposite of what "However" promised — it
+      protects the hypothesis instead of straining it.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-bc9c696f">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 3 of 3</span>
+        <span class="qid">bc9c696f</span>
+        <span class="qtopic">Information and Ideas · Hard</span>
+      </div>
+      <h2>Two choices, one idea, different volume</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/bc9c696f_question.png" alt="Question card: bumblebees, dietary generalism, and extrapolating wild-bee declines">
+      <figcaption>The official card. Choices B and D say almost the same thing. One says
+      <em>should not</em>; the other says <em>exercise caution</em>. That gap is the entire question.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Like many other genera of wild bees, bumblebees have in recent decades experienced
+      population collapse caused by, among other factors, habitat destruction and climate variation.
+      Bumblebees are also one of the most researched bee genera, second only to honeybees. As a result,
+      ecologists have gained much of their insight about wild-bee declines from bumblebees. In a 2021
+      paper, zoologist Guillaume Ghisbain notes that bumblebees are among the relatively few wild-bee
+      genera that display social behaviors and dietary generalism (ability to obtain nectar and pollen
+      from a diversity of plant species), two traits that are associated with increased resilience to
+      some specific environmental changes. <span class="u">Ghisbain therefore contends that ______</span></p>
+      <p class="q-text" style="margin-top:12px">Which choice most logically completes the text?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>although bumblebees and many other wild bees have experienced similar population declines in the past, compared with other wild bees, bumblebees are likely at greater risk of being harmed by climate variation than by habitat destruction.</span></li>
+        <li class="trap"><span class="key">B</span><span>although bumblebees have been more extensively studied than most wild bees, researchers should not use bumblebees to draw conclusions about the decline of other wild bees, even ones with feeding patterns and levels of sociability that are similar to those of bumblebees.</span></li>
+        <li class="trap"><span class="key">C</span><span>because bumblebees and other bees with generalist diets are less negatively affected by environmental stress than bees with specialized diets are, they are less likely to experience major population changes in the future than bees with specialized diets are.</span></li>
+        <li class="right"><span class="key">D</span><span>because the responses of bumblebees and other wild bees to environmental threats are not always comparable, researchers need to exercise caution when extrapolating information about wild-bee population declines from bumblebees.</span><span class="verdict">Correct</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: scientists learn about all wild bees from one unusual bee. Ghisbain is worried about that.</p>
+
+    <div class="word"><b>Genus</b> (plural <b>genera</b>): a group of closely related species. Bumblebees
+    are one genus; honeybees are another.</div>
+    <div class="word"><b>Dietary generalism.</b> Defined on the card itself: being able to get nectar and
+    pollen from lots of different plants. A picky eater is a specialist.</div>
+    <div class="word"><b>Extrapolate.</b> Take what you learned about one thing and stretch it to cover
+    other things you didn't study.</div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SPOT: "Ghisbain therefore contends" — one scientist's warning</h3>
+          <p>The blank is Ghisbain's own claim, and the word <em>contends</em> means he's arguing for
+          something. Arguing against what? Against the sentence just above: that ecologists get most of
+          their wild-bee insight from bumblebees.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>STACK: three bricks, and the third is the twist</h3>
+          <ul>
+            <li>Bumblebees are collapsing, like many wild bees.</li>
+            <li>They're heavily studied, so most wild-bee knowledge comes from them.</li>
+            <li>But they're among the <em>relatively few</em> genera that are social and generalist —
+            two traits linked to more resilience to <em>some specific</em> environmental changes.</li>
+          </ul>
+          <p>Underline "relatively few" and "some specific." Those two hedges are the size of the claim
+          you're allowed to make.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>SAY: "bumblebees are unusual, so be careful using them as the model"</h3>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>SIZE: B and D are the same thought — pick the quiet one</h3>
+          <p>Put them side by side and only the volume differs. B: researchers <em>should not use</em>
+          bumblebees at all, <em>even</em> for similar bees. D: responses are <em>not always</em>
+          comparable, so <em>exercise caution</em>. The passage hedged twice; D hedges twice; B hedges
+          never.</p>
+          <div class="keybox"><b>The killer detail in B:</b> "even ones with feeding patterns and levels
+          of sociability that are similar" is backwards. The whole reason for caution is that bumblebees
+          are <em>unlike</em> other bees — so for bees that <em>are</em> like them, bumblebees are a
+          perfectly good model. B bans the one case the argument supports.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>D — responses aren't always comparable, so extrapolate with caution.</strong></p>
+      <p>Step 4 did the work: when two choices carry the same idea, the passage's hedges pick the winner.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T3, Import.</strong> The card names
+      habitat destruction and climate variation as two causes, "among other factors." It never ranks
+      them. Any choice that says one is worse than the other is inventing a measurement.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T1, Overstep.</strong> Right idea,
+      shouted. "Should not use" is a ban where the bricks support a caution — and the "even similar ones"
+      clause contradicts the reason for the caution in the first place. Same thought as D, two sizes too
+      big.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T1 + T5, Overstep into a Sidestep.</strong>
+      The card says those traits help with <em>some specific</em> environmental changes; C upgrades that
+      to "environmental stress" generally, then predicts the future. Worse, it turns a warning about
+      research methods into cheerful news about bumblebees — a conclusion Ghisbain isn't reaching
+      for.</p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — six more, easy first</h3>
+      <p class="intro">Same four steps. For each: name the hinge and its owner, stack the bricks, cover
+      the choices and say your own ten words, then size. Open the reveal only after you've committed —
+      and check you can name the trap species on every wrong choice.</p>
+
+      <div class="pq" id="q-1f222de0">
+        <p class="pqtag">1f222de0 · Medium · Queen Merneith's tomb</p>
+        <figure class="card">
+          <img src="../data/images/1f222de0_question.png" alt="Question card: Queen Merneith's tomb and a tablet naming the treasury">
+        </figure>
+        <p class="q-text">Archaeologist Christiana Kohler and her team excavated the Egyptian tomb of
+        Queen Merneith, the wife of a First Dynasty pharaoh. Some scholars claim that she also ruled
+        Egypt on her own and was actually the first female pharaoh. The team found a tablet in Merneith's
+        tomb with writing suggesting that she was in charge of the country's treasury and other central
+        offices. <span class="u">Whether Merneith was a pharaoh or not, this discovery supports the idea
+        that Merneith likely ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>had an important role in Egypt’s government.</span></li>
+          <li><span class="key">B</span><span>lived after rather than before the First Dynasty of Egypt.</span></li>
+          <li><span class="key">C</span><span>traveled beyond Egypt’s borders often.</span></li>
+          <li><span class="key">D</span><span>created a new form of writing in Egypt.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A.</b> <b>Spot</b> did the work, and it's the same "two sides" move
+          as the Whitten miss: "whether Merneith was a pharaoh or not" deletes the argument, so the answer
+          must hold either way. Your own sentence — "she ran the treasury, so she mattered in
+          government" — is choice A almost word for word. B and D are Imports (nothing about dates, nothing
+          about inventing writing); C is an Import too (borders are never mentioned). Notice how boring A
+          is. Boring is the shape of a correct inference.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-85fae948">
+        <p class="pqtag">85fae948 · Medium · Georgia Douglas Johnson's living room</p>
+        <figure class="card">
+          <img src="../data/images/85fae948_question.png" alt="Question card: Georgia Douglas Johnson's weekly gatherings for Black writers and artists">
+        </figure>
+        <p class="q-text">Georgia Douglas Johnson wrote many plays in the 1920s and 1930s. At the time,
+        professional theater companies rarely put on plays by Black women, so few of Johnson's plays made
+        it to the stage. Only a small number of her plays were published in her lifetime. But that doesn't
+        mean that Johnson never learned what other people thought of her plays. Johnson hosted weekly
+        get-togethers for fellow Black writers and artists in her Washington, DC, home. Attendees would
+        read and discuss one another's work, including Johnson's own.
+        <span class="u">These gatherings could therefore serve as ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>an occasion for professional theater companies to put on plays.</span></li>
+          <li><span class="key">B</span><span>an opportunity for Johnson to get feedback on her plays.</span></li>
+          <li><span class="key">C</span><span>a way for Johnson to learn about plays that were produced in other cities.</span></li>
+          <li><span class="key">D</span><span>subject matter for future plays by Johnson.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B.</b> <b>Stack</b> did the work. One sentence sets the job the
+          blank must do — "that doesn't mean Johnson never learned what other people thought of her
+          plays" — and the next brick says attendees read and discussed her work. Learning what people
+          think of your work has a name: feedback. A is a Backspin (the card says companies rarely staged
+          her plays); C and D are Imports — other cities and future plays appear nowhere on the
+          card.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-49568189">
+        <p class="pqtag">49568189 · Medium · New Caledonian crows and their tools</p>
+        <figure class="card">
+          <img src="../data/images/49568189_question.png" alt="Question card: New Caledonian crows guarding hooked stick tools">
+        </figure>
+        <p class="q-text">In the South Pacific, New Caledonian crows use two different kinds of stick
+        tools. One tool is complex. The crows shape a stick from a rare plant into a hook. The other tool
+        is basic. The crows find a stick without a hook on the ground. The hooked tool is harder to get
+        but is much better than the basic tool at removing prey from holes. When studying New Caledonian
+        crows, ecologist Barbara Klump found that they hold the hooked tools in their claws when not
+        using them, or they carefully put them in a safe place. The crows don't do the same with the
+        basic tools. <span class="u">This suggests to Klump that the ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>hooked stick tools are more valuable to the crows than the stick tools without hooks.</span></li>
+          <li><span class="key">B</span><span>hooked stick tools are easier for most of the crows to hold than the stick tools without hooks.</span></li>
+          <li><span class="key">C</span><span>crows prefer to share their hooked stick tools but don’t share the stick tools without hooks.</span></li>
+          <li><span class="key">D</span><span>crows realize that both kinds of stick tools are less effective than their claws are at removing prey from holes.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A.</b> <b>Say</b> did the work: cover the choices and finish it
+          yourself — "they guard the hooked ones, so those are worth more to them." That's A. B is an
+          Import (nothing on the card compares how the two tools feel to hold — guarding a thing is not
+          gripping it). C is an Import that also runs backwards: hiding a tool in a safe place is the
+          opposite of sharing it. D is an Import twice over — the card compares the two <em>tools</em>,
+          never tools against claws.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-737870c6">
+        <p class="pqtag">737870c6 · Hard · the archaeologist and the drone</p>
+        <figure class="card">
+          <img src="../data/images/737870c6_question.png" alt="Question card: Johny Isla searching for a whalelike Nazca geoglyph by drone">
+        </figure>
+        <p class="q-text">Geoglyphs are large-scale designs of lines or shapes created in a natural
+        landscape. The Nazca Lines were created in the Nazca Desert in Peru by several Indigenous
+        civilizations over a period of many centuries. Peruvian archaeologist Johny Isla specializes in
+        these geoglyphs. At a German exhibit about the Nazca Lines, he saw an old photograph of a large
+        geoglyph of a whalelike figure and was surprised that he didn't recognize it. Isla returned to
+        Peru and used a drone to search a wide area, looking for the figure from the air.
+        <span class="u">This approach suggests that Isla thought that if he hadn't already seen it, the
+        whalelike geoglyph ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>must represent a species of whale that went extinct before there were any people in Peru.</span></li>
+          <li><span class="key">B</span><span>is actually located in Germany, not Peru, and isn’t part of the Nazca Lines at all.</span></li>
+          <li><span class="key">C</span><span>is probably in a location Isla hadn’t ever come across while on the ground.</span></li>
+          <li><span class="key">D</span><span>was almost certainly created a long time after the other Nazca Lines geoglyphs were created.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C.</b> <b>Stack</b> did the work, with a brick that is an
+          <em>action</em>, not a fact: he flew a drone over a wide area. When the brick is an action, ask
+          "what would this person have to believe for that to be a sensible thing to do?" Answer: that the
+          thing is somewhere he hasn't walked. A ("must"), B and D ("almost certainly") are all Oversteps
+          built on nothing — and none of them would explain why he'd bother renting a drone.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-4c4fe342">
+        <p class="pqtag">4c4fe342 · Hard · purists versus the myth-retellers</p>
+        <figure class="card">
+          <img src="../data/images/4c4fe342_question.png" alt="Question card: retellings of Greek and Roman myths from female characters' perspectives">
+        </figure>
+        <p class="q-text">In classical Greek and Roman mythology, female characters are typically cast as
+        either villains lacking in psychological depth or passive victims who are marginal to these
+        stories, which usually focus on the exploits of male characters. Recently, a subgenre has emerged
+        in which writers reimagine these stories from the perspectives of their female characters, giving
+        them agency and complex motivations. Purists argue that such efforts represent a distinctively
+        modern tendency to impose our own values on past civilizations, obscuring those civilizations'
+        beliefs. <span class="u">Defenders of the subgenre counter that reimaginings of the myths for new
+        cultural contexts are almost as old as the myths themselves, suggesting that ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>bringing female perspectives to the forefront is not indicative of a novel attitude regarding fidelity to Greek and Roman myths’ ideologies.</span></li>
+          <li><span class="key">B</span><span>modern writers’ foregrounding of female characters is chiefly motivated by a desire to counterbalance the primacy of male perspectives among earlier adaptations of Greek and Roman myths.</span></li>
+          <li><span class="key">C</span><span>purists are overlooking a long tradition of adapting Greek and Roman myths to focus on female characters.</span></li>
+          <li><span class="key">D</span><span>the complex motivations given to female characters in modern retellings of Greek and Roman myths reflect a recent shift toward psychological depth in fictional representation.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>A.</b> <b>Spot</b> plus <b>Size</b>. The hinge belongs to the
+          <em>defenders</em>, and they laid exactly one brick: retelling myths for new times is almost as
+          old as the myths. So the blank has to say "today's retellings aren't a new attitude" — which is
+          A, in fancier words (<em>not indicative of a novel attitude</em> = not a new way of thinking).
+          C is the classic one-step-too-far Overstep: the brick says <em>adapting</em> is ancient, not
+          that <em>female-focused</em> adapting is ancient. B is an Import about writers' motives, and it
+          hands the purists their point. D is a Sidestep about a trend in fiction generally.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-c188a048">
+        <p class="pqtag">c188a048 · Hard · alpacas, llamas and their wild ancestors</p>
+        <figure class="card">
+          <img src="../data/images/c188a048_question.png" alt="Question card: alpaca and llama genetics, vicuna and guanaco ancestry percentages">
+        </figure>
+        <p class="q-text">The alpaca was domesticated by Indigenous peoples in the Andes about 7,000 years
+        ago. But which wild species did it descend from, the vicuña or guanaco? A research team led by
+        Ruiwen Fan may have solved the mystery, concluding that the alpaca is the domesticated form of the
+        vicuña but that the modern alpaca gets only 64 percent of its genetic material from its wild
+        ancestor. The rest comes from the domesticated llama. The llama, meanwhile, gets 95.5 percent of
+        its genetic material from its own wild ancestor, the guanaco, and the rest from the alpaca. The
+        llama and alpaca apparently interbred widely for only a handful of generations between 400 and 600
+        years ago. <span class="u">Assuming that the findings of Fan's team are valid, it can be inferred
+        that ______</span></p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>modern llama populations have a greater degree of genetic diversity, on average, than modern alpaca populations do.</span></li>
+          <li><span class="key">B</span><span>the domestication process of the alpaca may have involved some introduction of genetic material from the llama.</span></li>
+          <li><span class="key">C</span><span>the period of interbreeding resulted in a greater genetic difference between alpacas and their wild ancestors than between llamas and their wild ancestors.</span></li>
+          <li><span class="key">D</span><span>if they were subjected to genetic testing, modern populations of guanacos and vicuñas would likely show traces of ancient interbreeding as well.</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>C.</b> This one exists to teach the <em>second</em> question in
+          <b>Size</b>: "is it a brick I already had?" B is the smallest, safest-sounding claim on the
+          list — and it is wrong, because the card already told you the alpaca's non-vicuña DNA comes
+          from the llama. Restating a given fact is an <b>Echo</b>, not an inference. C is the step:
+          64 percent from the wild ancestor versus 95.5 percent for the llama, so the alpaca has drifted
+          further from its wild ancestor than the llama has. A is an Import (nobody measured diversity);
+          D is an Import too (the card says the <em>llama and alpaca</em> interbred, and says nothing
+          about wild guanacos and vicuñas).</p></div>
+        </details>
+      </div>
+
+      <div class="pq">
+        <p class="pqtag">retry in the app · three misses this page didn't cover</p>
+        <p class="q-text">These three run on the same model, so they're better as a cold test than as a
+        reveal you can peek at. Run Spot → Stack → Say → Size on each, then check in the app:</p>
+        <ul class="choices">
+          <li><span class="key">1</span><span><span class="qid">f2040ca2</span> · Hard · Aztec ethics
+          and context. Its trap pair is the same Overstep-versus-hedge duel as the bumblebee miss — see
+          if you can spot which choice is one step bigger than the passage allows.</span></li>
+          <li><span class="key">2</span><span><span class="qid">8d605fb1</span> · Hard · veterans in
+          civilian government jobs. The blank lands in the <em>middle</em> of a sentence, inside an
+          explanation. Ask: what has to come next for this explanation to actually explain the thing it
+          was offered to explain?</span></li>
+          <li><span class="key">3</span><span><span class="qid">ea1de10e</span> · Hard · Zelda
+          Fitzgerald as a writer. Every wrong choice here is a Sidestep — a sensible sentence answering a
+          question the hinge never asked. Name the owner of the hinge first.</span></li>
+        </ul>
+      </div>
+
+      <div class="pq">
+        <p class="pqtag">stretch · hard Inferences you already got right</p>
+        <p class="q-text">Prove the model holds under pressure — run all four steps out loud on these
+        before you answer: <span class="qid">3aa777e2</span> <span class="qid">75e54954</span>
+        <span class="qid">b7a4cc72</span> <span class="qid">dea40f22</span>.</p>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Find the hinge, name the owner.</strong> <em>Therefore, thus, suggests, contends</em> — the blank is somebody's conclusion. Say whose before you read a single choice.</span></li>
+      <li><span class="n">2</span><span><strong>Only the bricks on the page.</strong> If you can't point at the sentence a word came from, that word can't be in your answer — however true it is in real life.</span></li>
+      <li><span class="n">3</span><span><strong>Finish the sentence yourself first.</strong> Ten words, choices covered. A prediction is armour against the choice that merely sounds clever.</span></li>
+      <li><span class="n">4</span><span><strong>One step, not two — and not zero.</strong> Keep the smallest claim that still adds something. Bigger is an Overstep; the same brick again is an Echo.</span></li>
+      <li><span class="n">5</span><span><strong>Match the hedges.</strong> <em>Some, may, not always</em> in the text means <em>some, may, not always</em> in the answer. A choice more certain than the passage is wrong.</span></li>
+    </ul>
+  </section>
+
+</div>

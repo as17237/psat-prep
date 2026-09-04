@@ -1,0 +1,819 @@
+<!-- depth: default -->
+<!-- primary: model-first front door for the Boundaries cluster ids (11de53df, 25273a8d, 95aee254, e3051a8e, 7e989974) plus the two easy practice siblings. -->
+<!-- verified: 2026-09-04 — every sentence and every answer choice transcribed character by character from all 7 card PNGs; punctuation checked twice, mark by mark. -->
+<!-- cluster: boundaries · 5 misses, one model (see explanations/SYSTEM.md) -->
+<title>Stop Listening for the Pause</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+</style>
+
+<div class="wrap">
+
+  <div style="margin:24px 0 0;font:600 14px/1.5 'Public Sans',Arial,sans-serif;">
+    <a href="../index.html" style="color:var(--teal);text-decoration:none;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Boundaries · 5 missed questions, one rule</p>
+    <h1>Stop listening for the pause.<br><em>Count the sentences.</em></h1>
+    <p class="standfirst">Every Boundaries question hands you the same stretch of words with four
+    different punctuation marks and asks which one is legal. Three of these five answers were a
+    <strong>full stop</strong> — the mark your ear least wants to drop into the middle of a thought.
+    Punctuation between clauses is not a feeling. It has exactly two inputs, and you can check both
+    in about eight seconds.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps and the table of legal marks — that table
+      is the whole skill, and it fits on one screen. Then watch the steps fire on three misses. Then
+      run four drills: cover the choices, do the split out loud, and only then open the reveal. The
+      official question card sits above every question; it is the authority, because in this skill a
+      single character decides the answer.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Cover → Split → Label → Pick</h2>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER the blank</h3>
+          <p>Thumb over the underline. Read the sentence <em>past</em> it, all the way to the final
+          period, as if the punctuation weren’t there yet. You are reading for structure, not for
+          meaning — the topic is always decoration.</p>
+          <div class="keybox"><b>You never need to understand the science.</b> Pinhole cameras,
+          horsepower, mosses — you can answer every one of these without knowing what the passage is
+          about. You only need to know where the sentences end.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>SPLIT it in two</h3>
+          <p>Draw a line where the blank is. You now have exactly two things: a <strong>left
+          piece</strong> and a <strong>right piece</strong>. Every Boundaries question in the whole
+          test is a question about these two pieces and nothing else.</p>
+          <p>Watch for the little word riding along with the mark. Some choices sneak in an extra
+          word — <em>as</em>, <em>because</em>, <em>and</em>, <em>it’s</em> — and that word changes
+          what the piece <em>is</em>. Same mark, different sentence.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>LABEL each piece: S or P</h3>
+          <p>One question per piece: <strong>could I text this by itself without sounding
+          unhinged?</strong> In grammar terms, it needs a subject, its own verb, and nothing stuck on
+          the front that spoils it. Mark it <strong>S</strong> for whole sentence or <strong>P</strong>
+          for piece.</p>
+          <div class="word"><b>Main clause (S).</b> A subject plus its own verb, able to stand alone.
+          "The celebrated ship set a record" is one. "Having left New York Harbor" is not — <em>having
+          left</em> is not a verb doing a job for a subject.</div>
+          <div class="word"><b>Subordinator.</b> <em>because, although, when, since, if, while, as,
+          that.</em> Stick one on the front of a sentence and it stops being able to stand alone:
+          "the hole is small" is an S; "because the hole is small" is a P.</div>
+          <div class="word"><b>FANBOYS.</b> <em>for, and, nor, but, or, yet, so.</em> The seven joining
+          words. Only these seven can make a comma strong enough to hold two sentences together.
+          <em>However, therefore, for example, in fact</em> are <strong>not</strong> on the list.</div>
+          <div class="keybox"><b>Read to the full stop, not to the blank.</b> Some of these sentences
+          already have a comma printed later on. Your choice has to make <em>that</em> comma legal
+          too. One miss below dies entirely on a comma nobody was looking at.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>PICK the mark the table allows</h3>
+          <p>Now it is pure lookup. Find your combination, read off the legal marks, and cross out
+          every choice that isn’t one of them.</p>
+          <div class="vt"><table class="vals">
+            <caption>The complete list. If a mark is not on it, or your combination is not on its row,
+            the choice is dead — no matter how good it sounds read aloud.</caption>
+            <tr><th>Mark at the blank</th><th>Legal only when</th><th>Break it and you get</th></tr>
+            <tr><td class="lo">. period</td><td>S | S</td><td>Chopped</td></tr>
+            <tr><td class="lo">; semicolon</td><td>S | S</td><td>Chopped, or Overkill</td></tr>
+            <tr><td class="lo">: colon</td><td>S | what the left side promised</td><td>Chopped</td></tr>
+            <tr><td class="lo">, and · , but · , so</td><td>S | S</td><td>Fused</td></tr>
+            <tr><td class="lo">, comma alone</td><td>S | P &nbsp;or&nbsp; P | S</td><td>Comma splice</td></tr>
+            <tr><td class="lo">no mark at all</td><td>the two pieces are one sentence</td><td>Fused</td></tr>
+          </table></div>
+          <div class="keybox"><b>Look at the top three rows.</b> Period, semicolon and colon all demand
+          a finished sentence on the left. That is why three of your five answers were a period: the
+          left side was already over and you kept driving.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="anat">
+      <div class="anat-row">
+        <div class="anat-tag">Left piece</div>
+        <div>
+          <div class="anat-txt">In modern plays, <span class="hi">actors</span> typically <span class="hi">won’t acknowledge</span> the audience</div>
+          <p class="anat-why">Subject <em>actors</em>, verb <em>won’t acknowledge</em>, nothing stuck on
+          the front. <strong>S</strong>.</p>
+        </div>
+      </div>
+      <div class="anat-row">
+        <div class="anat-tag">Right piece</div>
+        <div>
+          <div class="anat-txt"><span class="hi">To do so</span> <span class="hi">breaks</span> the fourth wall, a metaphorical barrier…</div>
+          <p class="anat-why">Subject <em>To do so</em> (= "doing that"), verb <em>breaks</em>.
+          <strong>S</strong>.</p>
+        </div>
+      </div>
+      <div class="anat-row">
+        <div class="anat-tag">Verdict</div>
+        <div>
+          <div class="anat-txt">S | S → period, semicolon, colon, or comma + FANBOYS. Nothing else.</div>
+          <p class="anat-why">Eight seconds, no opinions, no reading aloud. That is the entire skill.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The four trap species — and the one disease behind them</h3>
+      <div class="trapitem"><span class="trapkey">T1</span><p><strong>Splice.</strong> A lone comma
+      holding two whole sentences together. Illegal every single time, with no exceptions — and it is
+      almost always the choice that sounds most natural out loud.</p></div>
+      <div class="trapitem"><span class="trapkey">T2</span><p><strong>Fused.</strong> Nothing at all at
+      a boundary that needed something. Two sentences crashed together, or a list item glued to the
+      next one. Reads fast and breathless.</p></div>
+      <div class="trapitem"><span class="trapkey">T3</span><p><strong>Chopped.</strong> A period or
+      semicolon dropped somewhere that strands a piece: "And enter a dormant state." "As to do so
+      breaks the fourth wall." A capital letter and a full stop do not make a fragment into a
+      sentence.</p></div>
+      <div class="trapitem"><span class="trapkey">T4</span><p><strong>Overkill.</strong> A heavy mark
+      shoved between things that were never two sentences — items in a plain list, or a phrase hanging
+      off the verb. Punctuation you reached for because you’d been burned by commas.</p></div>
+      <div class="keybox" style="margin-top:14px"><b>The Pause Trap.</b> All four species come from the
+      same move: choosing the mark that matches how long you would pause. Your ear pauses for meaning.
+      Punctuation counts subjects and verbs. They agree maybe half the time — and the test is built out
+      of the half where they don’t.</div>
+    </div>
+
+    <div class="keybox" style="margin-top:22px"><b>The thread through all five misses.</b> Four of them
+    offer a comma choice that reads smoothly out loud, and in all four that comma is wrong. In the fifth
+    the comma is <em>right</em> — because that sentence was never two sentences, just a list. The lesson is not
+    "prefer the strong mark." It is <b>count the sentences, then look at the table.</b></div>
+  </section>
+
+  <section class="qsec" id="q-95aee254">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 1 of 3</span>
+        <span class="qid">95aee254</span>
+        <span class="qtopic">Standard English Conventions · Hard</span>
+      </div>
+      <h2>Four marks, one set of words</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/95aee254_question.png" alt="Question card 95aee254: fourth wall sentence with four punctuation choices after the word audience">
+      <figcaption>The official card. Every choice is the word <em>audience</em> plus a different mark —
+      and choice A quietly adds the word <em>As</em>. Read those four lines character by character;
+      that is where the whole question lives.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">In modern plays, actors typically won’t acknowledge the <span class="u">______</span>
+      do so breaks the fourth wall, a metaphorical barrier between actors and audiences that allows
+      viewers to suspend the knowledge that they’re watching a staged performance.</p>
+      <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+      the conventions of Standard English?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>audience. As to</span></li>
+        <li class="trap"><span class="key">B</span><span>audience to</span></li>
+        <li class="right"><span class="key">C</span><span>audience. To</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">D</span><span>audience, to</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: can "To do so breaks the fourth wall" stand up by itself? If it can, the mark in front of it has to be a hard one.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER + SPLIT</h3>
+          <p>Thumb over the blank. Left piece: <em>In modern plays, actors typically won’t acknowledge
+          the audience.</em> Right piece: <em>to do so breaks the fourth wall, a metaphorical barrier…
+          staged performance.</em></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>LABEL: S | S</h3>
+          <p>Left: subject <em>actors</em>, verb <em>won’t acknowledge</em>. Post it on its own and
+          nobody blinks. <strong>S</strong>.</p>
+          <p>Right is the one people get wrong, because it starts with <em>to</em>. But "To do so" is
+          the <em>subject</em> here — swap in "Doing that" and you can hear it: <em>Doing that breaks
+          the fourth wall.</em> Subject plus verb <em>breaks</em>. <strong>S</strong>.</p>
+          <div class="keybox"><b>Swap-in test for a weird subject.</b> If replacing the opening chunk
+          with a single noun ("it", "that") still leaves a working sentence, that chunk is a subject and
+          the piece is an S.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>PICK: only one hard mark is on offer</h3>
+          <p>S | S allows a period, a semicolon, a colon, or a comma plus one of the FANBOYS. Now scan
+          the four choices for anything on that list. B has no mark. D has a bare comma. A has a period
+          — but look what it drags along. Only C is clean.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — audience. To</strong></p>
+      <p>Step 2 did the work. Once you label the right piece <strong>S</strong>, the table hands you the
+      answer without a single judgement call.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T3, Chopped.</strong> The period is
+      the right mark; the smuggled-in <em>As</em> destroys it. "As to do so breaks the fourth wall…" —
+      stick a subordinator on the front and the S becomes a P, and now you have given a fragment a
+      capital letter and a full stop. Always check the extra word, not just the punctuation.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T2, Fused.</strong> Nothing between
+      two whole sentences. It also reads as if the actors won’t acknowledge "the audience to do so,"
+      which isn’t a thing anyone could mean.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T1, Splice.</strong> Sentence,
+      comma, sentence. This is the smoothest one to say out loud, which is exactly why it is on the
+      page. A comma is what a short pause feels like; a short pause is not a rule.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-e3051a8e">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 2 of 3</span>
+        <span class="qid">e3051a8e</span>
+        <span class="qtopic">Standard English Conventions · Hard</span>
+      </div>
+      <h2>"For example" joins nothing</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/e3051a8e_question.png" alt="Question card e3051a8e: horsepower sentence with four punctuation choices after the word moved">
+      <figcaption>The official card. Two of the four choices offer the identical words <em>for
+      example,</em> — one behind a comma, one behind a semicolon. That single character is the entire
+      difference between a wrong answer and a right one.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Horsepower is a unit of measurement used to determine how much power a vehicle
+      produces. The measurement is based on how much and how quickly weight can be
+      <span class="u">______</span> one unit of mechanical horsepower is equivalent to the amount of
+      power it takes to lift 550 pounds one foot off the ground in one second.</p>
+      <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+      the conventions of Standard English?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>moved, for example,</span></li>
+        <li class="trap"><span class="key">B</span><span>moved,</span></li>
+        <li class="right"><span class="key">C</span><span>moved; for example,</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">D</span><span>moved</span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: cross out "for example" and nothing changes — you still have two whole sentences bumping into each other.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER + SPLIT</h3>
+          <p>Left piece: <em>The measurement is based on how much and how quickly weight can be
+          moved.</em> Right piece: <em>one unit of mechanical horsepower is equivalent to the amount of
+          power it takes to lift 550 pounds one foot off the ground in one second.</em></p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>LABEL: S | S</h3>
+          <p>Left: subject <em>The measurement</em>, verb <em>is based</em>. <strong>S</strong>.
+          Right: subject <em>one unit of mechanical horsepower</em>, verb <em>is</em>.
+          <strong>S</strong>. The right piece is long, but length is not the test — it has one subject
+          and one main verb, so it is one sentence.</p>
+          <div class="keybox"><b>Long is not the same as complicated.</b> "550 pounds one foot off the
+          ground in one second" is three prepositional phrases in a row. Phrases never change the label.
+          Find the subject, find the verb, stop.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>PICK: the only hard mark in the list is C’s semicolon</h3>
+          <p>S | S needs a period, semicolon, colon, or comma + FANBOYS. Read the four choices again:
+          comma, comma, semicolon, nothing. Three of them are off the table before you have thought
+          about horsepower at all.</p>
+          <div class="keybox"><b><em>For example</em> is not one of the seven.</b> FANBOYS is
+          <em>for, and, nor, but, or, yet, so</em>. Words like <em>however, therefore, for example, in
+          fact, moreover</em> are transitions: they tell you how the ideas relate, but they have zero
+          gluing power. Put a semicolon or a period in front of them and a comma after.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="faster">
+      <span class="tag">The ten-second version</span>
+      <b>Label, then eliminate before you read.</b> The moment you write S | S, you can delete every
+      choice whose mark isn’t on the top four rows of the table. Here that is three of the four, and it
+      costs you no thinking about the passage whatsoever.
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>C — moved; for example,</strong></p>
+      <p>Step 4 did the work: with S | S there were only four legal marks in the universe, and exactly
+      one of them was printed on the page.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T1, Splice — in disguise.</strong>
+      The words <em>for example</em> make your eye think a join has happened. Cover them: "…weight can
+      be moved, one unit of mechanical horsepower is equivalent…" Two sentences, one comma. Dead.</p></div>
+      <div class="trapitem"><span class="trapkey">B</span><p><strong>T1, Splice — undisguised.</strong>
+      Same crime with no costume on. If you can spot B you can spot A; they are the identical
+      error.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T2, Fused.</strong> No mark at all
+      between two main clauses. This is the choice that feels quickest to read, and "quick to read" has
+      never once been the rule.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-11de53df">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Walkthrough 3 of 3</span>
+        <span class="qid">11de53df</span>
+        <span class="qtopic">Standard English Conventions · Hard</span>
+      </div>
+      <h2>The comma nobody was looking at</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/11de53df_question.png" alt="Question card 11de53df: pinhole camera sentence with four punctuation choices after the word works">
+      <figcaption>The official card. Find the comma already printed after "a single ray." It is not part
+      of any answer choice, and it decides three of the four.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">Consider the mechanics of the pinhole camera: light passes through a small hole,
+      resulting in a focused projected image. A ray diagram reveals how this
+      <span class="u">______</span> the hole’s small size restricts light to a single ray, all light
+      passing through the hole can only arrive at a single destination, eliminating diffraction and
+      ensuring a clear image.</p>
+      <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+      the conventions of Standard English?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span>works because</span></li>
+        <li class="right"><span class="key">B</span><span>works. Because</span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span>works, it’s because</span></li>
+        <li class="trap"><span class="key">D</span><span>works: it’s because</span></li>
+      </ul>
+    </div>
+
+    <div class="word"><b>Diffraction.</b> The way light smears and blurs when it squeezes past an edge.
+    You do not need to know this to answer — in Boundaries the science words are scenery.</div>
+
+    <p class="plain">In plain words: there are two boundaries in this sentence, not one. Your choice has to make both of them legal.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>COVER + SPLIT — and then keep reading</h3>
+          <p>The blank sits after "A ray diagram reveals how this ______". But run your finger along to
+          the full stop and you will hit a second boundary that is already punctuated:</p>
+          <div class="keybox">…restricts light to a single ray<b>,</b> all light passing through the hole
+          can only arrive at a single destination…</div>
+          <p>That comma is printed on the page. Nobody is offering to change it. So whichever choice you
+          pick has to leave <em>that</em> comma sitting somewhere legal.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>LABEL the piece on each side of the <em>far</em> comma</h3>
+          <p>Right of it: <em>all light passing through the hole can only arrive at a single
+          destination</em> — subject <em>all light</em>, verb <em>can arrive</em>. <strong>S</strong>,
+          and that never changes whatever you pick.</p>
+          <p>Left of it: this is what the choices are secretly deciding. "the hole’s small size restricts
+          light to a single ray" is an S on its own — unless a subordinator gets attached to its front,
+          which turns it into a P.</p>
+          <div class="keybox"><b>Table row 5:</b> a lone comma is legal for <em>S | P</em> or
+          <em>P | S</em>. So to save that far comma, the left side of it must become a
+          <strong>P</strong>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>PICK: only one choice puts <em>Because</em> where it does the job</h3>
+          <p>B ends the first sentence at "works" and starts a new one with <em>Because</em>. Now the
+          far comma separates an opening P from the main clause that follows it —
+          <em>Because the hole’s small size restricts light to a single ray, all light … can only arrive
+          at a single destination</em> — which is the ordinary, legal comma you see after every
+          "Because…" opener in English.</p>
+          <div class="vt"><table class="vals">
+            <caption>Both boundaries checked, for all four choices.</caption>
+            <tr><th>Choice</th><th>At the blank</th><th>At the far comma</th></tr>
+            <tr><td>A · works because</td><td>fine (no boundary)</td><td class="lo">S | S — Splice</td></tr>
+            <tr><td>B · works. Because</td><td>S | S — period ✓</td><td class="lo">P | S — comma ✓</td></tr>
+            <tr><td>C · works, it’s because</td><td>S | S — Splice</td><td class="lo">S | S — Splice</td></tr>
+            <tr><td>D · works: it’s because</td><td>colon ✓</td><td class="lo">S | S — Splice</td></tr>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — works. Because</strong></p>
+      <p>Step 1 did the work — the "read to the full stop" habit. Everyone checks the blank; this
+      question is won by checking the comma that was already there.</p>
+    </div>
+
+    <div class="traps">
+      <h3>Why the other three are wrong</h3>
+      <div class="trapitem"><span class="trapkey">A</span><p><strong>T1, Splice at the far comma.</strong>
+      Here <em>because</em> is used up attaching to "reveals how this works," so it is no longer
+      available to soften the second half. That leaves "…restricts light to a single ray, all light …
+      can only arrive at a single destination" — two main clauses, one comma.</p></div>
+      <div class="trapitem"><span class="trapkey">C</span><p><strong>T1, Splice — twice.</strong> The
+      comma at the blank joins two sentences, and the far comma joins two more. A choice can be wrong in
+      two places at once; you only need to find one.</p></div>
+      <div class="trapitem"><span class="trapkey">D</span><p><strong>T1, Splice at the far comma — the
+      real trap of this set.</strong> The colon is genuinely fine: the left side is a finished sentence
+      and the right side delivers the explanation it promised. So you fix the boundary you were looking
+      at, feel good, and move on — while "it’s because…" quietly created a main clause and left the far
+      comma holding two sentences together. <b>One boundary fixed, one boundary broken.</b></p></div>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — four drills</h3>
+      <p class="intro">Same four steps every time: cover, split, label S or P, look at the table. Say the
+      two labels out loud before you look at the choices. The last one is the reverse case — the one
+      where the comma is right.</p>
+
+      <div class="pq" id="q-25273a8d">
+        <p class="pqtag">25273a8d · Hard · the <em>Flying Cloud</em> record run</p>
+        <figure class="card">
+          <img src="../data/images/25273a8d_question.png" alt="Question card 25273a8d: clipper ship sentence with four punctuation choices after the words San Francisco Bay">
+        </figure>
+        <p class="q-text">On July 23, 1854, a clipper ship called the <em>Flying Cloud</em> entered San
+        Francisco <span class="u">______</span> left New York Harbor under the guidance of Captain
+        Josiah Perkins Creesy and his wife, navigator Eleanor Creesy, a mere 89 days and 8 hours
+        earlier, the celebrated ship set a record that would stand for 135 years.</p>
+        <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+        the conventions of Standard English?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>Bay and having</span></li>
+          <li><span class="key">B</span><span>Bay. Having</span></li>
+          <li><span class="key">C</span><span>Bay, having</span></li>
+          <li><span class="key">D</span><span>Bay having</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — Bay. Having.</b> <b>LABEL</b> did the work, and the trick is
+          the word <em>having</em>. An "-ing" word on its own is never the verb of a sentence, so
+          "Having left New York Harbor … earlier" is a <strong>P</strong> — but keep reading and you
+          find the real verb: <em>the celebrated ship <strong>set</strong> a record</em>. So the right
+          piece is an opening P bolted onto an S, which together make one whole sentence.
+          <strong>S | S → period.</strong></p>
+          <p>C is a <b>Splice</b>. D is <b>Fused</b>. A is also <b>Fused</b> by table row 4 — the
+          FANBOYS row says <em>, and</em>, and the comma isn’t optional decoration; it is half the
+          mark.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-283a952a">
+        <p class="pqtag">283a952a · Easy · the 9,200-year-old solar storm</p>
+        <figure class="card">
+          <img src="../data/images/283a952a_question.png" alt="Question card 283a952a: solar storm sentence with four punctuation choices after the word time">
+        </figure>
+        <p class="q-text">By analyzing ice cores from Greenland and Antarctica, a research team at
+        Sweden’s Lund University discovered evidence of a solar storm that occurred 9,200 years ago.
+        Scientists had previously thought the Sun to be in a relatively “quiet” phase at that
+        <span class="u">______</span> the Lund team’s finding suggests otherwise.</p>
+        <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+        the conventions of Standard English?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>time but</span></li>
+          <li><span class="key">B</span><span>time, but</span></li>
+          <li><span class="key">C</span><span>time,</span></li>
+          <li><span class="key">D</span><span>time</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — time, but.</b> <b>PICK</b> did the work — table row 4.
+          Left: <em>Scientists had previously thought…</em> (<strong>S</strong>). Right: <em>the Lund
+          team’s finding suggests otherwise</em> (<strong>S</strong>). S | S, and the only hard mark on
+          offer is the comma + FANBOYS combination.</p>
+          <p>A is <b>Fused</b> — <em>but</em> without its comma can’t join two sentences. C is a
+          <b>Splice</b>. D is <b>Fused</b> with nothing at all. Notice that A and B differ by exactly
+          one character, and that character is the answer.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-89fc8507">
+        <p class="pqtag">89fc8507 · Easy · Sikumiut, <em>People of the Ice</em></p>
+        <figure class="card">
+          <img src="../data/images/89fc8507_question.png" alt="Question card 89fc8507: Inuit rock group sentence with four punctuation choices after the word blend">
+        </figure>
+        <p class="q-text">In 1976, the Inuit rock group Sikumiut recorded the album <em>People of the
+        Ice</em>. Though only their first record, it shows a band already skilled at the difficult task
+        of making music that sounds easy and fun. On songs like “Utirumavunga,” Lucassie Koperqualuk’s
+        guitar riffs effortlessly <span class="u">______</span> Charlie Adams’s delightfully catchy
+        vocal melodies.</p>
+        <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+        the conventions of Standard English?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>blend, with</span></li>
+          <li><span class="key">B</span><span>blend. With</span></li>
+          <li><span class="key">C</span><span>blend; with</span></li>
+          <li><span class="key">D</span><span>blend with</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>D — blend with.</b> <b>LABEL</b> did the work. The right piece is
+          <em>with Charlie Adams’s … vocal melodies</em> — a prepositional phrase with no subject and no
+          verb. That is a <strong>P</strong>, and it is not an optional add-on: <em>blend</em> needs it
+          to finish the thought. The two pieces are <b>one sentence</b>, so the bottom row of the table
+          applies — no mark at all.</p>
+          <p>B and C are <b>Chopped</b>: "With Charlie Adams’s vocal melodies." is a fragment however
+          you dress it. A is <b>Overkill</b> — a comma parked between a verb and the phrase it needs.
+          Your ear wants a breath after <em>effortlessly</em>; the table doesn’t care.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-7e989974">
+        <p class="pqtag">7e989974 · Medium · the reverse case — where the comma wins</p>
+        <figure class="card">
+          <img src="../data/images/7e989974_question.png" alt="Question card 7e989974: moss sentence with four punctuation choices after the word themselves">
+        </figure>
+        <p class="q-text">Robin Wall Kimmerer of the Citizen Potawatomi Nation is a bryologist, a plant
+        scientist who specializes in mosses. To Kimmerer, mosses are Earth’s most adaptable plants: they
+        can clone <span class="u">______</span> enter a dormant state in times of drought, and grow in
+        areas that don’t have soil.</p>
+        <p class="q-text" style="margin-top:12px">Which choice completes the text so that it conforms to
+        the conventions of Standard English?</p>
+        <ul class="choices">
+          <li><span class="key">A</span><span>themselves;</span></li>
+          <li><span class="key">B</span><span>themselves,</span></li>
+          <li><span class="key">C</span><span>themselves. And</span></li>
+          <li><span class="key">D</span><span>themselves</span></li>
+        </ul>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>B — themselves,</b> and this one is the reverse of everything
+          above. <b>LABEL</b> did the work again: the right piece is <em>enter a dormant state in times
+          of drought</em> — no subject of its own, because it is still borrowing <em>they can</em> from
+          the front. <strong>P</strong>. And the third comma later in the sentence gives the game away:
+          <em>clone themselves, enter a dormant state…, and grow in areas…</em> is a plain list of three
+          things mosses can do.</p>
+          <p>A is <b>Overkill</b> — a semicolon can’t separate items in a simple list. C is
+          <b>Chopped</b>: "And enter a dormant state in times of drought." has no subject. D is
+          <b>Fused</b>: the list needs its comma. <b>The point:</b> nothing here got safer by being
+          stronger. Count the sentences first, and let the table pick.</p></div>
+        </details>
+      </div>
+
+      <div class="pq">
+        <p class="pqtag">stretch · retry in the app</p>
+        <p class="q-text">Twelve hard Boundaries questions you have already got right. Do them again with
+        the four steps said out loud — the goal is not the answer, it is being able to name the label on
+        each side before you look at the choices:
+        <span class="qid">08241402</span> <span class="qid">11056467</span> <span class="qid">26fa7d61</span>
+        <span class="qid">436cccf5</span> <span class="qid">566fac8d</span> <span class="qid">5e97e5a9</span>
+        <span class="qid">5ed15c24</span> <span class="qid">6e103ce0</span> <span class="qid">7ac9793d</span>
+        <span class="qid">c2a8dd7d</span> <span class="qid">e9fa6976</span> <span class="qid">fa821b89</span>.</p>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Count, don’t listen.</strong> Thumb over the blank, line down the middle, two pieces. Where you would pause is not evidence.</span></li>
+      <li><span class="n">2</span><span><strong>Label each side S or P.</strong> Subject + its own verb + no <em>because/although/as</em> on the front = a whole sentence. Everything else is a piece.</span></li>
+      <li><span class="n">3</span><span><strong>S | S needs a hard mark.</strong> Period, semicolon, colon, or comma + FANBOYS. There is no fifth option and there are no exceptions.</span></li>
+      <li><span class="n">4</span><span><strong>A lone comma can never join two sentences.</strong> That is a splice — and it is reliably the choice that sounds best, so expect to want it.</span></li>
+      <li><span class="n">5</span><span><strong>Read to the full stop, not to the blank.</strong> Any comma already printed further along has to come out legal too.</span></li>
+    </ul>
+  </section>
+
+</div>
