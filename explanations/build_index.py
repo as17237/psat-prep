@@ -40,6 +40,12 @@ def main():
         m = re.search(r'<!--\s*artifact:\s*(\S+)\s*-->', html)
         artifact_url = m.group(1) if m else None
         is_beta = re.search(r'<!--\s*beta\b', html) is not None
+        # A `<!-- primary -->` page is the model-first front door for the ids it
+        # covers and WINS a collision against a non-primary page holding the same
+        # id (the older, slower single-question walkthrough it supersedes and
+        # links to). Without this, plain alphabetical order decides which page a
+        # student lands on, which is not a decision anyone made.
+        is_primary = re.search(r'<!--\s*primary\b', html) is not None
         # A page that has never been published as an artifact is still openable
         # from the app: fall back to its repo-relative path, which is exactly the
         # URL relative to index.html (served at /explanations/<file>).
@@ -53,19 +59,27 @@ def main():
         # registration byte-identical while giving the cluster pages full coverage.
         ids = list(dict.fromkeys(re.findall(r'id="q-([0-9a-f]{8})"', html)))
         pages[name] = {'url': url, 'title': title.group(1) if title else name,
-                       'questionCount': len(ids), 'beta': is_beta}
+                       'questionCount': len(ids), 'beta': is_beta, 'primary': is_primary}
         if not artifact_url:
             unpublished.append(name)
         target = beta_questions if is_beta else questions
         for qid in ids:
-            if qid in target:
-                print(f"  !! {qid} appears in two {'beta ' if is_beta else ''}pages: {target[qid]['file']} and {name}")
+            prev = target.get(qid)
+            if prev:
+                if prev.get('primary') and not is_primary:
+                    print(f"  .. {qid}: keeping primary {prev['file']} over {name}")
+                    continue
+                if not (is_primary and not prev.get('primary')):
+                    print(f"  !! {qid} appears in two {'beta ' if is_beta else ''}pages: {prev['file']} and {name}")
+                else:
+                    print(f"  .. {qid}: primary {name} supersedes {prev['file']}")
             target[qid] = {
                 'file': name,
                 'url': f'{url}#q-{qid}',
                 'skill': meta.get(qid, {}).get('skill'),
                 'test': meta.get(qid, {}).get('test'),
                 'beta': is_beta,
+                'primary': is_primary,
             }
 
     out = {'generated': datetime.datetime.now().isoformat(timespec='seconds'),

@@ -250,11 +250,25 @@ function manualTriggerCloudSync(isManual = false) {
 // lane (APP_ENV.isBeta) and are badged — CLAUDE.md failure mode 1: unverified
 // content is never presented to the real student as fact. Twin site with the same
 // gate: parent.js explainerFor().
-let explainerIndex = { questions: {}, betaQuestions: {} };
+let explainerIndex = { questions: {}, betaQuestions: {}, pages: {} };
 fetch('explanations/index.json')
   .then(r => r.ok ? r.json() : null)
-  .then(d => { explainerIndex = { questions: (d && d.questions) || {}, betaQuestions: (d && d.betaQuestions) || {} }; })
-  .catch(() => { explainerIndex = { questions: {}, betaQuestions: {} }; });
+  .then(d => {
+    explainerIndex = {
+      questions: (d && d.questions) || {},
+      betaQuestions: (d && d.betaQuestions) || {},
+      pages: (d && d.pages) || {},
+    };
+    refreshReviewWalkthroughs();
+  })
+  .catch(() => { explainerIndex = { questions: {}, betaQuestions: {}, pages: {} }; });
+
+// The index arrives async. If the Review tab is already on screen when it lands,
+// re-render so the walkthrough card appears without needing a tab switch.
+function refreshReviewWalkthroughs() {
+  const c = document.getElementById('view-review');
+  if (c && c.innerHTML.trim()) renderReview();
+}
 
 function explainerHitFor(questionId) {
   const id8 = String(questionId).slice(0, 8);
@@ -435,7 +449,42 @@ function renderReview() {
        <button type="button" class="btn btn-md btn-secondary" onclick="startGapDrillFromLobby()">Start high-yield drill</button>
      </div>`;
 
-  container.innerHTML = dueSection + drillSection;
+  // WI-21: the skill walkthroughs, listed straight from explanations/index.json.
+  // Only pages that still OWN at least one question id are offered — a page whose
+  // ids were all superseded by a `primary` cluster page is a dead end the student
+  // should never be sent to, and the cluster page links to it as the slow version
+  // anyway. A beta page passes the same isBeta gate as the per-question link, so
+  // unverified content cannot appear here either (CLAUDE.md mode 2: same rule,
+  // both sites). No page in the index -> the card is omitted entirely, never an
+  // empty shell.
+  const liveFiles = new Set(Object.values(explainerIndex.questions || {})
+    .filter(e => e && e.url && (!e.beta || APP_ENV.isBeta))
+    .map(e => e.file));
+  if (APP_ENV.isBeta) {
+    Object.values(explainerIndex.betaQuestions || {})
+      .forEach(e => { if (e && e.url) liveFiles.add(e.file); });
+  }
+  const walkthroughs = Object.keys(explainerIndex.pages || {})
+    .map(file => [file, explainerIndex.pages[file]])
+    .filter(([file, p]) => p && p.url && liveFiles.has(file))
+    .sort((a, b) => (b[1].questionCount || 0) - (a[1].questionCount || 0));
+
+  const walkSection = walkthroughs.length ? `<div class="card space-y-3">
+       <div class="question-meta"><span class="badge badge-accent">Walkthroughs</span></div>
+       <h3 class="card-title">Visual skill walkthroughs</h3>
+       <p class="card-subtitle">One page per skill: the mental model first, then worked misses, then practice. Opens in a new tab.</p>
+       <div class="space-y-2">
+         ${walkthroughs.map(([, p]) => `<a href="${esc(p.url)}" target="_blank" rel="noopener"
+              class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900 font-semibold text-sm transition-colors">
+              <span class="flex items-center">
+                <i data-lucide="lightbulb" class="w-4 h-4 mr-2 text-teal-600"></i>${esc(p.title)}
+              </span>
+              <span class="text-xs font-normal text-teal-700">${p.questionCount} question${p.questionCount === 1 ? '' : 's'}${p.beta ? ' · 🧪 Beta' : ''}</span>
+            </a>`).join('')}
+       </div>
+     </div>` : '';
+
+  container.innerHTML = dueSection + drillSection + walkSection;
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 

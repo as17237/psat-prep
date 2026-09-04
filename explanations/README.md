@@ -54,6 +54,21 @@ questions that have one — the student app under the rationale card, the parent
 portal at the top of the per-question modal. A missing or unreachable
 `index.json` just leaves the link hidden.
 
+### Primary pages (WI-21)
+
+A cluster page marked `<!-- primary -->` is the **model-first front door** for the
+ids it covers and wins any collision with an older single-question page holding
+the same id (which it links to as the "full slow version"). Without this, plain
+alphabetical order would silently decide which page the student lands on.
+`command-of-evidence-graphs.html` and `nonlinear-functions-model.html` are
+primary; the pages they supersede own no ids and are not listed in the Review
+tab's walkthrough card.
+
+Both carry a `<!-- verified: <date> -->` stamp recording that every cited figure
+was checked against the card PNGs (2026-09-04: all 14 cards read; one correction
+— the condor wild-vs-captive crossover is 2014, not 2015, and the captive range
+is ~168–193).
+
 ### Beta pages (WI-21)
 
 A cluster page whose numbers are **not yet card-verified** carries a
