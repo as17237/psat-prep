@@ -1,17 +1,132 @@
 {
-  "generated": "2026-08-28T18:41:35",
+  "betaQuestions": {
+    "0664c858": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-0664c858"
+    },
+    "1b9fa866": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-1b9fa866"
+    },
+    "25161d0e": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-25161d0e"
+    },
+    "36e2afc3": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-36e2afc3"
+    },
+    "4aab1fa5": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-4aab1fa5"
+    },
+    "6488f498": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-6488f498"
+    },
+    "7c1e22ca": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-7c1e22ca"
+    },
+    "858be80e": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-858be80e"
+    },
+    "987887cd": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-987887cd"
+    },
+    "9f55dec4": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-9f55dec4"
+    },
+    "a795332a": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-a795332a"
+    },
+    "ac8cfb10": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-ac8cfb10"
+    },
+    "cc4d3cac": {
+      "beta": true,
+      "file": "explanations/command-of-evidence-graphs.html",
+      "skill": "Command of Evidence",
+      "test": "Reading and Writing",
+      "url": "explanations/command-of-evidence-graphs.html#q-cc4d3cac"
+    },
+    "ce6b914c": {
+      "beta": true,
+      "file": "explanations/nonlinear-functions-model.html",
+      "skill": "Nonlinear functions",
+      "test": "Math",
+      "url": "explanations/nonlinear-functions-model.html#q-ce6b914c"
+    }
+  },
+  "generated": "2026-09-03T19:15:18",
   "pages": {
     "explainers/five-hard-questions.html": {
+      "beta": false,
       "questionCount": 5,
       "title": "Sketch, Don't Solve",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509"
     },
+    "explanations/command-of-evidence-graphs.html": {
+      "beta": true,
+      "questionCount": 8,
+      "title": "Don't Read the Graph \u2014 Interrogate It",
+      "url": "explanations/command-of-evidence-graphs.html"
+    },
     "explanations/command-of-evidence.html": {
+      "beta": false,
       "questionCount": 8,
       "title": "Does It Do The Job?",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3"
     },
+    "explanations/nonlinear-functions-model.html": {
+      "beta": true,
+      "questionCount": 6,
+      "title": "Name the Shape Before You Touch the Numbers",
+      "url": "explanations/nonlinear-functions-model.html"
+    },
     "explanations/nonlinear-functions.html": {
+      "beta": false,
       "questionCount": 3,
       "title": "Test It, Don't Solve It",
       "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd"
@@ -19,96 +134,112 @@
   },
   "questions": {
     "0664c858": {
+      "beta": false,
       "file": "explanations/nonlinear-functions.html",
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-0664c858"
     },
     "1224cb23": {
+      "beta": false,
       "file": "explainers/five-hard-questions.html",
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-1224cb23"
     },
     "1b9fa866": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-1b9fa866"
     },
     "25161d0e": {
+      "beta": false,
       "file": "explanations/nonlinear-functions.html",
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-25161d0e"
     },
     "6488f498": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-6488f498"
     },
     "7c1e22ca": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-7c1e22ca"
     },
     "7ced5c84": {
+      "beta": false,
       "file": "explainers/five-hard-questions.html",
       "skill": "Nonlinear equations in one variable and systems of equations in two variables",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-7ced5c84"
     },
     "858be80e": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-858be80e"
     },
     "9f55dec4": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-9f55dec4"
     },
     "a795332a": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-a795332a"
     },
     "ac8cfb10": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-ac8cfb10"
     },
     "cc4d3cac": {
+      "beta": false,
       "file": "explanations/command-of-evidence.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/35d1537d-9fb6-4781-9973-0910b6ea2af3#q-cc4d3cac"
     },
     "ce6b914c": {
+      "beta": false,
       "file": "explanations/nonlinear-functions.html",
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/51908d27-ac99-487d-98c1-2997e57636dd#q-ce6b914c"
     },
     "d98c3c8c": {
+      "beta": false,
       "file": "explainers/five-hard-questions.html",
       "skill": "Nonlinear functions",
       "test": "Math",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-d98c3c8c"
     },
     "e465d17e": {
+      "beta": false,
       "file": "explainers/five-hard-questions.html",
       "skill": "Command of Evidence",
       "test": "Reading and Writing",
       "url": "https://claude.ai/code/artifact/dc39798f-97a8-4121-917f-35bb5d2eb509#q-e465d17e"
     },
     "fde9312b": {
+      "beta": false,
       "file": "explainers/five-hard-questions.html",
       "skill": "Text Structure and Purpose",
       "test": "Reading and Writing",

@@ -244,20 +244,33 @@ function manualTriggerCloudSync(isManual = false) {
   }
 }
 
-// Explainer index: question id -> published step-by-step explainer
-let explainerIndex = null;
+// Explainer index: question id -> step-by-step explainer.
+// `questions` are the verified, always-on links. `betaQuestions` (the model-first
+// cluster pages whose numbers are not yet card-verified) surface ONLY in the beta
+// lane (APP_ENV.isBeta) and are badged — CLAUDE.md failure mode 1: unverified
+// content is never presented to the real student as fact. Twin site with the same
+// gate: parent.js explainerFor().
+let explainerIndex = { questions: {}, betaQuestions: {} };
 fetch('explanations/index.json')
   .then(r => r.ok ? r.json() : null)
-  .then(d => { explainerIndex = (d && d.questions) || {}; })
-  .catch(() => { explainerIndex = {}; });
+  .then(d => { explainerIndex = { questions: (d && d.questions) || {}, betaQuestions: (d && d.betaQuestions) || {} }; })
+  .catch(() => { explainerIndex = { questions: {}, betaQuestions: {} }; });
+
+function explainerHitFor(questionId) {
+  const id8 = String(questionId).slice(0, 8);
+  const verified = explainerIndex.questions[id8];
+  const beta = APP_ENV.isBeta ? explainerIndex.betaQuestions[id8] : null;
+  return beta || verified || null;   // in beta the model-first page wins; otherwise verified only
+}
 
 function showExplainerLink(questionId) {
   const el = document.getElementById('explainer-link');
   if (!el) return;
-  const hit = explainerIndex && explainerIndex[String(questionId).slice(0, 8)];
+  const hit = explainerHitFor(questionId);
   if (hit && hit.url) {
     el.href = hit.url;
-    document.getElementById('explainer-link-skill').innerText = hit.skill || '';
+    const skillEl = document.getElementById('explainer-link-skill');
+    if (skillEl) skillEl.innerText = (hit.skill || '') + (hit.beta ? ' · 🧪 Beta' : '');
     el.classList.remove('hidden');
     el.classList.add('flex');
   } else {

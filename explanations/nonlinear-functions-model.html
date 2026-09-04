@@ -1,0 +1,538 @@
+<!-- depth: default -->
+<!-- beta: numbers not yet card-verified; miss set from 2026-08-26 worklist. Surfaces only in APP_ENV.isBeta. -->
+<!-- cluster: nonlinear-functions-model · 3 misses, one model (see explanations/SYSTEM.md) -->
+<!-- companion to explanations/nonlinear-functions.html, which holds the full slow walkthroughs -->
+<title>Name the Shape Before You Touch the Numbers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=STIX+Two+Text:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+
+<style>
+  :root{
+    --paper:#F7F9FA; --panel:#FFFFFF; --ink:#12252E; --ink-soft:#4A6472; --ink-faint:#7C949F;
+    --grid:#D9E4E9; --rule:#C8D8DF; --teal:#0E7C86; --teal-soft:#E2F1F2;
+    --amber:#B87415; --amber-soft:#FBF0DC; --amber-line:#F2A93B;
+    --brick:#B4514A; --brick-soft:#FAEDEC; --shadow:rgba(18,37,46,.07);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+      --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+      --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+      --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0E1A20; --panel:#152630; --ink:#E8F0F3; --ink-soft:#A5BDC7; --ink-faint:#6F8B97;
+    --grid:#1D2E37; --rule:#263B46; --teal:#4FC3CB; --teal-soft:#123A3E;
+    --amber:#F2A93B; --amber-soft:#33280F; --amber-line:#F2A93B;
+    --brick:#E68B84; --brick-soft:#3A1F1D; --shadow:rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper);
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:28px 28px;
+    color:var(--ink); font-family:"Public Sans","Helvetica Neue",Arial,sans-serif;
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 24px 96px;}
+
+  .mast{padding:72px 0 36px;}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 18px;}
+  h1{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(42px,7vw,66px);line-height:1.02;letter-spacing:-.02em;margin:0 0 20px;text-wrap:balance;}
+  h1 em{font-style:italic;color:var(--teal);}
+  .standfirst{font-family:"Newsreader",Georgia,serif;font-size:20px;line-height:1.55;color:var(--ink-soft);max-width:60ch;margin:0;}
+  .howto{background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:28px;font-size:16px;line-height:1.6;}
+  .howto strong{color:var(--teal);}
+
+  .qsec{margin-top:72px;}
+  .qhead{border-top:2px solid var(--ink);padding-top:18px;}
+  .tagrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
+  .qnum{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-right:4px;}
+  .qid{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;background:var(--teal-soft);color:var(--teal);padding:3px 9px;border-radius:3px;font-weight:600;}
+  .qtopic{font-size:12px;color:var(--ink-faint);}
+  h2{font-family:"Newsreader",Georgia,serif;font-weight:500;font-size:clamp(27px,4vw,38px);line-height:1.15;letter-spacing:-.015em;margin:0;text-wrap:balance;max-width:24ch;}
+
+  .q{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:24px 26px;margin-top:26px;box-shadow:0 1px 2px var(--shadow);}
+  .q-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;}
+  .q-text{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;margin:0;max-width:64ch;}
+  .q-text .u{border-bottom:2px solid var(--amber-line);background:var(--amber-soft);padding:1px 2px;}
+  .eq{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:26px;line-height:1.5;text-align:center;margin:18px 0;overflow-x:auto;}
+  .eq-in{font-family:"STIX Two Text",Cambria,Georgia,serif;font-size:1.06em;}
+  var{font-family:"STIX Two Text",Cambria,Georgia,serif;font-style:italic;}
+  .paren{font-size:1.5em;line-height:0;vertical-align:-.22em;}
+  .frac{display:inline-block;text-align:center;font-size:.6em;line-height:1.08;vertical-align:-.18em;padding:0 1px;}
+  .fnum{display:block;padding:0 3px;}
+  .fden{display:block;padding:0 3px;border-top:1px solid currentColor;}
+
+  .choices{list-style:none;padding:0;margin:20px 0 0;display:grid;gap:7px;}
+  .choices li{display:flex;gap:12px;align-items:baseline;padding:10px 13px;border-radius:2px;border:1px solid transparent;font-size:16px;line-height:1.5;}
+  .choices .key{font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--ink-faint);flex:none;width:15px;}
+  .choices .right{background:var(--teal-soft);border-color:var(--teal);}
+  .choices .right .key{color:var(--teal);}
+  .choices .trap{background:var(--brick-soft);}
+  .choices .trap .key{color:var(--brick);}
+  .verdict{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-left:auto;flex:none;padding-left:12px;}
+  .right .verdict{color:var(--teal);}
+  .trap .verdict{color:var(--brick);}
+
+  .plain{font-family:"Newsreader",Georgia,serif;font-size:19px;line-height:1.6;color:var(--ink-soft);margin:24px 0 0;max-width:62ch;font-style:italic;}
+
+  /* steps */
+  .steps{margin-top:32px;counter-reset:s;}
+  .step{display:grid;grid-template-columns:44px 1fr;gap:20px;padding:26px 0;border-top:1px solid var(--rule);}
+  .step:first-child{border-top:0;padding-top:6px;}
+  .snum{
+    font-family:"STIX Two Text",serif;font-size:20px;font-weight:600;color:var(--teal);
+    width:38px;height:38px;border:1.5px solid var(--teal);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .step h3{font-family:"Newsreader",Georgia,serif;font-weight:600;font-size:22px;line-height:1.3;margin:4px 0 12px;text-wrap:balance;}
+  .step p{margin:0 0 12px;max-width:62ch;}
+  .step p:last-child{margin-bottom:0;}
+  .step ul{margin:0 0 12px;padding-left:22px;max-width:62ch;}
+  .step li{margin-bottom:7px;}
+
+  .word{background:var(--amber-soft);border-left:3px solid var(--amber-line);padding:14px 18px;margin:0 0 14px;border-radius:0 2px 2px 0;font-size:16px;line-height:1.55;}
+  .word b{color:var(--amber);font-weight:700;}
+  .word + .word{margin-top:-4px;}
+
+  .vt{overflow-x:auto;margin:0 0 16px;}
+  table.vals{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:16px;min-width:340px;}
+  table.vals th,table.vals td{border:1px solid var(--rule);padding:8px 15px;text-align:center;}
+  table.vals th{background:var(--teal-soft);color:var(--teal);font-weight:700;font-size:14px;}
+  table.vals td.lo{background:var(--amber-soft);font-weight:700;}
+  table.vals caption{caption-side:bottom;text-align:left;padding-top:9px;font-size:14px;color:var(--ink-faint);line-height:1.5;}
+
+  .faster{border:1px dashed var(--ink-faint);border-radius:2px;padding:14px 18px;margin:0 0 14px;font-size:15px;line-height:1.6;color:var(--ink-soft);}
+  .faster b{color:var(--ink);font-weight:600;}
+  .faster .tag{display:block;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:7px;}
+  .keybox{background:var(--teal-soft);border-radius:2px;padding:16px 20px;margin:0 0 14px;font-size:16px;line-height:1.6;}
+  .keybox b{color:var(--teal);}
+
+  figure{margin:26px 0 0;}
+  .figbox{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:18px;overflow-x:auto;}
+  .figbox svg{display:block;width:100%;height:auto;min-width:440px;}
+  figcaption{font-size:14px;color:var(--ink-soft);margin-top:12px;line-height:1.55;max-width:62ch;}
+  .axis{stroke:var(--ink-faint);stroke-width:1.2;}
+  .gridline{stroke:var(--grid);stroke-width:1;}
+  .curve{fill:none;stroke:var(--teal);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .curve-ghost{fill:none;stroke:var(--ink-faint);stroke-width:2;stroke-dasharray:5 4;}
+  .hline{stroke:var(--amber-line);stroke-width:2.4;}
+  .dash{stroke:var(--brick);stroke-width:1.8;stroke-dasharray:6 5;}
+  .dot{fill:var(--brick);}
+  .svgtext{font-family:"Public Sans",sans-serif;font-size:13px;font-weight:600;fill:var(--ink-soft);}
+  .svgmath{font-family:"STIX Two Text",serif;font-size:16px;fill:var(--ink);font-style:italic;}
+  .svgnote{font-family:"Public Sans",sans-serif;font-size:12px;fill:var(--ink-faint);}
+
+  .answer{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:2px;padding:20px 24px;margin-top:30px;}
+  .answer h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 10px;}
+  .answer p{margin:0;font-size:18px;line-height:1.6;}
+  .answer p + p{margin-top:10px;}
+
+  .traps{margin-top:26px;}
+  .traps h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brick);margin:0 0 4px;}
+  .trapitem{display:grid;grid-template-columns:26px 1fr;gap:14px;padding:15px 0;border-bottom:1px solid var(--rule);align-items:baseline;}
+  .trapitem:last-child{border-bottom:0;}
+  .trapkey{font-weight:700;color:var(--brick);font-size:15px;}
+  .trapitem p{margin:0;font-size:16px;line-height:1.6;max-width:60ch;}
+
+  /* reading anatomy */
+  .anat{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:6px 24px;margin:0 0 16px;}
+  .anat-row{display:grid;grid-template-columns:96px 1fr;gap:18px;padding:16px 0;border-bottom:1px solid var(--rule);}
+  .anat-row:last-child{border-bottom:0;}
+  .anat-tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--teal);padding-top:5px;line-height:1.35;}
+  .anat-txt{font-family:"Newsreader",Georgia,serif;font-size:17px;line-height:1.55;}
+  .anat-txt .hi{background:var(--amber-soft);border-bottom:2px solid var(--amber-line);padding:1px 2px;}
+  .anat-why{font-size:15px;color:var(--ink-soft);margin-top:7px;line-height:1.55;}
+
+  .tblwrap{overflow-x:auto;margin:0 0 16px;background:var(--panel);border:1px solid var(--rule);border-radius:2px;}
+  table.data{border-collapse:collapse;width:100%;min-width:520px;font-size:16px;}
+  table.data caption{caption-side:top;text-align:left;padding:16px 20px 10px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+  table.data th,table.data td{padding:12px 20px;text-align:left;border-top:1px solid var(--rule);}
+  table.data thead th{font-size:12px;font-weight:700;color:var(--ink-soft);line-height:1.35;vertical-align:bottom;}
+  table.data td.num{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;}
+  table.data td.win{color:var(--teal);}
+  table.data td.check{text-align:center;color:var(--teal);font-weight:700;width:60px;}
+
+  /* practice block */
+  .practice{margin-top:34px;border-top:2px solid var(--teal);padding-top:22px;}
+  .practice > h3{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:0 0 6px;}
+  .practice > p.intro{margin:0 0 18px;color:var(--ink-soft);max-width:62ch;}
+  .pq{background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:20px 22px;margin-bottom:14px;}
+  .pq .pqtag{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--ink-faint);margin:0 0 10px;}
+  .pq .q-text{font-size:17px;}
+  details.reveal{margin-top:16px;border-top:1px solid var(--rule);padding-top:14px;}
+  details.reveal summary{
+    cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--teal);list-style:none;display:inline-flex;align-items:center;gap:8px;
+    padding:7px 14px;border:1.5px solid var(--teal);border-radius:2px;
+  }
+  details.reveal summary::-webkit-details-marker{display:none;}
+  details.reveal summary::before{content:"▸";font-size:12px;}
+  details.reveal[open] summary::before{content:"▾";}
+  details.reveal summary:hover{background:var(--teal-soft);}
+  details.reveal summary:focus-visible{outline:2px solid var(--amber-line);outline-offset:2px;}
+  details.reveal .revealed{margin-top:14px;font-size:16px;line-height:1.6;max-width:62ch;}
+  details.reveal .revealed b{color:var(--teal);}
+
+  .close{margin-top:80px;border-top:2px solid var(--ink);padding-top:28px;}
+  .rules{list-style:none;padding:0;margin:0;}
+  .rules li{display:grid;grid-template-columns:26px 1fr;gap:14px;align-items:baseline;padding:15px 0;border-bottom:1px solid var(--rule);}
+  .rules li:last-child{border-bottom:0;}
+  .rules .n{font-family:"STIX Two Text",serif;font-size:19px;color:var(--teal);font-weight:600;}
+  .rules span{color:var(--ink-soft);}
+  .rules strong{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    .wrap{padding:0 18px 64px;}
+    .mast{padding:48px 0 24px;}
+    .q,.anat{padding:20px 18px;}
+    .step{grid-template-columns:34px 1fr;gap:14px;}
+    .snum{width:30px;height:30px;font-size:16px;}
+    .anat-row{grid-template-columns:1fr;gap:6px;}
+    .anat-tag{padding-top:0;}
+    .choices .verdict{display:none;}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+
+  /* cluster-page additive (approved extension, see explanations/SYSTEM.md section 4): official card images */
+  figure.card{margin:26px 0 0;background:var(--panel);border:1px solid var(--rule);border-radius:2px;padding:14px;}
+  figure.card img{display:block;width:100%;height:auto;border-radius:2px;}
+  figure.card figcaption{margin:12px 4px 2px;}
+
+</style>
+
+<div class="wrap">
+
+  <div style="background:#B87415;color:#fff;padding:10px 16px;border-radius:2px;margin:24px 0 8px;font:600 14px/1.5 'Public Sans',Arial,sans-serif;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;">
+    <span>🧪 <strong>BETA</strong> — the figures in this walkthrough are still being verified against the official question cards. Don't treat any number here as final.</span>
+    <a href="../index.html" style="color:#fff;text-decoration:underline;white-space:nowrap;">← Back to Prep Egg</a>
+  </div>
+
+  <header class="mast">
+    <p class="kicker">PSAT 8/9 · Nonlinear functions · 3 misses, one model</p>
+    <h1>Name the shape<br><em>before you touch the numbers.</em></h1>
+    <p class="standfirst">Three missed questions, three picked <strong>D</strong>s — a doubled answer,
+    a grabbed story-number, a flattened exponent. Different slips, one cause: pushing symbols around
+    without first naming which <em>family</em> of function the story belongs to. Four steps fix all three.</p>
+    <div class="howto">
+      <strong>How to use this.</strong> Learn the four steps first — they fit on one screen. Then see
+      each step fire on the three misses (short versions; the full slow walkthroughs live in
+      <em>nonlinear-functions.html</em>, linked under each one). Finish with three easy drills plus
+      stretch targets. Every card image is the authority.
+    </div>
+  </header>
+
+  <section class="qsec" id="model">
+    <div class="qhead">
+      <div class="tagrow"><span class="qnum">The model</span></div>
+      <h2>Shape → Form → Feature → Check</h2>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SHAPE: name the family from the story</h3>
+          <p>Before writing anything, ask what is <em>growing, peaking, or multiplying</em>:</p>
+          <div class="vt"><table class="vals">
+            <caption>The three shapes this skill ever asks about.</caption>
+            <tr><th>Story signal</th><th>Family</th><th>Standard form</th></tr>
+            <tr><td>two related lengths multiplied (area, product)</td><td class="lo">quadratic</td><td><span class="eq-in">ax² + bx + c = 0</span></td></tr>
+            <tr><td>best, most, maximum, peak</td><td class="lo">parabola vertex</td><td><span class="eq-in">x = −b / 2a</span></td></tr>
+            <tr><td>doubling, halving, each period</td><td class="lo">exponential</td><td><span class="eq-in">(start)(factor)<sup>time</sup></span></td></tr>
+          </table></div>
+          <div class="keybox"><b>One sentence before one symbol.</b> "This is a max-of-a-parabola
+          question" decides the whole solution; the arithmetic after is bookkeeping.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>FORM: write it and label every slot</h3>
+          <p>Copy the standard form and point at each piece: which number is <var>a</var>, which is
+          <var>b</var>, which is the start, which is the factor. Most misses below died right here —
+          with the right formula fed the wrong numbers.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">3</div>
+        <div>
+          <h3>FEATURE: take only the slot asked for</h3>
+          <p>Questions never want "the function" — they want one feature: the fitting root, the
+          vertex <var>x</var>, the base. Reach past the other slots. Story numbers that never entered
+          your form (1,800 seats, $4.00 today) are decorations; leave them on the table.</p>
+          <div class="keybox"><b>Equation's numbers only.</b> If a number isn't in your form, it can't
+          be in your answer.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">4</div>
+        <div>
+          <h3>CHECK: plug back into the story</h3>
+          <p>Heights must be positive. Day zero must give the starting amount. A maximum must sit
+          between the zeros. Ten seconds of checking catches every trap on this page.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="traps">
+      <h3>The three D's — one table</h3>
+      <div class="trapitem"><span class="trapkey">D·36</span><p><strong>Doubled.</strong> Triangle:
+      solved right (18), then doubled. The Check (½·30·18 = 270) kills 36 on sight.</p></div>
+      <div class="trapitem"><span class="trapkey">D·18</span><p><strong>Story-number grab.</strong>
+      Revenue: 18 comes from the 1,800 seats — a number that never entered the equation. The Form
+      step (label <var>a</var> = −100, <var>b</var> = 1400) locks the door.</p></div>
+      <div class="trapitem"><span class="trapkey">D·(53)²+d</span><p><strong>Flattened exponent.</strong>
+      Growth: added <var>d</var> instead of raising to it. The Check (day 0 must give 53; D gives
+      2,809) kills it in one line.</p></div>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-0664c858">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 1 of 3 · you chose D (36)</span>
+        <span class="qid">0664c858</span>
+        <span class="qtopic">Advanced Math · Hard</span>
+      </div>
+      <h2>The root that can't exist</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/0664c858_question.png" alt="Triangle area question card: area 270, base 12 more than height">
+      <figcaption>The official card. Area 270, base = height + 12. Two answers come out of the
+      algebra; only one can be a height.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">The area of a triangle is <strong>270</strong> square centimeters. The length
+      of the base of the triangle is <strong>12</strong> centimeters greater than the height of the
+      triangle. What is the height, in centimeters, of the triangle?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span><span class="eq-in">15</span></span></li>
+        <li class="right"><span class="key">B</span><span><span class="eq-in">18</span></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span><span class="eq-in">30</span></span></li>
+        <li class="trap"><span class="key">D</span><span><span class="eq-in">36</span></span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: turn "area from two related lengths" into an equation, then keep only the root a height could be.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SHAPE + FORM: area → quadratic</h3>
+          <p>Call the height <var>h</var>; the base is <var>h</var> + 12. Area of a triangle halves
+          the product:</p>
+          <div class="eq">½ · <var>h</var>(<var>h</var> + 12) = 270</div>
+          <p>Double out: <span class="eq-in"><var>h</var>² + 12<var>h</var> − 540 = 0</span>, which
+          factors as <span class="eq-in">(<var>h</var> + 30)(<var>h</var> − 18) = 0</span>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="snum">2</div>
+        <div>
+          <h3>FEATURE + CHECK: keep 18, bury −30</h3>
+          <p>Two roots: 18 and −30. A height can't be negative — done. Check: ½ · 30 · 18 = 270. ✓</p>
+          <div class="keybox"><b>Where the traps lived:</b> C (30) is the <em>magnitude of the dead
+          root</em> — and also the base, a second reason to grab it. D (36) is 18 doubled: the half
+          forgotten at the finish line. The Check kills both.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — 18.</strong></p>
+      <p>Full slow version: <em>nonlinear-functions.html</em> Question 1.</p>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-25161d0e">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 2 of 3 · you chose D (18)</span>
+        <span class="qid">25161d0e</span>
+        <span class="qtopic">Advanced Math · Hard</span>
+      </div>
+      <h2>Whose numbers are these?</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/25161d0e_question.png" alt="Auditorium revenue question card: y equals negative 100 x squared plus 1400 x plus 7200">
+      <figcaption>The official card. The story mentions 1,800 seats and $4.00 tickets — neither
+      appears in the equation. That absence is the test.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text"><span class="eq-in"><var>y</var> = −100<var>x</var>² + 1400<var>x</var> + 7200</span>
+      models revenue, where <var>x</var> is the ticket-price increase in dollars. Graphed in the
+      <span class="eq-in"><var>xy</var></span>-plane, at what <var>x</var>-value is the maximum?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span><span class="eq-in">4</span></span></li>
+        <li class="right"><span class="key">B</span><span><span class="eq-in">7</span></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span><span class="eq-in">14</span></span></li>
+        <li class="trap"><span class="key">D</span><span><span class="eq-in">18</span></span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: "maximum" says parabola vertex — the only question is which numbers go in the formula.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SHAPE + FORM: max → vertex, equation's numbers</h3>
+          <p>Negative <span class="eq-in"><var>x</var>²</span> coefficient → opens downward → peak at
+          the vertex <span class="eq-in"><var>x</var> = −<var>b</var> / 2<var>a</var></span>. Label
+          from the <em>equation</em>: <var>a</var> = −100, <var>b</var> = 1400.</p>
+          <div class="eq"><var>x</var> = −1400 / (2 · −100) = 7</div>
+          <div class="keybox"><b>Where the traps lived:</b> A (4) is today's price — a story number,
+          never in the equation. D (18) is the 1,800 seats squeezed through ÷100 — same species.
+          C (14) used the right numbers but skipped the ÷2. Form step: label first, divide always.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — 7</strong> (a $7 increase, so $11 tickets, maximizes revenue).</p>
+      <p>Full slow version: <em>nonlinear-functions.html</em> Question 2.</p>
+    </div>
+  </section>
+
+  <section class="qsec" id="q-ce6b914c">
+    <div class="qhead">
+      <div class="tagrow">
+        <span class="qnum">Miss 3 of 3 · you chose D</span>
+        <span class="qid">ce6b914c</span>
+        <span class="qtopic">Advanced Math · Medium</span>
+      </div>
+      <h2>Day zero never lies</h2>
+    </div>
+
+    <figure class="card">
+      <img src="../data/images/ce6b914c_question.png" alt="Subscriber doubling question card with four candidate equations">
+      <figcaption>The official card. 53 subscribers at posting, doubling daily. Four equations, and
+      a one-line test — day zero — that kills two of them before any other thinking.</figcaption>
+    </figure>
+
+    <div class="q">
+      <p class="q-label">The question as it appeared</p>
+      <p class="q-text">At posting time a channel has <strong>53</strong> subscribers; each day the
+      count <strong>doubles</strong>. Which equation gives subscribers <span class="eq-in"><var>n</var></span>
+      after <span class="eq-in"><var>d</var></span> days?</p>
+      <ul class="choices">
+        <li class="trap"><span class="key">A</span><span><span class="eq-in"><var>n</var> = (53)<sup><var>d</var></sup></span></span></li>
+        <li class="right"><span class="key">B</span><span><span class="eq-in"><var>n</var> = 53(2)<sup><var>d</var></sup></span></span><span class="verdict">Correct</span></li>
+        <li class="trap"><span class="key">C</span><span><span class="eq-in"><var>n</var> = 53(<span class="frac"><span class="fnum">1</span><span class="fden">2</span></span>)<sup><var>d</var></sup></span></span></li>
+        <li class="trap"><span class="key">D</span><span><span class="eq-in"><var>n</var> = (53)² + <var>d</var></span></span></li>
+      </ul>
+    </div>
+
+    <p class="plain">In plain words: "doubled" names the family — then day zero interrogates every choice.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="snum">1</div>
+        <div>
+          <h3>SHAPE + FORM: doubling → (start)(factor)<sup>time</sup></h3>
+          <p>Start = 53, factor = 2: <span class="eq-in"><var>n</var> = 53(2)<sup><var>d</var></sup></span>.
+          That's B. The rest of the work is confirming the others die — which is worth doing, because
+          the killing blows are reusable:</p>
+          <div class="keybox"><b>Day-zero test:</b> at <span class="eq-in"><var>d</var> = 0</span> there
+          must be 53 subscribers. A gives 53⁰ = 1. D gives 53² + 0 = 2,809. Both dead in one line.
+          C survives day zero (53) but dies on day one: 53 · ½ = 26.5 — that's <em>halving</em>, the
+          Backwards trap.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="answer">
+      <h3>The answer</h3>
+      <p><strong>B — <span class="eq-in"><var>n</var> = 53(2)<sup><var>d</var></sup></span>.</strong></p>
+      <p>Full slow version: <em>nonlinear-functions.html</em> Question 3.</p>
+    </div>
+  </section>
+
+    <div class="practice">
+      <h3>Your turn — read the feature</h3>
+      <p class="intro">Three easy drills, one skill each: take <em>only</em> the slot asked for, straight
+      off the graph. Then stretch targets to retry in the app.</p>
+
+      <div class="pq" id="q-987887cd">
+        <p class="pqtag">987887cd · Easy · free response</p>
+        <figure class="card">
+          <img src="../data/images/987887cd_question.png" alt="Curve with a dotted point where it crosses the y-axis">
+        </figure>
+        <p class="q-text">The <span class="eq-in"><var>y</var></span>-intercept of the graph shown is
+        (<span class="eq-in"><var>x</var>, <var>y</var></span>). What is the value of
+        <span class="eq-in"><var>y</var></span>?</p>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>40.</b> Feature step, nothing else: <span class="eq-in"><var>y</var></span>-intercept
+          means <span class="eq-in"><var>x</var> = 0</span> — read the dotted point where the curve
+          meets the <span class="eq-in"><var>y</var></span>-axis. The curve's fancy shape is decoration.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-4aab1fa5">
+        <p class="pqtag">4aab1fa5 · Easy · free response</p>
+        <figure class="card">
+          <img src="../data/images/4aab1fa5_question.png" alt="Upward parabola touching the x-axis at a single point">
+        </figure>
+        <p class="q-text">The <span class="eq-in"><var>x</var></span>-intercept of the graph shown is
+        (<span class="eq-in"><var>x</var>, 0</span>). What is the value of <span class="eq-in"><var>x</var></span>?</p>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>7.</b> Feature step: <span class="eq-in"><var>x</var></span>-intercept
+          means <span class="eq-in"><var>y</var> = 0</span> — the parabola kisses the axis at 7. Notice
+          this is the revenue miss's vertex, read off a picture instead of computed from a formula.
+          Same feature, two directions.</p></div>
+        </details>
+      </div>
+
+      <div class="pq" id="q-36e2afc3">
+        <p class="pqtag">36e2afc3 · Easy · free response</p>
+        <figure class="card">
+          <img src="../data/images/36e2afc3_question.png" alt="Exponential curve crossing the y-axis at a dotted point">
+        </figure>
+        <p class="q-text">The graph of the exponential function <span class="eq-in"><var>f</var></span>
+        is shown. Its <span class="eq-in"><var>y</var></span>-intercept is (0, <span class="eq-in"><var>y</var></span>).
+        What is the value of <span class="eq-in"><var>y</var></span>?</p>
+        <details class="reveal">
+          <summary>Show the answer</summary>
+          <div class="revealed"><p><b>3.</b> This is the day-zero Check <em>as the whole question</em>:
+          the start value of an exponential is where it crosses
+          <span class="eq-in"><var>x</var> = 0</span> — the dotted (0, 3). The habit that killed two
+          traps in the doubling miss earns full marks here.</p></div>
+        </details>
+      </div>
+
+      <div class="pq">
+        <p class="pqtag">stretch · retry in the app</p>
+        <p class="q-text">Hard questions you already got right — prove the model holds under pressure:
+        <span class="qid">02e9349f</span> <span class="qid">7ba3505c</span> <span class="qid">d32a142a</span>.
+        Run Shape → Form → Feature → Check on each before solving.</p>
+      </div>
+    </div>
+
+  <section class="close">
+    <h2>The whole page in five lines</h2>
+    <ul class="rules">
+      <li><span class="n">1</span><span><strong>Name the shape first.</strong> Quadratic, vertex, or exponential — one sentence before one symbol.</span></li>
+      <li><span class="n">2</span><span><strong>Equation's numbers only.</strong> Story numbers that never entered your form can't be in your answer.</span></li>
+      <li><span class="n">3</span><span><strong>Take one feature.</strong> The fitting root, the vertex slot, the base — reach past the rest.</span></li>
+      <li><span class="n">4</span><span><strong>Check into the story.</strong> Positive? Day zero right? Between the zeros? Ten seconds.</span></li>
+      <li><span class="n">5</span><span><strong>Test, don't just solve.</strong> Plug choices back in; try easy values in equations (<em>nonlinear-functions.html</em> habit).</span></li>
+    </ul>
+  </section>
+
+</div>

@@ -54,6 +54,20 @@ questions that have one — the student app under the rationale card, the parent
 portal at the top of the per-question modal. A missing or unreachable
 `index.json` just leaves the link hidden.
 
+### Beta pages (WI-21)
+
+A cluster page whose numbers are **not yet card-verified** carries a
+`<!-- beta -->` marker and a visible BETA banner. `build_index.py` routes its
+questions into a separate **`betaQuestions`** map (never the verified
+`questions` map, so it cannot clobber a verified link even when it covers the
+same miss id). The app surfaces `betaQuestions` links **only when
+`APP_ENV.isBeta`** (`?env=beta` or a `/beta` path), always badged "🧪 Beta".
+Combined with the fact that `explanations/` is not in the deploy `APP_FILES`,
+this keeps unverified figures off the real student's screen (CLAUDE.md failure
+mode 1). To graduate a page out of beta: verify every number against the card,
+refresh the miss set (`build_worklist.py`), remove the `<!-- beta -->` marker
+and banner, then re-run `build_index.py`.
+
 Rebuild it after publishing or updating any explainer:
 
 ```bash
