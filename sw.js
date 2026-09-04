@@ -129,6 +129,23 @@ function cacheFirst(request, cacheName) {
   });
 }
 
+function networkFirst(request, cacheName) {
+  // Online: always take the fresh network copy (and refresh the cache), so a
+  // future deploy is never masked by a stale cached asset — the classic service
+  // worker footgun. Offline: fall back to the precached/last-seen copy. This is
+  // why a production SW here is safe: it adds an offline fallback without ever
+  // pinning users to an old build while they have a connection.
+  return fetch(request).then(function (res) {
+    if (res && res.ok) {
+      var copy = res.clone();
+      caches.open(cacheName).then(function (c) { c.put(request, copy); });
+    }
+    return res;
+  }).catch(function () {
+    return caches.match(request, { ignoreSearch: true });
+  });
+}
+
 function staleWhileRevalidate(request, cacheName) {
   return caches.match(request).then(function (cached) {
     var network = fetch(request).then(function (res) {
@@ -174,7 +191,10 @@ self.addEventListener('fetch', function (event) {
   }
 
   if (decision === 'shell') {
-    event.respondWith(cacheFirst(request, SHELL_CACHE));
+    // Network-first (not cache-first): online stays fresh, offline falls back to
+    // the precached shell. Question images stay cache-first below — they are
+    // immutable and are the bytes we most want served instantly from cache.
+    event.respondWith(networkFirst(request, SHELL_CACHE));
     return;
   }
 
