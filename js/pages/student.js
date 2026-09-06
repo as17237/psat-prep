@@ -1,3 +1,4 @@
+import { mountFocusedBuilder } from '../shared/focused_builder.js';
 /**
  * js/pages/student.js — page controller for index.html.
  *
@@ -16,7 +17,7 @@
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, offerSaveRecovery, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { setClassName } from '../shared/dom.js';
@@ -79,6 +80,8 @@ let sessionsState = safeGetStorage('psat_sessions', {});
 
 // Timing tracking
 let questionShownAt = null;
+const reviewAttempts = new Map();
+let currentAttempt = null;
 let accumulatedForegroundTimeMs = 0;
 let lastVisibilityTimestamp = Date.now();
 
@@ -196,7 +199,7 @@ function manualTriggerCloudSync(isManual = false) {
     el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+  if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
     return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(pullRes => {
       if (pullRes && pullRes.success) {
         progress = safeGetStorage('psat_progress', {});
@@ -297,7 +300,7 @@ let cloudPushDebounce = null;
 function triggerCloudSync() {
   if (cloudPushDebounce) clearTimeout(cloudPushDebounce);
   cloudPushDebounce = setTimeout(() => {
-    if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
+    if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
       PSAT_ENGINE.pushToCloud(localStorage).then(res => {
         const el = document.getElementById('hdr-cloud-badge');
         if (el) {
@@ -570,8 +573,19 @@ function loadQuestion(idx) {
   if (filteredQuestions.length === 0) return;
   currentIndex = Math.max(0, Math.min(idx, filteredQuestions.length - 1));
   const q = filteredQuestions[currentIndex];
-  const qProg = progress[q.id] || {};
+  const storedProgress = progress[q.id] || {};
   const card = srsState[q.id];
+  const status = document.getElementById('filter-status').value;
+  let attempt = reviewAttempts.get(q.id);
+  const mode = PSAT_ENGINE.resolveAttemptMode(storedProgress, card, status, Date.now());
+  if (!attempt || (attempt.mode === 'practice' && mode === 'srs_review')) {
+    attempt = PSAT_ENGINE.startAttempt({questionId:q.id, mode, progressEntry:storedProgress, srsCard:card, now:Date.now()});
+    attempt.attemptId += '_' + crypto.randomUUID();
+    if (mode === 'practice') attempt.status = 'graded';
+    reviewAttempts.set(q.id, attempt);
+  }
+  currentAttempt = attempt;
+  const qProg = attempt.status === 'open' ? {...storedProgress, answered:false} : storedProgress;
 
   // Start timing if unanswered
   if (!qProg.answered) {
@@ -652,6 +666,7 @@ function loadQuestion(idx) {
 
   optContainer.innerHTML = '';
   frInput.value = '';
+  document.querySelector('#free-response-container button').disabled = qProg.answered;
 
   if (q.type === 'multiple_choice') {
     optContainer.classList.remove('hidden');
@@ -744,6 +759,7 @@ function loadQuestion(idx) {
 }
 
 function recordAttempt(selectedAnswer, isCorrect) {
+  if (window.__PSAT_WRITE_BLOCKED__ || !PSAT_ENGINE.canSubmitAttempt(currentAttempt, Date.now()).allowed) return;
   const q = filteredQuestions[currentIndex];
   
   // Calculate elapsed time
@@ -764,13 +780,17 @@ function recordAttempt(selectedAnswer, isCorrect) {
   // below cannot drift apart again. `at` is passed explicitly rather than read from
   // the clock inside the builder.
   const attemptAt = Date.now();
+  const closed = PSAT_ENGINE.closeAttempt(currentAttempt, {selectedAnswer,isCorrect,timeSpentMs,timingReliable}, attemptAt);
+  currentAttempt = closed.attempt;
+  reviewAttempts.set(q.id, currentAttempt);
   progress[q.id] = PSAT_ENGINE.buildProgressEntry(progress[q.id], {
+    attemptId: currentAttempt.attemptId,
     selectedAnswer: selectedAnswer,
     isCorrect: isCorrect,
     timeSpentMs: timeSpentMs,
     timingReliable: timingReliable,
     at: attemptAt,
-    source: 'practice'
+    source: currentAttempt.mode === 'srs_review' ? 'srs_review' : 'practice'
   });
 
   // Spaced Repetition SM-2 Update
@@ -781,20 +801,15 @@ function recordAttempt(selectedAnswer, isCorrect) {
   // Update Daily Session Log
   sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, isCorrect, timeSpentMs, null, timingReliable);
 
-  // Durable Outbox Op Enqueue
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.enqueueOutboxOp) {
-    // The SAME attemptAt used for the stored entry, so the op's content-derived id
-    // (att_<questionId>_<timestamp>) is stable across a retry of this handler.
-    PSAT_ENGINE.enqueueOutboxOp(localStorage, 'question_attempt', {
-      questionId: q.id,
-      selectedAnswer: selectedAnswer,
-      isCorrect: isCorrect,
-      timeSpentMs: timeSpentMs,
-      timestamp: attemptAt
-    }, window.location);
+  const outbox = PSAT_ENGINE.getOutboxOps(localStorage, window.location);
+  outbox.push({id:currentAttempt.attemptId,type:'question_attempt',timestamp:attemptAt,payload:{...closed.event,timestamp:attemptAt}});
+  const values = {psat_progress:progress, psat_srs:srsState, psat_sessions:sessionsState, psat_sync_outbox:outbox};
+  const result = window.__PSAT_ENGINE_PARTS.persistence.writeBatch(localStorage, APP_ENV.storagePrefix, values);
+  if (!result.success) {
+    offerSaveRecovery(values);
+  } else {
+    updateHeaderStats(); renderPalette(); triggerCloudSync();
   }
-
-  saveProgress();
   loadQuestion(currentIndex);
 }
 
@@ -1211,6 +1226,10 @@ function jumpToQuestion(qid) {
 // OFFICIAL PSAT 8/9 EXAM & ADAPTIVE TEST RUNNER ENGINE
 // ============================================================
 let activeExam = null;
+let examPhase = 'module';
+let submittedModules = [];
+let breakDeadline = null;
+let pendingCompletion = null;
 let currentModuleIndex = 0;
 let currentExamQIndex = 0;
 let examUserAnswers = {};
@@ -1235,13 +1254,24 @@ function showExamSubview(subviewId) {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+function canStartNewExam() {
+  if (window.__PSAT_WRITE_BLOCKED__) {alert('Recover the pending save before starting another test.');return false;}
+  if (safeGetStorage('psat_active_exam_state',null)) {
+    switchTab('exam'); showExamSubview('exam-lobby'); checkActiveExamResume();
+    alert('An unfinished test is saved. Resume it or explicitly archive it before starting another.');return false;
+  }
+  return true;
+}
+
 function startStandardExam(opts) {
+  if (!canStartNewExam()) return;
   const mergedOpts = Object.assign({ progressMap: progress }, opts || {});
   activeExam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, mergedOpts);
   initExamSession();
 }
 
 function startMiniExam(opts) {
+  if (!canStartNewExam()) return;
   const mergedOpts = Object.assign({ progressMap: progress }, opts || {});
   activeExam = PSAT_ENGINE.generateMiniPSAT89Exam(questions, mergedOpts);
   initExamSession();
@@ -1349,6 +1379,7 @@ async function prepareOfflineExam() {
 }
 
 function startPreparedOfflineExam() {
+  if (!canStartNewExam()) return;
   const pin = safeGetStorage(OFFLINE_PIN_KEY, null);
   if (!pin) {
     alert('No offline exam is prepared. Use "Prepare for offline" while connected first.');
@@ -1402,6 +1433,7 @@ function startGapDrillFromLobby() {
 }
 
 function startSectionTest(testType) {
+  if (!canStartNewExam()) return;
   const isMath = (testType === 'Math');
   const pool = questions.filter(q => q.test === testType);
   const shuffled = PSAT_ENGINE._shuffle(pool);
@@ -1436,18 +1468,29 @@ function startSectionTest(testType) {
 }
 
 function startCustomTestDirect(customTestData) {
+  if (!canStartNewExam()) return;
+  if (customTestData.questionIds) {
+    const byId = new Map(questions.map(q=>[q.id,q]));
+    customTestData = {...customTestData, questions:customTestData.questionIds.map(id=>byId.get(id))};
+  }
+  if (!Array.isArray(customTestData.questions) || !customTestData.questions.length || customTestData.questions.some(q=>!q) || new Set(customTestData.questions.map(q=>q.id)).size!==customTestData.questions.length) {
+    alert('This test has missing or duplicate questions. Please return to the builder. Existing work is unchanged.');return;
+  }
   activeExam = {
     id: customTestData.id || 'custom_' + Date.now(),
     title: customTestData.title || 'Custom Practice Test',
     type: customTestData.type || 'custom_test',
+    customPlan:customTestData.customPlan || null,
+    isUntimed:customTestData.isUntimed === true,
+    isAdaptive:false,
     totalQuestions: customTestData.questions.length,
-    totalTimeMinutes: customTestData.timeLimitMinutes || 30,
+    totalTimeMinutes: customTestData.isUntimed ? null : (customTestData.timeLimitMinutes || 30),
     breakMinutes: 0,
     createdAt: Date.now(),
     modules: [
       {
         id: 'custom_m1',
-        section: customTestData.questions[0]?.test || 'Practice',
+        section: new Set(customTestData.questions.map(q=>q.test)).size > 1 ? 'Mixed subjects' : (customTestData.questions[0]?.test || 'Practice'),
         moduleNumber: 1,
         name: customTestData.title || 'Custom Test Module',
         questionsCount: customTestData.questions.length,
@@ -1481,6 +1524,7 @@ function showExamToast(msg) {
 }
 
 function initExamSession() {
+  examPhase = 'module'; submittedModules = []; breakDeadline = null; pendingCompletion = null;
   currentModuleIndex = 0;
   currentExamQIndex = 0;
   examUserAnswers = {};
@@ -1505,6 +1549,7 @@ function flushExamQuestionTime() {
 
 function loadExamModule(modIdx) {
   if (examTimerInterval) clearInterval(examTimerInterval);
+  examPhase = 'module';
   currentModuleIndex = modIdx;
   currentExamQIndex = 0;
   examModuleExpired = false;
@@ -1512,33 +1557,36 @@ function loadExamModule(modIdx) {
 
   const mod = activeExam.modules[currentModuleIndex];
   examModuleTimerSeconds = mod.timeLimitSeconds;
-  examModuleDeadline = Date.now() + (mod.timeLimitSeconds * 1000);
+  examModuleDeadline = activeExam.isUntimed ? null : Date.now() + (mod.timeLimitSeconds * 1000);
 
   document.getElementById('exam-active-module-title').innerText = mod.name;
 
-  // Start module countdown based on wall-clock deadline
-  updateExamTimerDisplay();
-  examTimerInterval = setInterval(() => {
-    const remainingMs = examModuleDeadline - Date.now();
-    examModuleTimerSeconds = Math.max(0, Math.round(remainingMs / 1000));
-    updateExamTimerDisplay();
-
-    if (examModuleTimerSeconds <= 300 && !examFiveMinAlertShown && examModuleTimerSeconds > 0) {
-      examFiveMinAlertShown = true;
-      showExamToast('5 Minutes Remaining in this module!');
-    }
-
-    if (examModuleTimerSeconds <= 0) {
-      clearInterval(examTimerInterval);
-      examModuleExpired = true;
-      flushExamQuestionTime();
-      showExamToast('Time has expired for this module! Opening module review.');
-      showModuleReviewScreen();
-    }
-  }, 1000);
+  startModuleClock();
 
   showExamSubview('exam-active');
   loadExamQuestion(0);
+}
+
+function moduleCanEdit() {
+  return !window.__PSAT_WRITE_BLOCKED__ && !pendingCompletion && examPhase !== 'break' &&
+    !submittedModules.includes(currentModuleIndex) && !examModuleExpired &&
+    (activeExam?.isUntimed || (Number.isFinite(examModuleDeadline) && Date.now() < examModuleDeadline));
+}
+
+function startModuleClock() {
+  if (examTimerInterval) clearInterval(examTimerInterval);
+  const tick = () => {
+    if (activeExam?.isUntimed) { examModuleTimerSeconds = 0; updateExamTimerDisplay(); return; }
+    examModuleTimerSeconds = PSAT_ENGINE.computeRemainingSeconds(examModuleDeadline, Date.now());
+    updateExamTimerDisplay();
+    if (examModuleTimerSeconds <= 0) {
+      clearInterval(examTimerInterval); examModuleExpired = true;
+      flushExamQuestionTime(); examQuestionShownAt = null;
+      showModuleReviewScreen();
+    }
+  };
+  if (!activeExam?.isUntimed) examTimerInterval = setInterval(tick, 1000);
+  tick();
 }
 
 function updateExamTimerDisplay() {
@@ -1546,7 +1594,7 @@ function updateExamTimerDisplay() {
   const s = examModuleTimerSeconds % 60;
   const str = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   const el = document.getElementById('exam-timer-display');
-  if (el) el.innerText = examTimerHidden ? '—:—' : str;
+  if (el) el.innerText = activeExam?.isUntimed ? 'Untimed' : (examTimerHidden ? '—:—' : str);
 }
 
 function toggleExamTimerVisibility() {
@@ -1638,6 +1686,7 @@ function renderExamMcqOptions(q) {
 }
 
 function selectExamMcqChoice(choice) {
+  if (!moduleCanEdit()) return;
   const q = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
   examUserAnswers[q.id] = choice;
   renderExamMcqOptions(q);
@@ -1646,6 +1695,7 @@ function selectExamMcqChoice(choice) {
 }
 
 function recordExamSprAnswer(val) {
+  if (!moduleCanEdit()) return;
   const q = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
   examUserAnswers[q.id] = val.trim();
   renderExamPalettePills();
@@ -1653,6 +1703,7 @@ function recordExamSprAnswer(val) {
 }
 
 function toggleExamMarkForReview() {
+  if (!moduleCanEdit()) return;
   const q = activeExam.modules[currentModuleIndex].questions[currentExamQIndex];
   examMarkedForReview[q.id] = document.getElementById('exam-mark-review').checked;
   renderExamPalettePills();
@@ -1743,6 +1794,7 @@ function nextExamQuestion() {
 }
 
 function showModuleReviewScreen() {
+  examPhase = 'review';
   flushExamQuestionTime();
   const mod = activeExam.modules[currentModuleIndex];
   document.getElementById('review-module-heading').innerText = `${mod.name} — Review`;
@@ -1766,7 +1818,7 @@ function showModuleReviewScreen() {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.onclick = () => {
-      if (examModuleExpired) {
+      if (!moduleCanEdit()) {
         alert('Time for this module has expired. You cannot return to edit questions.');
         return;
       }
@@ -1798,10 +1850,11 @@ function showModuleReviewScreen() {
   document.getElementById('btn-submit-module').innerText = isLastModule ? 'Submit Exam & View Scores →' : 'Submit Module & Continue →';
 
   showExamSubview('exam-module-review');
+  persistActiveExamState();
 }
 
 function returnToActiveExamQuestion() {
-  if (examModuleExpired) {
+  if (!moduleCanEdit()) {
     alert('Time for this module has expired. You cannot return to edit questions.');
     return;
   }
@@ -1810,6 +1863,7 @@ function returnToActiveExamQuestion() {
 }
 
 function submitCurrentExamModule() {
+  if (window.__PSAT_WRITE_BLOCKED__ || pendingCompletion || submittedModules.includes(currentModuleIndex)) return;
   flushExamQuestionTime();
   const mod = activeExam.modules[currentModuleIndex];
   const unanswered = mod.questions.filter(q => !examUserAnswers[q.id]).length;
@@ -1820,6 +1874,8 @@ function submitCurrentExamModule() {
 
   if (!confirm(msg)) return;
 
+  submittedModules.push(currentModuleIndex);
+  examQuestionShownAt = null;
   if (examTimerInterval) clearInterval(examTimerInterval);
 
   // Digital PSAT/SAT Multi-Stage Adaptive Routing (MST)
@@ -1890,39 +1946,26 @@ function submitCurrentExamModule() {
   }
 }
 
-function startBreakTimer(breakSecs) {
-  let breakSeconds = typeof breakSecs === 'number' ? breakSecs : 10 * 60;
+function startBreakTimer(breakSecs, resume = false) {
+  examPhase = 'break';
+  examQuestionShownAt = null;
+  if (!resume) breakDeadline = Date.now() + breakSecs * 1000;
   showExamSubview('exam-break');
-
-  const isMini = (activeExam && activeExam.type === 'mini_psat89');
-  const breakTitle = document.getElementById('break-title');
-  const breakDesc = document.getElementById('break-description');
-  if (breakTitle) breakTitle.innerText = isMini ? 'Scheduled Quick Break' : 'Scheduled 10-Minute Break';
-  if (breakDesc) breakDesc.innerText = isMini ?
-    'Take a breath before starting Section 2: Math (4 Questions / 5 Minutes).' :
-    'Take a breath, stretch, and relax before starting Section 2: Math (44 Questions / 70 Minutes).';
-
-  function updateBreakDisplay() {
-    const m = Math.floor(breakSeconds / 60);
-    const s = breakSeconds % 60;
-    document.getElementById('break-timer-display').innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  updateBreakDisplay();
+  const isMini = activeExam?.type === 'mini_psat89';
+  document.getElementById('break-title').innerText = isMini ? 'Scheduled Quick Break' : 'Scheduled 10-Minute Break';
+  document.getElementById('break-description').innerText = 'Your completed modules are saved and locked. Math is next.';
   if (breakTimerInterval) clearInterval(breakTimerInterval);
-  breakTimerInterval = setInterval(() => {
-    if (breakSeconds > 0) {
-      breakSeconds--;
-      updateBreakDisplay();
-    } else {
-      clearInterval(breakTimerInterval);
-      showExamToast('Break is over! Starting Section 2: Math.');
-      resumeExamAfterBreak();
-    }
-  }, 1000);
+  const tick = () => {
+    const seconds = PSAT_ENGINE.computeRemainingSeconds(breakDeadline, Date.now());
+    document.getElementById('break-timer-display').innerText = `${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+    if (seconds <= 0) {clearInterval(breakTimerInterval); resumeExamAfterBreak();}
+  };
+  if (!persistActiveExamState()) return;
+  breakTimerInterval = setInterval(tick,1000); tick();
 }
 
 function resumeExamAfterBreak() {
+  if (window.__PSAT_WRITE_BLOCKED__) return;
   if (breakTimerInterval) clearInterval(breakTimerInterval);
   if (activeExam && activeExam.type === 'mini_psat89') {
     loadExamModule(1); // Start Section 2: Math Module
@@ -1932,85 +1975,60 @@ function resumeExamAfterBreak() {
 }
 
 function finishExamAndShowReport() {
-  flushExamQuestionTime();
-  currentExamReport = PSAT_ENGINE.scoreStandardExam(activeExam, examUserAnswers, examUserTimes);
-  
-  // PSAT_ENGINE.toLeanReport() persists `title`/`type` -- writing
-  // `examTitle`/`examType` here stored every exam-history entry with
-  // title: undefined, type: undefined (so parent.html/index.html both
-  // fell back to the generic "Practice Exam" label and never recognised
-  // a standard exam). Field names must match the engine's contract.
-  currentExamReport.title = activeExam.title || 'Standard PSAT 8/9 Exam';
-  currentExamReport.type = activeExam.type || 'standard_psat89';
-  currentExamReport.formattedDate = new Date(currentExamReport.completedAt).toLocaleString();
-
-  // Automatically persist all answered questions to practice progress & SRS
-  let savedCount = 0;
-  currentExamReport.moduleReports.forEach(m => {
-    m.questions.forEach(q => {
-      if (q.answered && q.userAnswer && q.userAnswer !== 'Unanswered') {
-        const timeSpent = q.timeSpentMs || 0;
-        const isReliable = timeSpent > 0;
-
-        // WI-11: same builder as the practice path. This copy used to omit
-        // errorTag / historicalErrorTags entirely, so answering a tagged question
-        // inside an exam silently deleted the student's error tag.
-        progress[q.questionId] = PSAT_ENGINE.buildProgressEntry(progress[q.questionId], {
-          selectedAnswer: q.userAnswer,
-          isCorrect: q.isCorrect,
-          timeSpentMs: timeSpent,
-          timingReliable: isReliable,
-          at: Date.now(),
-          source: activeExam.type || 'exam'
-        });
-
-        const grade = PSAT_ENGINE.gradeAttempt(q.isCorrect, timeSpent, isReliable);
-        srsState[q.questionId] = PSAT_ENGINE.scheduleNext(srsState[q.questionId], grade, Date.now(), timeSpent);
-        sessionsState = PSAT_ENGINE.recordDailySession(sessionsState, q.isCorrect, timeSpent, null, isReliable);
-        savedCount++;
-      }
-    });
-  });
-  saveProgress();
-
-  // Automatically persist lean score report to Exam History (Capped at 15 exams to protect localStorage quota)
+  if (window.__PSAT_WRITE_BLOCKED__) return;
+  if (examTimerInterval) clearInterval(examTimerInterval);
+  flushExamQuestionTime(); examQuestionShownAt = null;
+  const recorded = safeGetStorage('psat_exam_history', []).find(r => r.examId === activeExam.id);
+  currentExamReport = recorded || pendingCompletion || PSAT_ENGINE.scoreStandardExam(activeExam, examUserAnswers, examUserTimes);
+  currentExamReport.title = activeExam.title || 'Practice Exam';
+  currentExamReport.type = activeExam.type;
+  currentExamReport.customPlan = activeExam.customPlan || null;
+  currentExamReport.formattedDate ||= new Date(currentExamReport.completedAt).toLocaleString();
   const leanReport = PSAT_ENGINE.toLeanReport(currentExamReport);
-  let examHistory = safeGetStorage('psat_exam_history', []);
-  examHistory.unshift(leanReport);
-  if (examHistory.length > 15) examHistory = examHistory.slice(0, 15);
-  safeSetStorage('psat_exam_history', examHistory);
+  pendingCompletion = leanReport; examPhase = 'completed_pending_save';
+  if (!persistActiveExamState()) return;
 
-  // Enqueue exam completed outbox operation
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.enqueueOutboxOp) {
-    PSAT_ENGINE.enqueueOutboxOp(localStorage, 'exam_completed', {
-      examId: leanReport.examId,
-      completedAt: leanReport.completedAt,
-      totalScore: leanReport.scores ? leanReport.scores.totalScaled : null
-    }, window.location);
+  // Build from persisted state, with a fixed per-exam question identity. Retrying
+  // a completed report must never grade the same exam attempt twice.
+  const nextProgress = safeGetStorage('psat_progress', {});
+  const nextSrs = safeGetStorage('psat_srs', {});
+  let nextSessions = safeGetStorage('psat_sessions', {});
+  if (!recorded) currentExamReport.moduleReports.forEach(m => m.questions.forEach(q => {
+    if (!q.answered) return;
+    const id = 'exam_' + activeExam.id + '_' + q.questionId;
+    if ((nextProgress[q.questionId]?.attempts || []).some(a=>a.attemptId===id)) return;
+    const timeSpent = q.timeSpentMs || null;
+    const reliable = timeSpent > 500 && timeSpent < 600000;
+    nextProgress[q.questionId] = PSAT_ENGINE.buildProgressEntry(nextProgress[q.questionId], {
+      attemptId:id, selectedAnswer:q.userAnswer, isCorrect:q.isCorrect, timeSpentMs:timeSpent,
+      timingReliable:reliable, at:currentExamReport.completedAt, source:activeExam.type
+    });
+    nextSrs[q.questionId] = PSAT_ENGINE.scheduleNext(nextSrs[q.questionId] || {questionId:q.questionId},
+      PSAT_ENGINE.gradeAttempt(q.isCorrect,timeSpent,reliable),currentExamReport.completedAt,timeSpent);
+    nextSessions = PSAT_ENGINE.recordDailySession(nextSessions,q.isCorrect,timeSpent,
+      PSAT_ENGINE.localDateKey(currentExamReport.completedAt),reliable);
+  }));
+  const history = safeGetStorage('psat_exam_history', []);
+  if (!recorded) history.unshift(leanReport);
+  const outbox = PSAT_ENGINE.getOutboxOps(localStorage,window.location);
+  if (!outbox.some(o=>o.id==='exam_'+activeExam.id)) outbox.push({id:'exam_'+activeExam.id,type:'exam_completed',timestamp:currentExamReport.completedAt,payload:leanReport});
+  const values = {
+    psat_progress:nextProgress,psat_srs:nextSrs,psat_sessions:nextSessions,
+    psat_exam_history:history,psat_sync_outbox:outbox,psat_active_exam_state:null
+  };
+  const saved = window.__PSAT_ENGINE_PARTS.persistence.writeBatch(localStorage,APP_ENV.storagePrefix,values);
+  if (!saved.success) {
+    offerSaveRecovery(values); return;
   }
-
-  // Instantly push completed exam report to Azure Cosmos DB
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-    PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName, window.location);
-  }
-
-  // Clear in-progress exam state once completed
   clearActiveExamState();
-  // WI-20: if the exam just finished IS the prepared offline exam, consume its
-  // pin. Only remove an existing, matching key (never write a placeholder that
-  // would leave a spurious psat_offline_prepared_exam behind), and never wipe a
-  // pin belonging to a different, still-prepared exam.
-  try {
-    const finishedPin = safeGetStorage(OFFLINE_PIN_KEY, null);
-    if (finishedPin && finishedPin.examMeta && activeExam && finishedPin.examMeta.id === activeExam.id) {
-      localStorage.removeItem(APP_ENV.storagePrefix + OFFLINE_PIN_KEY);
-    }
-  } catch (e) {}
-
-  // Render score report and update lobby
-  renderExamLobbyHistory();
-  renderExamReport(currentExamReport);
-  showExamSubview('exam-report');
+  const pin = safeGetStorage(OFFLINE_PIN_KEY, null);
+  if (pin?.examMeta?.id === activeExam.id) {
+    try {localStorage.removeItem(APP_ENV.storagePrefix + OFFLINE_PIN_KEY);} catch(e) {console.warn('Completed offline pin retained:', e);}
+    renderOfflineReadyStatus();
+  }
+  progress=nextProgress;srsState=nextSrs;sessionsState=nextSessions;pendingCompletion=null;
+  updateHeaderStats(); triggerCloudSync();
+  renderExamLobbyHistory();renderExamReport(currentExamReport);showExamSubview('exam-report');
 }
 
 function renderExamReport(report) {
@@ -2040,7 +2058,9 @@ function renderExamReport(report) {
     document.getElementById('report-scale-denom').innerText = `(${fullReport.overallAccuracyPercent}%)`;
     document.getElementById('report-rw-score').innerText = `${fullReport.scores.rwCorrect} / ${fullReport.scores.rwTotal} Correct`;
     document.getElementById('report-math-score').innerText = `${fullReport.scores.mathCorrect} / ${fullReport.scores.mathTotal} Correct`;
-    document.getElementById('report-scaling-note').innerText = 'Scaled 240–1440 projection requires a standard full-length test (≥15 questions per section).';
+    document.getElementById('report-scaling-note').innerText = fullReport.customPlan || fullReport.type === 'focused_custom_test'
+      ? 'Focused practice measures these selected topics. It does not predict a PSAT score.'
+      : 'This practice check reports raw accuracy. A longer, representative test is needed for a PSAT score estimate.';
   }
 
   document.getElementById('report-accuracy-summary').innerText = `Overall Accuracy: ${fullReport.overallAccuracyPercent}% (${fullReport.totalCorrect} / ${fullReport.totalQuestions} Correct)`;
@@ -2189,7 +2209,8 @@ function viewExamReportFromHistory(examId) {
 // IN-PROGRESS EXAM STATE PERSISTENCE & RECOVERY CONTROLLERS
 // ============================================================
 function persistActiveExamState() {
-  if (!activeExam || document.getElementById('view-exam').classList.contains('hidden')) return;
+  if (window.__PSAT_WRITE_BLOCKED__) return false;
+  if (!activeExam) return false;
 
   const leanModules = (activeExam.modules || []).map(m => ({
     id: m.id,
@@ -2210,6 +2231,7 @@ function persistActiveExamState() {
   } : null;
 
   const snapshot = {
+    lifecycleVersion: 2, phase:examPhase, submittedModules:[...submittedModules], breakDeadline, pendingCompletion,
     activeExamMeta: {
       id: activeExam.id,
       title: activeExam.title,
@@ -2221,6 +2243,8 @@ function persistActiveExamState() {
       totalTimeMinutes: activeExam.totalTimeMinutes,
       breakMinutes: activeExam.breakMinutes,
       createdAt: activeExam.createdAt,
+      blueprintVersion:activeExam.blueprintVersion || null, isHighYield:activeExam.isHighYield,
+      isUntimed:activeExam.isUntimed === true, customPlan:activeExam.customPlan || null,
       modules: leanModules
     },
     currentModuleIndex: currentModuleIndex,
@@ -2232,12 +2256,14 @@ function persistActiveExamState() {
     examViewMode: examViewMode,
     savedAt: Date.now()
   };
-  safeSetStorage('psat_active_exam_state', snapshot);
+  const saved = safeSetStorage('psat_active_exam_state', snapshot);
+  if (!saved) offerSaveRecovery({psat_active_exam_state:snapshot});
+  return saved;
 }
 
 function clearActiveExamState() {
   try {
-    localStorage.removeItem('psat_active_exam_state');
+    localStorage.removeItem(APP_ENV.storagePrefix + 'psat_active_exam_state');
   } catch (e) {}
 }
 
@@ -2246,19 +2272,18 @@ function checkActiveExamResume() {
   const banner = document.getElementById('exam-resume-banner');
   if (!banner) return;
   const meta = saved ? (saved.activeExamMeta || saved.activeExam) : null;
-  if (saved && meta && saved.examModuleDeadline > Date.now()) {
+  if (saved && meta) {
     const titleEl = document.getElementById('resume-exam-title');
     const detailsEl = document.getElementById('resume-exam-details');
     if (titleEl) titleEl.innerText = meta.title || 'In-Progress Exam Available';
-    const minsLeft = Math.max(1, Math.round((saved.examModuleDeadline - Date.now()) / 60000));
+    const minsLeft = Math.max(0, Math.ceil((saved.examModuleDeadline - Date.now()) / 60000));
     const totalMods = (meta.modules && meta.modules.length) || 1;
-    if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${totalMods} • ~${minsLeft} min remaining before module expires.`;
+    const status = saved.pendingCompletion ? 'Report awaiting save' : saved.phase === 'break' ? 'Section break — submitted answers are locked' : meta.isUntimed ? 'Untimed practice' : minsLeft > 0 ? `~${minsLeft} min remaining` : 'Time expired — resume to review and submit';
+    if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${totalMods} • ${status}.`;
     banner.classList.remove('hidden');
   } else {
     banner.classList.add('hidden');
-    if (saved && saved.examModuleDeadline <= Date.now()) {
-      clearActiveExamState();
-    }
+
   }
 }
 
@@ -2297,8 +2322,7 @@ function resumeActiveExamState() {
     }
 
     if (hasMismatch) {
-      alert('Warning: Some questions from your saved in-progress exam could not be loaded from the question bank. Please start a new exam to ensure accurate scoring.');
-      clearActiveExamState();
+      alert('Some saved questions are unavailable in this version of the question bank. Your saved test is retained. Export a backup before asking for recovery help.');
       showExamSubview('exam-lobby');
       renderExamLobbyHistory();
       return;
@@ -2311,6 +2335,12 @@ function resumeActiveExamState() {
       mathM2Easy: (meta.adaptivePools.mathM2Easy || []).map(qid => qMap[qid]).filter(Boolean)
     } : null;
 
+    if (meta.isAdaptive && (!meta.adaptivePools || Object.keys(rehydratedPools).some(key => rehydratedPools[key].length !== (meta.adaptivePools[key] || []).length))) {
+      alert('The saved adaptive question pool could not be fully restored. Your saved test is retained; export a backup for recovery.'); return;
+    }
+    if (!rehydratedModules.length || !Number.isInteger(saved.currentModuleIndex) || !rehydratedModules[saved.currentModuleIndex]) {
+      alert('The saved module position cannot be restored. Your saved test is retained.'); return;
+    }
     activeExam = {
       id: meta.id,
       title: meta.title,
@@ -2322,6 +2352,8 @@ function resumeActiveExamState() {
       totalTimeMinutes: meta.totalTimeMinutes,
       breakMinutes: meta.breakMinutes,
       createdAt: meta.createdAt,
+      blueprintVersion:meta.blueprintVersion, isHighYield:meta.isHighYield,
+      isUntimed:meta.isUntimed === true, customPlan:meta.customPlan || null,
       modules: rehydratedModules
     };
   } else {
@@ -2333,40 +2365,40 @@ function resumeActiveExamState() {
   examUserAnswers = saved.examUserAnswers || {};
   examUserTimes = saved.examUserTimes || {};
   examMarkedForReview = saved.examMarkedForReview || {};
-  examModuleDeadline = saved.examModuleDeadline || (Date.now() + 30 * 60000);
+  examModuleDeadline = saved.examModuleDeadline ?? null;
   examViewMode = saved.examViewMode || 'card';
-
+  examPhase = saved.phase || 'module';
+  submittedModules = saved.submittedModules || Array.from({length:currentModuleIndex},(_,i)=>i);
+  breakDeadline = saved.breakDeadline ?? null;
+  pendingCompletion = saved.pendingCompletion || null;
+  examModuleExpired = !activeExam.isUntimed && (!Number.isFinite(examModuleDeadline) || Date.now() >= examModuleDeadline);
+  examQuestionShownAt = null;
+  if (pendingCompletion) {finishExamAndShowReport();return;}
+  if (examPhase === 'break') {startBreakTimer(0,true);return;}
+  if (submittedModules.includes(currentModuleIndex)) {
+    if (currentModuleIndex < activeExam.modules.length-1) loadExamModule(currentModuleIndex+1);
+    else finishExamAndShowReport();
+    return;
+  }
   showExamSubview('exam-active');
-  
-  const mod = activeExam.modules[currentModuleIndex];
-  document.getElementById('exam-active-module-title').innerText = `${esc(mod.section)} — ${esc(mod.name || `Module ${currentModuleIndex + 1}`)}`;
-
-  if (examTimerInterval) clearInterval(examTimerInterval);
-  updateExamTimerDisplay();
-  examTimerInterval = setInterval(() => {
-    const remainingMs = examModuleDeadline - Date.now();
-    if (remainingMs <= 0) {
-      clearInterval(examTimerInterval);
-      updateExamTimerDisplay();
-      showExamToast('Time is up for this module! Directing to module review.');
-      showModuleReviewScreen();
-    } else {
-      updateExamTimerDisplay();
-    }
-  }, 1000);
-
+  document.getElementById('exam-active-module-title').innerText = activeExam.modules[currentModuleIndex].name;
   loadExamQuestion(currentExamQIndex);
+  startModuleClock();
+  if (examPhase === 'review' || examModuleExpired) showModuleReviewScreen();
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function discardActiveExamState() {
   if (confirm('Are you sure you want to discard your unfinished exam session?')) {
+    const backup = PSAT_ENGINE.createClientSnapshot(localStorage, 'archive_unfinished_exam', window.location);
+    if (!backup.success) {alert('Archive failed. The unfinished test is retained.');return;}
     clearActiveExamState();
     checkActiveExamResume();
   }
 }
 
 window.addEventListener('beforeunload', function (e) {
+  if (window.__PSAT_WRITE_BLOCKED__) {e.preventDefault();e.returnValue='A save needs recovery. Download recovery data or retry before leaving.';return e.returnValue;}
   if (activeExam && !document.getElementById('view-exam').classList.contains('hidden') && !document.getElementById('exam-active').classList.contains('hidden')) {
     persistActiveExamState();
     e.preventDefault();
@@ -2531,7 +2563,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const mode = urlParams.get('mode');
 
-  if (mode === 'psat89' || mode === 'standard_psat89') {
+  if (mode === 'focused_setup') {
+    switchTab('exam');showExamSubview('exam-lobby');
+    const host=document.createElement('div');host.className='card';
+    document.getElementById('exam-lobby').prepend(host);
+    try {mountFocusedBuilder(host, startCustomTestDirect,JSON.parse(urlParams.get('setup')));}
+    catch(e){host.textContent='Invalid test setup. No test was started: '+e.message;}
+  } else if (mode === 'psat89' || mode === 'standard_psat89') {
     const isAdaptive = (urlParams.get('adaptive') !== 'false');
     const isHighYield = (urlParams.get('highyield') === 'true' || urlParams.get('high_yield') === 'true');
     startStandardExam({ isAdaptive: isAdaptive, isHighYield: isHighYield });
@@ -2545,7 +2583,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const drill = PSAT_ENGINE.generateGapTargetedDrill(questions, progress, srsState, { count: countParam, focus: focusParam });
     startCustomTestDirect(drill);
   } else if (mode === 'custom') {
-    const stored = sessionStorage.getItem('psat_active_custom_test');
+    const stored = sessionStorage.getItem(APP_ENV.storagePrefix + 'psat_active_custom_test');
     if (stored) {
       try {
         const customData = JSON.parse(stored);
@@ -2578,7 +2616,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateSyncStatusBadge();
 
   // Automatic cloud sync on app start
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
+  if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
     PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
       if (res && res.success) {
         progress = safeGetStorage('psat_progress', {});

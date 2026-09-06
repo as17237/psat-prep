@@ -16,6 +16,12 @@
  * In particular the tie-break on EQUAL timestamps favours the INCOMING write
  * (`>=`, not `>`). That is the current production behaviour; it is pinned here so a
  * change to it is a deliberate, visible decision rather than an accident.
+ *
+ * WI-22 exception: one pin in section 3 was REWRITTEN rather than kept, because the
+ * behaviour it pinned (an incoming session day with questionsAnswered=0 replacing a
+ * stored day outright) was itself the P0 data-loss defect DATA-02. A pin exists to make
+ * a change deliberate; it does not make a defect correct. See the comment at that pin,
+ * and tests/integrity/test_merge_semantics.js for the new-behaviour coverage.
  */
 
 const assert = require('assert');
@@ -223,15 +229,48 @@ console.log('\n3. mergeSessions');
 }
 
 {
-  // An incoming day with questionsAnswered falsy (0 / missing) REPLACES the stored
-  // record outright — this is what the current code does (`existing && sess.questionsAnswered`),
-  // and it is pinned here precisely because it is the surprising branch.
+  // WI-22 / DATA-02 — THIS PIN WAS REWRITTEN, and the old one was WRONG.
+  //
+  // What it used to assert:
+  //     mergeSessions({d: 5 answers}, {d: 0 answers})  ===  {d: 0 answers}
+  //     "an incoming day with questionsAnswered=0 replaces the stored day
+  //      (pins current behaviour)"
+  //
+  // That pinned DATA LOSS as correct. The code read `if (prior && sess.questionsAnswered)`,
+  // so a falsy incoming `questionsAnswered` (0 or missing) skipped the max branch entirely
+  // and overwrote the stored day. A student who answered ten questions on a device that
+  // then went quiet, while a second device pushed an empty day, lost that day's work
+  // permanently in the master Cosmos document — silently, with the UI still saying
+  // "synced". A pin is meant to make a behaviour change deliberate, not to bless a defect:
+  // when the pinned behaviour is itself the bug, the pin has to change with the fix.
+  //
+  // The corrected rule: a day present on BOTH sides ALWAYS takes the per-field maximum,
+  // so an incoming zero can only ever be a no-op. (A day only the incoming side knows
+  // about is still added as-is — asserted separately above and in
+  // tests/integrity/test_merge_semantics.js.)
   const merged = mergeSessions(
     { d: { date: 'd', questionsAnswered: 5, correct: 5, totalTimeMs: 1000 } },
     { d: { date: 'd', questionsAnswered: 0, correct: 0, totalTimeMs: 0 } }
   );
-  assert.deepStrictEqual(merged, { d: { date: 'd', questionsAnswered: 0, correct: 0, totalTimeMs: 0 } });
-  ok('an incoming day with questionsAnswered=0 replaces the stored day (pins current behaviour)');
+  assert.deepStrictEqual(
+    merged,
+    { d: { date: 'd', questionsAnswered: 5, correct: 5, totalTimeMs: 1000 } },
+    'an incoming zero day must NEVER subtract from a stored day (DATA-02)'
+  );
+  ok('an incoming day with questionsAnswered=0 leaves the stored day intact (DATA-02 fixed; old pin blessed the loss)');
+
+  // The same rule with the field simply MISSING rather than 0 — the other half of the
+  // falsy condition the old code tripped over.
+  const missing = mergeSessions(
+    { d: { date: 'd', questionsAnswered: 10, correct: 7, totalTimeMs: 500000 } },
+    { d: { date: 'd' } }
+  );
+  assert.deepStrictEqual(
+    missing,
+    { d: { date: 'd', questionsAnswered: 10, correct: 7, totalTimeMs: 500000 } },
+    'an incoming day with NO questionsAnswered field must not subtract either (DATA-02)'
+  );
+  ok('an incoming day missing questionsAnswered entirely leaves the stored day intact');
 
   // The max branch only fills the four known fields — extra fields on the incoming
   // record are dropped when merging into an existing day. Pinned, not endorsed.

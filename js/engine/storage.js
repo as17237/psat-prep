@@ -256,6 +256,10 @@
 
     return {
       examId: report.examId,
+      customPlan: report.customPlan || null,
+      examCategory: report.examCategory || null,
+      isAdaptive: report.isAdaptive === true,
+      blueprintVersion: report.blueprintVersion || null,
       title: report.title,
       type: report.type,
       isSample: report.isSample || false,
@@ -874,6 +878,7 @@
   function buildProgressEntry(prevEntry, attempt) {
     var prev = prevEntry || {};
     var a = attempt || {};
+    if (a.attemptId && (prev.attempts || []).some(function(e) { return e.attemptId === a.attemptId; })) return prev;
     var at = typeof a.at === 'number' ? a.at : Date.now();
 
     var prevSeen = prev.timesSeen || (prev.answered ? 1 : 0);
@@ -887,6 +892,8 @@
     var attempts = Array.isArray(prev.attempts) ? prev.attempts.slice() : [];
     attempts.push({
       at: at,
+      attemptId: a.attemptId || null,
+      timingReliable: a.timingReliable === true,
       selectedAnswer: a.selectedAnswer,
       isCorrect: !!a.isCorrect,
       timeSpentMs: (typeof a.timeSpentMs === 'number') ? a.timeSpentMs : null,
@@ -938,6 +945,7 @@
   function outboxOpIdentity(opType, payload) {
     var p = payload || {};
     if (opType === 'question_attempt') {
+      if (p.attemptId) return p.attemptId;
       if (p.questionId === undefined || p.questionId === null) return null;
       if (typeof p.timestamp !== 'number') return null;
       return 'att_' + p.questionId + '_' + p.timestamp;
@@ -980,10 +988,8 @@
         }
       }
       queue.push(op);
-      // Cap outbox to 500 ops maximum to prevent quota issues during long offline periods
-      if (queue.length > 500) {
-        queue = queue.slice(-500);
-      }
+      // Unsynced operations must never be silently discarded. A quota failure
+      // leaves the existing queue intact and reports failure to the caller.
       store.setItem(outboxKey, JSON.stringify(queue));
       return op;
     } catch (e) {

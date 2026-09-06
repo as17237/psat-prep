@@ -163,12 +163,24 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/engine/storage.js',
   'v2/js/engine/examgen.js',
   'v2/js/engine/sync.js',
+  // WI-22: the exam lifecycle, the ephemeral review attempt, the batched
+  // persistence writer, the import validator, the focused-test planner and the
+  // weak-area summariser. srs.js REQUIRES exam_state and attempt and throws
+  // without them, so omitting any of these ships a lane whose engine never
+  // publishes (CLAUDE.md mode 5).
+  'v2/js/engine/exam_state.js',
+  'v2/js/engine/attempt.js',
+  'v2/js/engine/persistence.js',
+  'v2/js/engine/import_validate.js',
+  'v2/js/engine/test_planner.js',
+  'v2/js/engine/gap_summary.js',
   'v2/srs.js',
   'v2/styles/buttons.css',
   'v2/styles/tokens.css',
   'v2/styles/components.css',
   'v2/styles/utilities.css',
   'v2/styles/tw-extras.css',
+  'v2/styles/builder.css',
   'v2/vendor/chart.min.js',
   'v2/js/shared/html.js',
   'v2/js/shared/dom.js',
@@ -179,6 +191,8 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/shared/drill.js',
   'v2/js/shared/math_tools.js',
   'v2/js/shared/sw_routing.js',
+  'v2/js/shared/focused_builder.js',
+  'v2/js/shared/import_dialog.js',
   'v2/js/components/format.js',
   'v2/js/components/statCard.js',
   'v2/js/components/banner.js',

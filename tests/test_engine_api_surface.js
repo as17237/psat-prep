@@ -23,6 +23,17 @@
  * renamed; every symbol from the original 56 is still present with its
  * original kind and value.
  *
+ *   WI-22 (exam lifecycle + review attempt) ................... +25 = 97
+ *       exam_state: the whole EX-01..EX-04 repair as pure decisions —
+ *           a versioned snapshot, ONE deadline computation shared by the live
+ *           tick and the resume path, an answer-write guard, module locks, an
+ *           absolute break deadline, and a completed report that survives a
+ *           failed exam-history write. No function in the part discards state.
+ *       attempt:    the SRS-01..SRS-03 repair — an ephemeral review attempt
+ *           held separately from the LIFETIME progress[qid].answered flag, with
+ *           one submission guard shared by the multiple-choice and free-response
+ *           paths. History is appended, never rewritten to make the UI work.
+ *
  *   WI-10 (baseline, srs.js @66c88cc) ........................ 56 symbols
  *   WI-11 (storage & sync hardening) .......................... +11 = 67
  *       scheduler: SRS_HISTORY_CAP, summarizeSrsCard
@@ -135,6 +146,35 @@ const EXPECTED_SYMBOLS = [
   'buildSyncDelta',    // WI-11
   'getSyncCursor',     // WI-11
   'resetSyncCursor',   // WI-11
+
+  // --- WI-22 exam lifecycle state (js/engine/exam_state.js) ----------------
+  'EXAM_STATE_SCHEMA_VERSION',
+  'EXAM_PHASES',
+  'buildExamSnapshot',
+  'resumeExamSnapshot',
+  'computeRemainingSeconds',
+  'canAcceptAnswer',
+  'isModuleLocked',
+  'markModuleSubmitted',
+  'enterBreak',
+  'buildPendingCompletion',
+  'markCompletionSaved',
+  'isCompletionRecorded',
+  'migrateExamSnapshot',
+  'isDeadlinePassed',
+
+  // --- WI-22 ephemeral review attempt (js/engine/attempt.js) ---------------
+  'ATTEMPT_SCHEMA_VERSION',
+  'ATTEMPT_MODES',
+  'ATTEMPT_STATUS',
+  'deriveAttemptId',
+  'startAttempt',
+  'shouldHidePriorAnswer',
+  'canSubmitAttempt',
+  'closeAttempt',
+  'toProgressAttemptInput',
+  'toOutboxPayload',
+  'resolveAttemptMode',
 ];
 
 // A typo that duplicated an entry would quietly shrink the contract.
@@ -142,8 +182,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  72,
-  `The hand-written contract must list exactly 72 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20); found ${EXPECTED_SYMBOLS.length}. ` +
+  97,
+  `The hand-written contract must list exactly 97 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 11 attempt symbols from WI-22); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
@@ -171,6 +211,7 @@ console.log(`✓ exact set equality: ${actual.length} symbols, none missing, non
 //    the key set identical while breaking every caller.
 // ---------------------------------------------------------------------------
 const CONSTANT_SYMBOLS = [
+  'EXAM_PHASES','ATTEMPT_MODES','ATTEMPT_STATUS',
   'SCALING_ASSUMPTIONS',
   'PSAT_89_SPECS',
   'OFFICIAL_BLUEPRINTS',
@@ -178,6 +219,7 @@ const CONSTANT_SYMBOLS = [
 ];
 // WI-11 added two plain NUMBER constants; before that every non-object was a function.
 const NUMBER_SYMBOLS = [
+  'EXAM_STATE_SCHEMA_VERSION','ATTEMPT_SCHEMA_VERSION',
   'SRS_HISTORY_CAP',
   'SCHEMA_VERSION',
 ];
@@ -241,7 +283,7 @@ const vm = require('vm');
 const REPO = path.join(__dirname, '..');
 // adaptive_config is a no-dep constants part scoring.js depends on; it must load
 // before scoring exactly as the pages' <script> order has it (WI-16).
-const LOAD_ORDER = ['adaptive_config', 'grading', 'scheduler', 'scoring', 'storage', 'examgen', 'sync'];
+const LOAD_ORDER = ['adaptive_config', 'grading', 'scheduler', 'scoring', 'storage', 'examgen', 'sync', 'exam_state', 'attempt'];
 
 /** Evaluates the given files as classic <script>s in a fresh browser-ish global. */
 function loadInBrowserSandbox(files) {

@@ -1,3 +1,5 @@
+import { mountFocusedBuilder } from '../shared/focused_builder.js';
+import { importStudentFile } from '../shared/import_dialog.js';
 /**
  * js/pages/parent.js — page controller for parent.html.
  *
@@ -1176,10 +1178,8 @@ function copyShareableTestLink(type) {
   } else if (type === 'gap') {
     url += `?mode=gap_drill&count=${currentGapCount}&focus=${document.getElementById('gap-focus-type').value}`;
   } else if (type === 'custom') {
-    const diffVal = document.getElementById('cust-diff').value;
-    const countVal = document.getElementById('cust-count').value;
-    const skillsStr = Array.from(selectedSkillsSet).join(',');
-    url += `?mode=custom_filter&diff=${encodeURIComponent(diffVal)}&count=${countVal}&skills=${encodeURIComponent(skillsStr)}`;
+    document.getElementById('builder-share')?.click();
+    return;
   }
 
   navigator.clipboard.writeText(url).then(() => {
@@ -1317,91 +1317,8 @@ function exportAuditTrail() {
 }
 
 function importAuditTrail(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data || typeof data !== 'object') {
-        alert('❌ Invalid File: JSON structure could not be parsed.');
-        return;
-      }
-
-      // Normalize input fields from different backup/audit formats
-      const impProgress = data.questionAttempts || data.progress || null;
-      const impSrs = data.spacedRepetitionCards || data.srsState || data.srs || null;
-      const impSessions = data.sessionsLog || data.sessionsState || data.sessions || null;
-      const impExams = data.examHistoryLog || data.examHistory || null;
-
-      const hasValidContent = (impProgress && Object.keys(impProgress).length > 0) ||
-                             (impSrs && Object.keys(impSrs).length > 0) ||
-                             (impSessions && Object.keys(impSessions).length > 0) ||
-                             (Array.isArray(impExams) && impExams.length > 0);
-
-      if (!hasValidContent) {
-        alert('❌ Invalid Import: The selected file does not contain recognized student attempts, SRS cards, or exam records.');
-        return;
-      }
-
-      // 2. Interactive Merge vs Replace Prompt
-      const isMerge = confirm(
-        'Import Strategy Choice:\n\n' +
-        '• Click "OK" to MERGE imported test records with current data (Safest — retains existing attempts).\n' +
-        '• Click "Cancel" to REPLACE current student data entirely with this backup file.\n\n' +
-        '(A safety recovery snapshot will be created before applying changes).'
-      );
-
-      const result = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.runTransactionalAction) ?
-        PSAT_ENGINE.runTransactionalAction(localStorage, isMerge ? 'merge_file_import' : 'replace_file_import', function(ctx) {
-          if (isMerge && typeof PSAT_ENGINE !== 'undefined') {
-            const currProg = safeGetStorage('psat_progress', {});
-            const currSrs = safeGetStorage('psat_srs', {});
-            const currSess = safeGetStorage('psat_sessions', {});
-            const currHist = safeGetStorage('psat_exam_history', []);
-
-            const mergedProg = PSAT_ENGINE.mergeProgress(impProgress, currProg);
-            const mergedSrs = PSAT_ENGINE.mergeSrsState(impSrs, currSrs);
-            const mergedSess = PSAT_ENGINE.mergeSessionsState(impSessions, currSess, mergedProg);
-            const mergedHist = PSAT_ENGINE.mergeExamHistory(impExams, currHist, 15);
-
-            const ok1 = safeSetStorage('psat_progress', mergedProg);
-            const ok2 = safeSetStorage('psat_srs', mergedSrs);
-            const ok3 = safeSetStorage('psat_sessions', mergedSess);
-            const ok4 = safeSetStorage('psat_exam_history', mergedHist);
-            if (!ok1 || !ok2 || !ok3 || !ok4) return { success: false, error: 'Storage write failed during merge' };
-          } else {
-            if (impProgress) safeSetStorage('psat_progress', impProgress);
-            if (impSrs) safeSetStorage('psat_srs', impSrs);
-            if (impSessions) safeSetStorage('psat_sessions', impSessions);
-            if (impExams) safeSetStorage('psat_exam_history', impExams);
-          }
-
-          if (data.summary && data.summary.isSampleData) {
-            localStorage.setItem(APP_ENV.storagePrefix + 'psat_sample_data_active', 'true');
-          } else {
-            localStorage.removeItem(APP_ENV.storagePrefix + 'psat_sample_data_active');
-          }
-          return { success: true };
-        }, window.location) :
-        { success: false, error: 'Engine unavailable' };
-
-      if (!result.success) {
-        alert('❌ Import Cancelled: ' + (result.error || 'Failed to safely import file') + '. Your existing data has not been modified.');
-        return;
-      }
-
-      if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-        PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName, window.location);
-      }
-
-      alert(isMerge ? '✓ Successfully MERGED imported data!' : '✓ Successfully REPLACED student data from backup file!');
-      location.reload();
-    } catch (err) {
-      alert('Failed to import audit file: ' + err.message);
-    }
-  };
-  reader.readAsText(file);
+  importStudentFile(event.target.files[0]);
+  event.target.value = '';
 }
 
 // The markup's `onclick="launchMistakesDrill()"` is unchanged by WI-09; this
@@ -1473,4 +1390,17 @@ Object.assign(window, {
   exportAuditTrail,
   importAuditTrail,
   launchMistakesDrill,
+});
+
+// Explicit topic/time builder; creating a plan never changes learning records.
+document.addEventListener('DOMContentLoaded', () => {
+  const host = document.getElementById('focused-test-builder');
+  if (host) mountFocusedBuilder(host, setup => {
+    try {
+      sessionStorage.setItem(APP_ENV.storagePrefix + 'psat_active_custom_test',JSON.stringify(setup));
+      const url = new URL('index.html',location.href);url.searchParams.set('mode','custom');
+      if(APP_ENV.isBeta)url.searchParams.set('env','beta');
+      location.href=url.href;
+    } catch(e) {alert('Could not prepare this test. Existing work is unchanged: '+e.message);}
+  });
 });
