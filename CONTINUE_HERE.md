@@ -191,7 +191,7 @@ docs/DISASTER_RECOVERY_RUNBOOK.md  docs/FEATURE_AND_RELIABILITY_ROADMAP.md
 | `scripts/verify_shard_migration_scratch.js` | End-to-end shard proof against a scratch copy of real data | scratch only |
 | `scripts/simulate_full_bank.js` | Storage-growth gate: drives all 3,059 questions + deep review pass + 50 mocks; fails if the cap stops engaging or any doc exceeds 400 KB | offline |
 | `scripts/compact_srs_history.js` | Trim over-long SRS histories | dry-run default |
-| `scripts/prune_backups.js` | Retention (keep ≤30 days + weekly) | dry-run default; refuses to delete the newest 7 |
+| `scripts/prune_backups.js` | Retention (keep ≤15 days) — policy shared with the `dailyBackupPrune` timer, see runbook §6.4/§6.6 | dry-run default; refuses to delete the newest 7; refuses on a partial listing |
 | `scripts/export_questions_container.js` | Export the Cosmos `Questions` container | read-only |
 
 ---

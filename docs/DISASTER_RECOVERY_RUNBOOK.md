@@ -428,15 +428,28 @@ node scripts/prune_backups.js              # plan only, nothing deleted
 node scripts/prune_backups.js --apply      # execute the printed plan
 ```
 
-Policy: keep **every** archive ≤ 30 days old; older than that, keep the newest archive of
-each ISO week. **Hard floor: the newest 7 archives are never deleted, whatever the policy
-says.** Only timestamped `cosmos_backup_<ts>.json` archives are candidates — the
-`cosmos_backup_latest.json` pointer, `backup_FAILED_*` markers, and every other blob are
-never touched; a deleted archive takes its own `.sha256` sidecar with it.
+Policy (changed 2026-09-07; was ≤ 30 days plus one archive per ISO week): keep **every**
+archive ≤ 15 days old, and delete archives strictly older than that. An archive whose age
+is exactly 15.00 days is **kept** — "older than 15 days" excludes the tick itself.
+**Hard floor: the newest 7 archives are never deleted, whatever the day window says** —
+without it, 16 days of failed backups would empty the container on schedule, precisely
+when recovery matters most. Only timestamped `cosmos_backup_<ts>.json` archives are
+candidates — the `cosmos_backup_latest.json` pointer, `backup_FAILED_*` markers, and every
+other blob are never touched; a deleted archive takes its own `.sha256` sidecar with it,
+archive deleted first so an interrupted pair can only ever leave a harmless orphan sidecar,
+never an archive nobody can verify.
+
+The policy lives in **one** place, `api/src/lib/backupRetention.js`, and is shared by both
+callers: this CLI and the scheduled timer in §6.6. `scripts/prune_backups.js` contains no
+policy of its own.
 
 Safety: credentials come from environment variables only (secrets on argv are refused),
-the container name is hardcoded, and the script refuses to run inside the Azure Functions
-host — **the nightly timer can never prune.**
+the container name is hardcoded (there is no flag to point it elsewhere, so student data,
+the Cosmos database, `function-releases`, `$web` and `refactor-baseline/` are all
+unreachable from this path), and if the container cannot be fully enumerated the partial
+listing is **discarded** and nothing is planned or deleted. The CLI still refuses to run
+inside the Azure Functions host: it is the operator path, and the scheduled path is a
+separate function with its own guards (§6.6).
 
 ### 6.5 Rollback for the API deployment
 
@@ -457,6 +470,44 @@ curl -s 'https://psat-api-4915.azurewebsites.net/api/sync?student_name=default_s
 Note: the WI-04 deploy removed the `WEBSITE_RUN_FROM_PACKAGE` and `ENABLE_ORYX_BUILD` app
 settings (`az functionapp deployment source config-zip` does this when switching to a
 remote-build zip deploy). A rollback via the same command needs no app-setting changes.
+
+### 6.6 Scheduled retention prune — `api/src/functions/backupPrune.js`
+
+`app.timer('dailyBackupPrune', { schedule: '0 30 4 * * *' })` — **04:30 UTC daily**, 2 h 30 m
+after the 02:00 UTC `dailyCosmosBackup`. It cannot race that backup: the 02:00 run
+completes in under two seconds (observed archive timestamps land at 02:00:01), and even a
+direct collision would be inert, because a just-written archive is age ≈ 0 and is therefore
+inside both the 15-day window and the newest-7 floor.
+
+**It ships DISARMED.** The timer runs nightly and logs the full plan — every archive it
+would keep and why, every archive it would delete — but deletes nothing until the app
+setting `BACKUP_PRUNE_APPLY` is exactly `true`:
+
+```bash
+# Arm it (only after reading a night or two of dry-run plans in the logs):
+az functionapp config appsettings set --name psat-api-4915 \
+  --resource-group rg-psat-prep --settings BACKUP_PRUNE_APPLY=true
+# Disarm again, no redeploy needed:
+az functionapp config appsettings delete --name psat-api-4915 \
+  --resource-group rg-psat-prep --setting-names BACKUP_PRUNE_APPLY
+```
+
+Guards, all covered by `tests/test_prune_backups.js`:
+
+* **Cannot enumerate ⇒ does nothing.** A paging failure discards the blobs already read
+  and refuses; a partial listing plus a delete loop deletes what you could not see.
+* **No `cosmos_backup_latest.json` in the listing ⇒ refuses** — either it is not the right
+  container or the listing is incomplete.
+* **Empty listing ⇒ refuses.** An empty container and an unreadable one look identical.
+* Never deletes the latest pointer or its sidecar, at any age.
+* Never deletes the newest 7 archives, at any age.
+* Failures are surfaced as a `backup_FAILED_<ts>.json` marker with
+  `triggerType: "scheduled_prune"`, so a broken prune turns `GET /api/backup-status` red
+  instead of dying in the logs.
+
+**Recovery window after this change:** with the nightly 02:00 backup healthy, the
+container holds the last **15 days** (~15–16 archives; more on days with manual
+`POST /api/backup` runs). If backups stop, the newest 7 archives survive indefinitely.
 
 ---
 

@@ -2,125 +2,45 @@
 /**
  * scripts/prune_backups.js
  *
- * Retention pruning for the `cosmos-backups` blob container. DRY RUN BY DEFAULT.
+ * Operator CLI for retention pruning of the `cosmos-backups` blob container.
+ * DRY RUN BY DEFAULT.
  *
- * Policy
- *   - Keep every backup archive <= 30 days old.
- *   - Older than 30 days: keep exactly one archive per ISO week (the newest in that week).
- *   - HARD REFUSAL: the newest 7 archives are never deleted, whatever the policy says.
- *   - Only timestamped `cosmos_backup_<ts>.json` archives are ever candidates. The
- *     `cosmos_backup_latest.json` pointer, `backup_FAILED_*` markers and any other blob
- *     are never touched. A deleted archive takes its own `.sha256` sidecar with it.
+ * This file contains NO policy. The policy — the 15-day window, the newest-7 floor, the
+ * pointer/sidecar rules, the refusal conditions and the delete ordering — lives in exactly
+ * one place, `api/src/lib/backupRetention.js`, and is shared with the scheduled timer in
+ * `api/src/functions/backupPrune.js` (CLAUDE.md mode 2: one implementation, not two).
+ * Everything below is argument handling, Azure IO and printing.
+ *
+ * Scope: BACKUP ARCHIVES in one hardcoded blob container. This script has no Cosmos
+ * client and no container flag; it cannot reach student data, the Cosmos database, the
+ * `function-releases` container, `$web`, or `refactor-baseline/`.
  *
  * Safety (CLAUDE.md mode 7 — destructive action needs a guard)
  *   - `--apply` is REQUIRED for any deletion; without it nothing is written or deleted.
  *   - Credentials come from environment variables only (AZURE_STORAGE_ACCOUNT /
  *     AZURE_STORAGE_KEY). Secrets on argv are refused.
- *   - Refuses to run inside the Azure Functions host: this is an operator tool and must
- *     never be reachable from the nightly timer.
- *   - The container name is hardcoded; there is no flag to point it elsewhere.
+ *   - Refuses to run inside the Azure Functions host: this is the operator path. The
+ *     scheduled path is a separate function with its own guards.
+ *   - If the container cannot be fully enumerated, the listing is DISCARDED and nothing
+ *     is planned or deleted. A partial list plus a delete loop deletes what you could
+ *     not see.
  *
  * Usage
  *   AZURE_STORAGE_ACCOUNT=psatprep4915 AZURE_STORAGE_KEY=... node scripts/prune_backups.js
  *   AZURE_STORAGE_ACCOUNT=psatprep4915 AZURE_STORAGE_KEY=... node scripts/prune_backups.js --apply
  */
 
-const RETENTION_DAYS = 30;
-const MIN_KEEP_NEWEST = 7;
-const BACKUP_CONTAINER = 'cosmos-backups';
-
-const ARCHIVE_RE = /^cosmos_backup_.+\.json$/;
-const LATEST_POINTER = 'cosmos_backup_latest.json';
-
-/**
- * ISO-8601 week key ("YYYY-Www") for a date, computed in UTC.
- * ISO weeks start Monday; week 1 is the week containing the first Thursday of the year.
- */
-function isoWeekKey(date) {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7;           // Mon=1 .. Sun=7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);   // move to the Thursday of this ISO week
-  const isoYear = d.getUTCFullYear();
-  const yearStart = Date.UTC(isoYear, 0, 1);
-  const week = Math.ceil((((d.getTime() - yearStart) / 86400000) + 1) / 7);
-  return `${isoYear}-W${String(week).padStart(2, '0')}`;
-}
-
-function toMillis(value) {
-  if (value instanceof Date) return value.getTime();
-  const parsed = Date.parse(String(value));
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-/**
- * Pure retention selector. `nowMs` is a parameter — the clock is never read here.
- *
- * @param {Array<{name: string, lastModified: (Date|string)}>} blobs full container listing
- * @param {number} nowMs epoch milliseconds
- * @returns {{
- *   toDelete: Array<object>, toKeep: Array<object>, sidecarsToDelete: string[],
- *   ignored: Array<object>, protectedByFloor: Array<object>, cutoffIso: string
- * }}
- */
-function selectBackupsForDeletion(blobs, nowMs) {
-  const list = Array.isArray(blobs) ? blobs : [];
-  const candidates = [];
-  const ignored = [];
-  const sidecarNames = new Set();
-
-  for (const blob of list) {
-    if (!blob || !blob.name) continue;
-    const ms = toMillis(blob.lastModified);
-    if (blob.name.endsWith('.sha256')) sidecarNames.add(blob.name);
-    if (blob.name !== LATEST_POINTER && ARCHIVE_RE.test(blob.name) && ms !== null) {
-      candidates.push({ name: blob.name, lastModified: blob.lastModified, ms });
-    } else {
-      ignored.push(blob);
-    }
-  }
-
-  // Newest first.
-  candidates.sort((a, b) => b.ms - a.ms);
-
-  const cutoffMs = nowMs - (RETENTION_DAYS * 86400000);
-  const protectedByFloor = candidates.slice(0, MIN_KEEP_NEWEST);
-  const floorNames = new Set(protectedByFloor.map(c => c.name));
-
-  // Among archives older than the cutoff, the newest of each ISO week survives.
-  const weekWinner = new Map();
-  for (const c of candidates) {
-    if (c.ms > cutoffMs) continue;
-    const key = isoWeekKey(new Date(c.ms));
-    // candidates are sorted newest-first, so the first seen in a week is its winner.
-    if (!weekWinner.has(key)) weekWinner.set(key, c.name);
-  }
-
-  const toDelete = [];
-  const toKeep = [];
-  for (const c of candidates) {
-    const withinRetention = c.ms > cutoffMs;
-    const isWeekWinner = weekWinner.get(isoWeekKey(new Date(c.ms))) === c.name;
-    const isFloorProtected = floorNames.has(c.name);
-    if (withinRetention || isWeekWinner || isFloorProtected) {
-      toKeep.push(c);
-    } else {
-      toDelete.push(c);
-    }
-  }
-
-  const sidecarsToDelete = toDelete
-    .map(c => `${c.name}.sha256`)
-    .filter(name => sidecarNames.has(name));
-
-  return {
-    toDelete,
-    toKeep,
-    sidecarsToDelete,
-    ignored,
-    protectedByFloor,
-    cutoffIso: new Date(cutoffMs).toISOString()
-  };
-}
+const {
+  RETENTION_DAYS,
+  MIN_KEEP_NEWEST,
+  BACKUP_CONTAINER,
+  LATEST_POINTER,
+  REFUSAL,
+  timestampFromArchiveName,
+  selectBackupsForDeletion,
+  buildDeletionPairs,
+  executeRetentionPlan
+} = require('../api/src/lib/backupRetention');
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -131,8 +51,9 @@ function assertNotRunningInFunctionsHost() {
   const present = hostMarkers.filter(k => process.env[k]);
   if (present.length > 0) {
     throw new Error(
-      `Refusing to run: this prune tool must never execute inside the Azure Functions host ` +
-      `(found ${present.join(', ')}). It is an operator-only script.`
+      `Refusing to run: this prune CLI must never execute inside the Azure Functions host ` +
+      `(found ${present.join(', ')}). It is an operator-only script; the scheduled path is ` +
+      `api/src/functions/backupPrune.js.`
     );
   }
 }
@@ -148,8 +69,76 @@ function assertNoSecretsOnArgv(argv) {
   }
 }
 
-function formatAge(ms, nowMs) {
-  return `${((nowMs - ms) / 86400000).toFixed(1)}d`;
+/**
+ * Enumerates the container COMPLETELY or not at all.
+ *
+ * The async iterator throws mid-iteration on a paging failure, which would otherwise
+ * leave a half-filled array that looks exactly like a small container. On any error the
+ * partial array is discarded and null is returned, which the selector treats as
+ * LISTING_UNAVAILABLE.
+ */
+async function listContainerOrNull(containerClient, warn) {
+  const blobs = [];
+  try {
+    for await (const blob of containerClient.listBlobsFlat()) {
+      blobs.push({
+        name: blob.name,
+        lastModified: blob.properties && blob.properties.lastModified ? blob.properties.lastModified : null
+      });
+    }
+    return blobs;
+  } catch (err) {
+    warn(
+      `Could not fully enumerate ${BACKUP_CONTAINER}: ${err.message}. ` +
+      `Discarding the ${blobs.length} blob(s) read so far; a prune is never planned from a partial listing.`
+    );
+    return null;
+  }
+}
+
+function printPlan(plan, blobCount, account, apply) {
+  console.log(`--- Backup retention prune (${apply ? 'APPLY' : 'DRY RUN'}) ---`);
+  console.log(`Container: ${BACKUP_CONTAINER} on ${account}`);
+  console.log(
+    `Policy: keep every archive <= ${RETENTION_DAYS} days old; ` +
+    `the newest ${MIN_KEEP_NEWEST} archives are never deleted at any age.`
+  );
+  console.log(`Blobs listed: ${blobCount === null ? 'LISTING FAILED' : blobCount}`);
+
+  if (plan.ok !== true) {
+    console.log(`\nREFUSED (${plan.refusalCode}): ${plan.refusalReason}`);
+    console.log('Deletions selected: 0');
+    return;
+  }
+
+  console.log(`Archives: ${plan.archiveCount} (ignored non-archive blobs: ${plan.ignored.length})`);
+  console.log(`Retention cutoff: ${plan.cutoffIso}`);
+
+  if (plan.skewWarnings.length > 0) {
+    console.log(`\nAGE SKEW (${plan.skewWarnings.length}) — filename time vs lastModified disagree; the younger reading was used:`);
+    for (const w of plan.skewWarnings) {
+      console.log(`  ${w.name}  filename=${w.filenameIso}  lastModified=${w.lastModifiedIso}  (${w.skewMs} ms)`);
+    }
+  }
+  if (plan.archivesWithoutSidecar.length > 0) {
+    console.log(`\nARCHIVES WITH NO .sha256 SIDECAR (${plan.archivesWithoutSidecar.length}) — unverifiable, pre-date the sidecar era:`);
+    for (const n of plan.archivesWithoutSidecar) console.log(`  ${n}`);
+  }
+
+  console.log(`\nKEEP (${plan.toKeep.length}):`);
+  for (const c of plan.toKeep) {
+    console.log(`  keep   ${c.name}  (${c.ageDays.toFixed(2)}d, ${c.keepReason})`);
+  }
+
+  console.log(`\nDELETE (${plan.toDelete.length} archives + ${plan.sidecarsToDelete.length} sidecars):`);
+  if (plan.toDelete.length === 0) {
+    console.log('  (nothing)');
+  }
+  for (const pair of buildDeletionPairs(plan)) {
+    const c = plan.toDelete.find(x => x.name === pair.archive);
+    console.log(`  delete ${pair.archive}  (${c.ageDays.toFixed(2)}d, older than ${RETENTION_DAYS}d)`);
+    if (pair.sidecar) console.log(`  delete ${pair.sidecar}  (sidecar of the archive above)`);
+  }
 }
 
 async function main() {
@@ -170,31 +159,18 @@ async function main() {
   const service = new BlobServiceClient(`https://${account}.blob.core.windows.net`, credential);
   const container = service.getContainerClient(BACKUP_CONTAINER);
 
-  const blobs = [];
-  for await (const blob of container.listBlobsFlat()) {
-    blobs.push({ name: blob.name, lastModified: blob.properties.lastModified });
-  }
-
+  const blobs = await listContainerOrNull(container, m => console.error(`WARNING: ${m}`));
   const nowMs = Date.now();
   const plan = selectBackupsForDeletion(blobs, nowMs);
 
-  console.log(`--- Backup retention prune (${apply ? 'APPLY' : 'DRY RUN'}) ---`);
-  console.log(`Container: ${BACKUP_CONTAINER} on ${account}`);
-  console.log(`Policy: keep all <= ${RETENTION_DAYS} days, then one per ISO week; newest ${MIN_KEEP_NEWEST} archives never deleted.`);
-  console.log(`Blobs listed: ${blobs.length} (archives: ${plan.toDelete.length + plan.toKeep.length}, ignored: ${plan.ignored.length})`);
-  console.log(`Retention cutoff: ${plan.cutoffIso}`);
-  console.log(`\nKEEP (${plan.toKeep.length}):`);
-  for (const c of plan.toKeep) {
-    const why = plan.protectedByFloor.some(p => p.name === c.name) ? 'newest-7 floor' :
-      (c.ms > nowMs - RETENTION_DAYS * 86400000 ? '<=30d' : `weekly ${isoWeekKey(new Date(c.ms))}`);
-    console.log(`  keep   ${c.name}  (${formatAge(c.ms, nowMs)}, ${why})`);
-  }
-  console.log(`\nDELETE (${plan.toDelete.length} archives + ${plan.sidecarsToDelete.length} sidecars):`);
-  for (const c of plan.toDelete) {
-    console.log(`  delete ${c.name}  (${formatAge(c.ms, nowMs)}, superseded in ${isoWeekKey(new Date(c.ms))})`);
-  }
-  for (const s of plan.sidecarsToDelete) {
-    console.log(`  delete ${s}  (sidecar of a deleted archive)`);
+  printPlan(plan, blobs === null ? null : blobs.length, account, apply);
+
+  if (plan.ok !== true) {
+    if (plan.refusalCode === REFUSAL.LISTING_UNAVAILABLE || plan.refusalCode === REFUSAL.POINTER_MISSING) {
+      throw new Error(`Prune refused: ${plan.refusalReason}`);
+    }
+    console.log('\nNothing selected. Exiting without any write.');
+    return { dryRun: !apply, plan };
   }
 
   if (!apply) {
@@ -204,47 +180,43 @@ async function main() {
 
   if (plan.toDelete.length === 0) {
     console.log('\nNothing to delete. Exiting without any write.');
-    return { applied: true, deleted: 0 };
+    return { applied: true, deleted: 0, plan };
   }
 
-  let deleted = 0;
-  const failures = [];
-  for (const name of [...plan.toDelete.map(c => c.name), ...plan.sidecarsToDelete]) {
-    try {
-      const res = await container.getBlockBlobClient(name).deleteIfExists();
-      if (res.succeeded) {
-        deleted += 1;
-        console.log(`  ✓ deleted ${name}`);
-      } else {
-        failures.push(`${name}: blob not found`);
-        console.error(`  ⚠️  not deleted (missing): ${name}`);
-      }
-    } catch (err) {
-      failures.push(`${name}: ${err.message}`);
-      console.error(`  ❌ delete failed: ${name} — ${err.message}`);
-    }
-  }
+  const outcome = await executeRetentionPlan(container, plan, {
+    apply: true,
+    log: m => console.log(m),
+    warn: m => console.error(m)
+  });
 
-  console.log(`\nDeleted ${deleted} blob(s). Failures: ${failures.length}`);
-  if (failures.length > 0) {
-    throw new Error(`Prune completed with ${failures.length} failure(s):\n  ${failures.join('\n  ')}`);
+  console.log(`\nDeleted ${outcome.deleted.length} blob(s). Failures: ${outcome.failures.length}. Sidecars kept back: ${outcome.skipped.length}`);
+  if (outcome.failures.length > 0) {
+    throw new Error(`Prune completed with ${outcome.failures.length} failure(s):\n  ${outcome.failures.join('\n  ')}`);
   }
-  return { applied: true, deleted };
+  return { applied: true, deleted: outcome.deleted.length, plan };
 }
 
 if (require.main === module) {
   main().catch(err => {
-    console.error('\n❌ prune_backups failed: ' + err.message);
+    console.error('\nprune_backups failed: ' + err.message);
     process.exit(1);
   });
 }
 
 module.exports = {
+  // Re-exported from api/src/lib/backupRetention.js so this module stays the CLI entry
+  // point without owning a second copy of the policy.
   RETENTION_DAYS,
   MIN_KEEP_NEWEST,
   BACKUP_CONTAINER,
-  isoWeekKey,
+  LATEST_POINTER,
+  REFUSAL,
+  timestampFromArchiveName,
   selectBackupsForDeletion,
+  buildDeletionPairs,
+  executeRetentionPlan,
+  // CLI-only guards
   assertNotRunningInFunctionsHost,
-  assertNoSecretsOnArgv
+  assertNoSecretsOnArgv,
+  listContainerOrNull
 };
