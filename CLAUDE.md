@@ -55,6 +55,15 @@ The most persistent defect in this project's history.
 - Before fixing a rule in one file, `grep` the whole repo for the concept and fix **every** site in the same commit. State in your summary how many sites you found and changed.
 - The student app and parent portal display the same metrics. Any threshold change must be applied to both, or extracted into `srs.js` and shared. Prefer extracting.
 - Two functions doing the same job (scoring, URL building, payload trimming) is the bug. Call the existing one.
+- **One value with two consumers can have opposite safety semantics.** WI-22's
+  backup retention derived `ms = max(filenameMs, lastModifiedMs)` and justified it
+  as "a disagreement can only ever keep a backup longer". True for the retention
+  *window*. Feeding the same value to the *floor* inverted it: there, looking
+  younger **displaces** a genuinely newer backup out of protection, and seven
+  archives with bumped metadata caused the seven newest real backups to be
+  selected for deletion. When one number feeds two decisions, state the safety
+  property **per consumer** and test each — the existing disagreement test covered
+  the window and passed.
 
 ### 3. Writing code against an imagined schema — *rounds 1, 2, 4*
 
@@ -90,6 +99,17 @@ Zero is a schema error, not a fallback opportunity. Note that `data/*.json` and 
 - Never inject time, randomness, or dates by patching module exports — pass them as parameters (`calculateStreak(map, todayKey)` is the established pattern).
 - Tests must run on a clean clone. PDF-dependent tests use `@unittest.skipUnless`.
 - New generation/filtering logic needs a test that runs it against `data/questions_data.js` and asserts real counts.
+- **Hand-built fixtures only ever cover the cases their author imagined.** For any
+  path that deletes, prunes or overwrites, add a generative test that decorrelates
+  the inputs an attacker or a filesystem could move independently, and assert
+  *invariants* rather than expected outputs ("the N newest are never deleted",
+  "the container is never emptied"). The two WI-22 retention defects passed 16
+  hand-written groups and a live dry run; a 300-seed fuzz flags the first at seed 11.
+- **A run that produced no output has verified nothing.** The WI-22 retention dry
+  run against production returned "0 archives selected" and that read as safety —
+  but nothing in the container was eligible, so almost none of the selection logic
+  executed. Assert that your test actually reached the behaviour (count how many
+  cases deleted something) before treating a clean run as evidence.
 
 ### 5. Swallowing failures — *rounds 1, 5, 6*
 

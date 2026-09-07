@@ -602,6 +602,178 @@ const silent = { log: () => {}, warn: () => {} };
   }
   console.log('  ok  impossible calendar dates are never deletable; a real leap day still is');
 
+  // =========================================================================
+  // CLASS-LEVEL DEFENCE — why the two regressions above got through review.
+  //
+  // The floor bug and the impossible-date bug were both found by external
+  // review AFTER this file already had 16 passing groups. The tests that
+  // existed were not weak; they were aimed at the wrong thing. Recording the
+  // three mistakes here, because the fix for each is a test, not a rule:
+  //
+  //  1. Every check was derived from what the implementation CLAIMED to guard.
+  //     "A floor exists" was confirmed. "Under what input does the floor pick
+  //     the wrong seven?" was never asked. Hand-built fixtures only ever
+  //     exercise the cases their author already imagined.
+  //
+  //  2. The live dry run returned 0 deletions and that read as safety. It was
+  //     not: nothing in the real container was eligible, so almost none of the
+  //     selection logic ran. A check whose input cannot trigger the behaviour
+  //     proves nothing (CLAUDE.md mode 4).
+  //
+  //  3. `ms = max(filenameMs, lastModifiedMs)` was accepted as "conservative"
+  //     GLOBALLY. It is conservative for the WINDOW, where looking younger only
+  //     keeps an archive longer — and actively dangerous for the FLOOR, where
+  //     looking younger displaces a genuinely newer archive out of protection.
+  //     One value, two consumers, OPPOSITE safety semantics. The pre-existing
+  //     disagreement test covered the window consumer and not the floor one.
+  //
+  // So the tests below are adversarial and generative rather than hand-picked:
+  // they decorrelate lastModified from the filename on purpose and assert
+  // INVARIANTS over many shapes, so the next bug of this class fails here
+  // instead of in review. Randomness is seeded and passed explicitly — never a
+  // patched global (CLAUDE.md mode 4).
+  // =========================================================================
+  {
+    // Deterministic LCG so a failure is always reproducible from its seed.
+    function rng(seed) {
+      let x = seed >>> 0;
+      return () => ((x = (x * 1664525 + 1013904223) >>> 0) / 4294967296);
+    }
+    const pad = (n, w) => String(n).padStart(w, '0');
+    const nameFor = (ms) => {
+      const d = new Date(ms);
+      return 'cosmos_backup_' + d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1, 2) + '-' +
+        pad(d.getUTCDate(), 2) + 'T' + pad(d.getUTCHours(), 2) + '-' + pad(d.getUTCMinutes(), 2) +
+        '-' + pad(d.getUTCSeconds(), 2) + '-' + pad(d.getUTCMilliseconds(), 3) + 'Z.json';
+    };
+
+    let cases = 0;
+    let sawDeletions = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const r = rng(seed);
+      const n = 2 + Math.floor(r() * 25);              // 2..26 archives
+      const archives = [];
+      for (let i = 0; i < n; i++) {
+        // true age: anywhere from 0 to 400 days back
+        const trueMs = NOW - Math.floor(r() * 400 * 86400000);
+        // HOSTILE metadata: decorrelated from the filename in BOTH directions,
+        // which is the exact shape a re-copy / tier change / clock skew produces.
+        const lm = NOW - Math.floor(r() * 400 * 86400000);
+        archives.push({ name: nameFor(trueMs), lastModified: new Date(lm), trueMs });
+      }
+      const blobs = [{ name: 'cosmos_backup_latest.json', lastModified: new Date(NOW) }]
+        .concat(archives.map(a => ({ name: a.name, lastModified: a.lastModified })));
+
+      const plan = selectBackupsForDeletion(blobs, NOW);
+      cases++;
+      if (!plan.ok) continue;                           // a refusal is always safe
+      const deleted = new Set(plan.toDelete.map(x => x.name));
+      if (deleted.size) sawDeletions++;
+
+      // --- INVARIANT 1: the newest MIN_KEEP_NEWEST by TRUE time are untouchable.
+      // This is the one the floor bug violated. It is stated in terms of the
+      // immutable filename clock, never lastModified.
+      const newestFirst = archives.slice().sort((a, b) => b.trueMs - a.trueMs);
+      newestFirst.slice(0, MIN_KEEP_NEWEST).forEach((a) => {
+        assert.ok(!deleted.has(a.name),
+          'INVARIANT: seed ' + seed + ' deleted ' + a.name + ', which is among the ' +
+          MIN_KEEP_NEWEST + ' newest archives by true (filename) time. Mutable metadata ' +
+          'must never remove protection from a newer backup.');
+      });
+
+      // --- INVARIANT 2: never delete everything; the floor is a hard cap.
+      assert.ok(archives.length - deleted.size >= Math.min(MIN_KEEP_NEWEST, archives.length),
+        'INVARIANT: seed ' + seed + ' left ' + (archives.length - deleted.size) +
+        ' of ' + archives.length + ' archives; the floor guarantees at least ' +
+        Math.min(MIN_KEEP_NEWEST, archives.length));
+
+      // --- INVARIANT 3: the pointer is never collateral.
+      assert.ok(!deleted.has('cosmos_backup_latest.json'),
+        'INVARIANT: seed ' + seed + ' selected the latest pointer');
+
+      // --- INVARIANT 4: nothing deleted is newer, by true time, than the oldest
+      // archive that survived on the FLOOR. (Window keeps may legitimately be
+      // older, so this is scoped to floor members only.)
+      const floorNames = new Set((plan.protectedByFloor || []).map(x => x.name));
+      const floorTrue = archives.filter(a => floorNames.has(a.name)).map(a => a.trueMs);
+      if (floorTrue.length) {
+        const oldestFloor = Math.min.apply(null, floorTrue);
+        archives.filter(a => deleted.has(a.name)).forEach((a) => {
+          assert.ok(a.trueMs <= oldestFloor,
+            'INVARIANT: seed ' + seed + ' deleted ' + a.name + ' which is NEWER than a ' +
+            'floor-protected archive — the floor selected the wrong seven');
+        });
+      }
+    }
+    assert.strictEqual(cases, 300);
+    assert.ok(sawDeletions >= 50,
+      'The fuzz must actually reach the deletion path, not just prove refusals. ' +
+      'Saw deletions in only ' + sawDeletions + ' of ' + cases + ' cases — a suite that ' +
+      'never deletes cannot catch a deletion bug (CLAUDE.md mode 4).');
+    console.log('  ok  300 seeded listings with metadata decorrelated from filenames — ' +
+      'floor invariants hold (' + sawDeletions + ' reached the deletion path)');
+  }
+
+  // -------------------------------------------------------------------------
+  // CLASS-LEVEL: regex-valid is NOT calendar-valid.
+  // The old parse test asserted "parses strictly; everything else yields null",
+  // but "everything else" meant SHAPE violations. A name can match the pattern
+  // perfectly and still describe a date that does not exist, and Date.UTC will
+  // silently invent one. Sweep the whole space rather than picking examples.
+  // -------------------------------------------------------------------------
+  {
+    const base = [{ name: 'cosmos_backup_latest.json', lastModified: new Date(NOW) }];
+    for (let i = 0; i < MIN_KEEP_NEWEST + 1; i++) {
+      base.push({
+        name: 'cosmos_backup_2026-09-0' + (i + 1) + 'T02-00-00-000Z.json',
+        lastModified: new Date(Date.UTC(2026, 8, 1 + i))
+      });
+    }
+    const daysIn = { 1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31 };
+    const impossible = [];
+    for (let mo = 1; mo <= 13; mo++) {
+      const cap = daysIn[mo] || 0;                       // month 13 -> everything invalid
+      for (const day of [0, cap + 1, 32]) {
+        if (mo <= 12 && day >= 1 && day <= cap) continue;
+        impossible.push('2026-' + String(mo).padStart(2, '0') + '-' + String(day).padStart(2, '0') +
+          'T02-00-00-000Z');
+      }
+    }
+    impossible.push('2026-02-29T02-00-00-000Z');         // 2026 is not a leap year
+    impossible.push('2026-00-15T02-00-00-000Z');         // month zero
+    impossible.push('2026-01-15T25-00-00-000Z');         // hour 25
+    impossible.push('2026-01-15T02-60-00-000Z');         // minute 60
+
+    let checked = 0;
+    impossible.forEach((stamp) => {
+      const blobs = base.concat([{
+        name: 'cosmos_backup_' + stamp + '.json',
+        lastModified: new Date(Date.UTC(2020, 0, 1))     // ancient metadata: begging to be deleted
+      }]);
+      const plan = selectBackupsForDeletion(blobs, NOW);
+      if (!plan.ok) return;
+      checked++;
+      assert.ok(!plan.toDelete.some(x => x.name.includes(stamp)),
+        'An archive dated ' + stamp + ' describes a date that does not exist. Its age is ' +
+        'unknowable, so it must never be a deletion candidate — Date.UTC would have ' +
+        'invented an age for it.');
+    });
+    assert.ok(checked >= 20, 'expected the sweep to exercise many impossible dates, got ' + checked);
+
+    // The mirror assertion: every REAL leap day must remain deletable, or the
+    // guard has quietly turned into "keep some archives forever".
+    ['2024-02-29', '2020-02-29', '2016-02-29'].forEach((leap) => {
+      const blobs = base.concat([{
+        name: 'cosmos_backup_' + leap + 'T02-00-00-000Z.json',
+        lastModified: new Date(Date.parse(leap + 'T02:00:00.000Z'))
+      }]);
+      const plan = selectBackupsForDeletion(blobs, NOW);
+      assert.ok(plan.ok && plan.toDelete.some(x => x.name.includes(leap)),
+        leap + ' is a real leap day and must stay deletable; over-protection is its own bug');
+    });
+    console.log('  ok  ' + checked + ' impossible calendar dates never deletable; real leap days still are');
+  }
+
   console.log('\nAll backup retention tests passed.\n');
 })().catch(err => {
   console.error('\nTEST FAILURE: ' + (err && err.message ? err.message : err));
