@@ -423,4 +423,53 @@ check('the module exports the surface the page and the facade integrate against'
   });
 });
 
+// ---------------------------------------------------------------------------
+// WI-22 — the timing-reliability floor, the one rule both answer paths use.
+//
+// This is the regression test for the "phantom minutes" defect (CLAUDE.md mode
+// 1). js/pages/student.js used to carry TWO copies of this predicate, and the
+// exam copy read `isReliable = timeSpent > 0` — so a 1 ms answer was recorded as
+// a real measurement and PSAT_ENGINE.gradeAttempt handed it grade 5 (Fast /
+// Mastered). The dump-comparison spec cannot catch this: it dwells past the
+// floor at every answering site, so both the correct and the broken rule agree
+// there. Only a boundary test at this level can, which is why it lives here.
+//
+// Every expected value below is hand-written.
+// ---------------------------------------------------------------------------
+check('isTimingReliable rejects everything that is not a real measurement', () => {
+  [null, undefined, NaN, 'x', {}, [], -1, 0, 1, 100, 500].forEach((v) => {
+    assert.strictEqual(ATTEMPT.isTimingReliable(v), false,
+      `isTimingReliable(${JSON.stringify(v)}) must be false — a sub-floor or absent duration is not evidence`);
+  });
+});
+
+check('isTimingReliable accepts a plausible human response time', () => {
+  [501, 1000, 22000, 45000, 120000, 599999].forEach((v) => {
+    assert.strictEqual(ATTEMPT.isTimingReliable(v), true,
+      `isTimingReliable(${v}) must be true`);
+  });
+});
+
+check('isTimingReliable rejects an abandoned tab at and beyond the ceiling', () => {
+  [600000, 600001, 3600000].forEach((v) => {
+    assert.strictEqual(ATTEMPT.isTimingReliable(v), false,
+      `isTimingReliable(${v}) must be false — the tab was left open, this is not thinking time`);
+  });
+});
+
+check('phantom minutes: a 1 ms correct answer grades 3, never 5', () => {
+  const reliable = ATTEMPT.isTimingReliable(1);
+  assert.strictEqual(reliable, false, '1 ms is not a measurement');
+  assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 1, reliable), 3,
+    'a 1 ms correct answer must grade 3 (Hesitant). Grading it 5 is the defect this test exists for.');
+  // ...and the same answer held for a real beat DOES earn 5.
+  assert.strictEqual(PSAT_ENGINE.gradeAttempt(true, 22000, ATTEMPT.isTimingReliable(22000)), 5,
+    'a genuinely fast 22 s answer must still grade 5');
+});
+
+check('the floor and ceiling are exported so no caller re-hardcodes them', () => {
+  assert.strictEqual(ATTEMPT.TIMING_FLOOR_MS, 500);
+  assert.strictEqual(ATTEMPT.TIMING_CEILING_MS, 600000);
+});
+
 console.log('✓ All ' + checks + ' ephemeral attempt lifecycle checks passed (SRS-01, SRS-02, SRS-03 fixtures).');

@@ -769,7 +769,9 @@ function recordAttempt(selectedAnswer, isCorrect) {
   if (questionShownAt !== null) {
     const currentForeground = document.hidden ? 0 : (Date.now() - lastVisibilityTimestamp);
     const totalRaw = accumulatedForegroundTimeMs + currentForeground;
-    if (totalRaw < 600000 && totalRaw > 500) {
+    // WI-22: one rule, in the engine (PSAT_ENGINE.isTimingReliable). This used to
+    // be an inline copy whose exam-path twin read `> 0` and graded a 1 ms answer 5.
+    if (PSAT_ENGINE.isTimingReliable(totalRaw)) {
       timeSpentMs = totalRaw;
       timingReliable = true;
     }
@@ -1998,7 +2000,7 @@ function finishExamAndShowReport() {
     const id = 'exam_' + activeExam.id + '_' + q.questionId;
     if ((nextProgress[q.questionId]?.attempts || []).some(a=>a.attemptId===id)) return;
     const timeSpent = q.timeSpentMs || null;
-    const reliable = timeSpent > 500 && timeSpent < 600000;
+    const reliable = PSAT_ENGINE.isTimingReliable(timeSpent);
     nextProgress[q.questionId] = PSAT_ENGINE.buildProgressEntry(nextProgress[q.questionId], {
       attemptId:id, selectedAnswer:q.userAnswer, isCorrect:q.isCorrect, timeSpentMs:timeSpent,
       timingReliable:reliable, at:currentExamReport.completedAt, source:activeExam.type

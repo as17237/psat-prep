@@ -102,6 +102,35 @@
    * the attempt id and the op id are literally the same string. Random ids would
    * make a retry look like a second answer, which is the sync-layer twin of SRS-02.
    */
+  /**
+   * WI-22 — the ONE timing-reliability rule.
+   *
+   * This predicate existed as two inline copies in js/pages/student.js: the
+   * practice path (`totalRaw < 600000 && totalRaw > 500`) and the exam path.
+   * Before WI-22 the exam copy read `isReliable = timeSpent > 0`, so ANY nonzero
+   * duration counted as a real measurement and a 1 ms answer earned SM-2 grade 5
+   * — the "phantom minutes" defect (CLAUDE.md mode 1). The two copies are the
+   * mode-2 shape that let them drift in the first place, so the rule lives here
+   * and both call sites use it.
+   *
+   * Below the floor we cannot distinguish thinking from a stray click; above the
+   * ceiling the tab was almost certainly left open. Neither is a measurement, and
+   * an unmeasured answer must grade 3 (Hesitant), never 5.
+   *
+   * @param {*} timeSpentMs elapsed foreground milliseconds, or null/undefined
+   * @returns {boolean} true only when this duration is real evidence
+   */
+  var TIMING_FLOOR_MS = 500;
+  var TIMING_CEILING_MS = 600000;
+
+  function isTimingReliable(timeSpentMs) {
+    return typeof timeSpentMs === 'number' &&
+      !isNaN(timeSpentMs) &&
+      timeSpentMs > TIMING_FLOOR_MS &&
+      timeSpentMs < TIMING_CEILING_MS;
+  }
+
+
   function deriveAttemptId(questionId, startedAt) {
     return 'att_' + questionId + '_' + startedAt;
   }
@@ -350,6 +379,9 @@
 
   return {
     ATTEMPT_SCHEMA_VERSION: ATTEMPT_SCHEMA_VERSION,
+    TIMING_FLOOR_MS: TIMING_FLOOR_MS,
+    TIMING_CEILING_MS: TIMING_CEILING_MS,
+    isTimingReliable: isTimingReliable,
     ATTEMPT_MODES: ATTEMPT_MODES,
     ATTEMPT_STATUS: ATTEMPT_STATUS,
     deriveAttemptId: deriveAttemptId,

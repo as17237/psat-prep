@@ -157,6 +157,9 @@
     ],
     attempt: [
       'ATTEMPT_SCHEMA_VERSION',
+      'TIMING_FLOOR_MS',
+      'TIMING_CEILING_MS',
+      'isTimingReliable',
       'ATTEMPT_MODES',
       'ATTEMPT_STATUS',
       'deriveAttemptId',

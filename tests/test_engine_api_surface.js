@@ -165,6 +165,9 @@ const EXPECTED_SYMBOLS = [
 
   // --- WI-22 ephemeral review attempt (js/engine/attempt.js) ---------------
   'ATTEMPT_SCHEMA_VERSION',
+  'TIMING_FLOOR_MS',
+  'TIMING_CEILING_MS',
+  'isTimingReliable',
   'ATTEMPT_MODES',
   'ATTEMPT_STATUS',
   'deriveAttemptId',
@@ -182,8 +185,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  97,
-  `The hand-written contract must list exactly 97 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 11 attempt symbols from WI-22); found ${EXPECTED_SYMBOLS.length}. ` +
+  100,
+  `The hand-written contract must list exactly 100 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
@@ -220,6 +223,7 @@ const CONSTANT_SYMBOLS = [
 // WI-11 added two plain NUMBER constants; before that every non-object was a function.
 const NUMBER_SYMBOLS = [
   'EXAM_STATE_SCHEMA_VERSION','ATTEMPT_SCHEMA_VERSION',
+  'TIMING_FLOOR_MS','TIMING_CEILING_MS',
   'SRS_HISTORY_CAP',
   'SCHEMA_VERSION',
 ];
