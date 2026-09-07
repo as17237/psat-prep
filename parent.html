@@ -23,6 +23,7 @@
     body { font-family: 'Inter', sans-serif; }
     code, pre { font-family: 'JetBrains Mono', monospace; }
   </style>
+  <link rel="stylesheet" href="styles/builder.css?v=20260906-1">
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
 
@@ -320,6 +321,7 @@
 
       <!-- Tab 1: AI / Spaced Repetition Gap-Targeted Drill -->
       <div id="bview-gap" class="space-y-6">
+        <div id="focused-test-builder" class="card"></div>
         <div class="bg-gradient-to-r from-indigo-50 via-slate-50 to-amber-50 p-5 rounded-xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div class="space-y-1">
             <div class="flex items-center space-x-2">
@@ -627,6 +629,12 @@
   <script src="js/engine/storage.js?v=20260829-7"></script>
   <script src="js/engine/examgen.js?v=20260829-7"></script>
   <script src="js/engine/sync.js?v=20260829-7"></script>
+  <script src="js/engine/exam_state.js?v=20260906-1"></script>
+  <script src="js/engine/attempt.js?v=20260906-1"></script>
+  <script src="js/engine/import_validate.js?v=20260906-1"></script>
+  <script src="js/engine/test_planner.js?v=20260906-1"></script>
+  <script src="js/engine/persistence.js?v=20260906-1"></script>
+  <script src="js/engine/gap_summary.js?v=20260906-1"></script>
   <script src="srs.js?v=20260829-7"></script>
   <!-- Load Extracted Questions Data -->
   <script src="data/questions_data.js?v=20260829-7"></script>

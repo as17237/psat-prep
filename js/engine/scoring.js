@@ -521,7 +521,7 @@
           questionId: q.id,
           prompt: q.question_text || q.prompt || '',
           question_text: q.question_text || q.prompt || '',
-          section: mod.section,
+          section: qSec,
           domain: q.domain,
           skill: q.skill,
           difficulty: q.difficulty,
@@ -551,8 +551,9 @@
 
     // Practice-based scaled score projection (requires >=15 questions per section for reliable scaling)
     var MIN_PER_SECTION = SCALING_ASSUMPTIONS.MIN_PER_SECTION;
-    var rwReady = rwTotal >= MIN_PER_SECTION;
-    var mathReady = mathTotal >= MIN_PER_SECTION;
+    var isFocused = !!exam.customPlan || exam.type === 'focused_custom_test';
+    var rwReady = !isFocused && rwTotal >= MIN_PER_SECTION;
+    var mathReady = !isFocused && mathTotal >= MIN_PER_SECTION;
     var isScaledReady = rwReady && mathReady;
 
     var rwTrack = (exam.routingTracks && exam.routingTracks.rw) ? exam.routingTracks.rw : (exam.isAdaptive ? null : 'Standard');
@@ -617,8 +618,8 @@
     }
 
     var confidenceStr = '90% Confidence Interval';
-    var dataBasisStr = isFullExam ? '98-Question Standard PSAT 8/9 Benchmark' : (isMini ? '8-Question Quick Simulation' : (totalQuestionsCount + '-Question Custom Drill'));
-    var examCat = isMini ? 'mini_exam' : (exam.isHighYield ? 'high_yield_sprint' : (isFullExam ? 'standard_benchmark' : 'custom_drill'));
+    var dataBasisStr = isFocused ? totalQuestionsCount + '-Question Focused Practice' : isFullExam ? '98-Question Standard PSAT 8/9 Benchmark' : (isMini ? '8-Question Quick Simulation' : (totalQuestionsCount + '-Question Custom Drill'));
+    var examCat = isFocused ? 'focused_custom_test' : isMini ? 'mini_exam' : (exam.isHighYield ? 'high_yield_sprint' : (isFullExam ? 'standard_benchmark' : 'custom_drill'));
 
     return {
       examId: exam.id,
@@ -626,7 +627,7 @@
       isAdaptive: exam.isAdaptive === true,
       isHighYield: exam.isHighYield === true,
       examCategory: examCat,
-      blueprintVersion: exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
+      blueprintVersion: isFocused ? 'focused-planner-v1' : exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
       routingTracks: { rw: rwTrack, math: mathTrack },
       totalQuestions: totalQuestionsCount,
       totalCorrect: rwCorrect + mathCorrect,
@@ -641,7 +642,7 @@
         confidenceInterval: isScaledReady ? confidenceStr : null,
         dataBasis: dataBasisStr,
         examCategory: examCat,
-        blueprintVersion: exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
+        blueprintVersion: isFocused ? 'focused-planner-v1' : exam.blueprintVersion || (isMini ? OFFICIAL_BLUEPRINTS.mini_psat89.version : OFFICIAL_BLUEPRINTS.standard_psat89.version),
         rwScaled: (rwReady && rwScaled !== null) ? rwScaled : null,
         rwRange: (rwReady && rwRange) ? rwRange : null,
         rwRangeFormatted: (rwReady && rwRange) ? (rwRange[0] + '–' + rwRange[1]) : null,

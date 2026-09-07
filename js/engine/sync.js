@@ -189,9 +189,21 @@
         var cAttempts = Array.isArray(c.attempts) ? c.attempts : [];
         var lAttempts = Array.isArray(l.attempts) ? l.attempts : [];
 
-        var attemptMap = {};
-        cAttempts.forEach(function(att) { if (att && att.at) attemptMap[att.at] = att; });
-        lAttempts.forEach(function(att) { if (att && att.at) attemptMap[att.at] = att; });
+        var attemptMap = Object.create(null);
+        // New attempts use stable identity; timestamps remain the legacy fallback.
+        var older = lTime >= cTime ? c : l, newer = lTime >= cTime ? l : c;
+        (older.attempts || []).concat(newer.attempts || []).forEach(function(att) {
+          if (att && (att.attemptId || att.at != null)) attemptMap[att.attemptId ? 'id:'+att.attemptId : 'at:'+att.at] = att;
+        });
+        if (c.isFlagged || l.isFlagged) chosen.isFlagged = true;
+        if (Array.isArray(c.historicalErrorTags) || Array.isArray(l.historicalErrorTags)) {
+          var tags = new Map();
+          (newer.historicalErrorTags || []).concat(older.historicalErrorTags || []).forEach(function(t) {
+            var key = typeof t === 'string' ? t : t.tag;
+            if (!tags.has(key)) tags.set(key,t);
+          });
+          chosen.historicalErrorTags = Array.from(tags.values());
+        }
 
         var combinedAttempts = Object.values(attemptMap).sort(function(a, b) { return a.at - b.at; });
         var derivedSeen = combinedAttempts.length;
@@ -534,6 +546,7 @@
    * @param {Object} [options] `{ full: boolean }`
    */
   function pushToCloud(store, customFetch, studentName, loc, options) {
+    if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return Promise.resolve({success:false,error:'Local recovery pending'});
     var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
     var fetchFn = customFetch || (typeof fetch !== 'undefined' ? fetch : null);
@@ -585,6 +598,7 @@
         return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown'), syncMode: syncMode };
       }
       return res.json().then(function(result) {
+        if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
         if (!result || !result.success || result.error) {
           return { success: false, error: (result && result.error) ? result.error : 'Server returned error', syncMode: syncMode };
         }
@@ -622,6 +636,7 @@
    * Pulls latest progress and exam history from Cosmos DB and merges with local storage.
    */
   function pullFromCloud(store, customFetch, studentName, safeSetStorageFn, loc, forceSync) {
+    if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return Promise.resolve({success:false,error:'Local recovery pending'});
     var env = getEnvironmentConfig(loc);
     var sName = studentName || env.studentName;
     var prefix = env.storagePrefix;
@@ -662,6 +677,7 @@
           return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
         }
         return res.json().then(function(result) {
+        if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
           if (!result || !result.success || result.error) {
             return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
           }
@@ -680,7 +696,7 @@
             var mergedProg = mergeProgress(cloud.progress, localProg);
             var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
             var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
-            var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
+            var mergedHist = mergeExamHistory(cloud.examHistory, localHist, Infinity);
 
             // Pass unprefixed keys to setter (the browser storage wrapper safeSetStorage prefixes them)
             var ok1 = setter('psat_progress', mergedProg);
@@ -723,6 +739,7 @@
               .then(function(prodRes) {
                 if (!prodRes || !prodRes.ok) return { success: true, updated: false, empty: true };
                 return prodRes.json().then(function(prodResult) {
+                  if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
                   if (prodResult && prodResult.exists && prodResult.data) {
                     var cloud = prodResult.data;
                     var localProgRaw = getter('psat_progress');
@@ -738,7 +755,7 @@
                     var mergedProg = mergeProgress(cloud.progress, localProg);
                     var mergedSrs = mergeSrsState(cloud.srsState, localSrs);
                     var mergedSess = mergeSessionsState(cloud.sessionsState, localSess, mergedProg);
-                    var mergedHist = mergeExamHistory(cloud.examHistory, localHist, 15);
+                    var mergedHist = mergeExamHistory(cloud.examHistory, localHist, Infinity);
 
                     setter('psat_progress', mergedProg);
                     setter('psat_srs', mergedSrs);

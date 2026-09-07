@@ -529,11 +529,12 @@ const mockFetch = async (url, opts) => {
   const pullRes2 = await PSAT_ENGINE.pullFromCloud(testStore, mockFetch, 'default_student');
   assert.strictEqual(pullRes2.success, true);
   const localHistory = JSON.parse(testStore.getItem('psat_exam_history'));
-  assert.strictEqual(localHistory.length, 15, 'Merged local exam history must be capped at 15 items');
+  assert.strictEqual(localHistory.length, 120, 'Sync must retain all 120 reports');
+  assert.strictEqual(localHistory[119].examId, 'exam_0', 'Oldest report must survive sync');
   assert.strictEqual(localHistory[0].examId, 'exam_119', 'Latest exam must be at index 0');
 
   const historyByteSize = Buffer.byteLength(testStore.getItem('psat_exam_history'), 'utf8');
-  assert.ok(historyByteSize < 25000, `psat_exam_history size (${historyByteSize} B) must be well under 25KB`);
+  assert.ok(historyByteSize < 200000, `psat_exam_history size (${historyByteSize} B) must remain lean under 200KB for 120 reports`);
 
   // 3. Error Handling Test (500 Server Error)
   mockServerFail = true;

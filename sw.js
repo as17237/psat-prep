@@ -29,7 +29,7 @@
 
 importScripts('js/shared/sw_routing.js');
 
-var VERSION = 'v20260903-offline1';
+var VERSION = '20260906-focused-recovery-1';
 var SHELL_CACHE = 'psat-shell-' + VERSION;
 var IMAGE_CACHE = 'psat-images';
 var EXT_CACHE = 'psat-ext';
@@ -50,6 +50,15 @@ var SHELL_ASSETS = [
   'js/engine/storage.js',
   'js/engine/examgen.js',
   'js/engine/sync.js',
+  'js/engine/exam_state.js',
+  'js/engine/attempt.js',
+  'js/engine/import_validate.js',
+  'js/engine/test_planner.js',
+  'js/engine/persistence.js',
+  'js/engine/gap_summary.js',
+  'js/shared/focused_builder.js',
+  'js/shared/import_dialog.js',
+  'styles/builder.css',
   'js/shared/html.js',
   'js/shared/dom.js',
   'js/shared/env.js',

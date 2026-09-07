@@ -89,7 +89,13 @@ function runLocalSchemaMigration() {
   }
 }
 
-runLocalSchemaMigration();
+const pendingRecovery = window.__PSAT_ENGINE_PARTS?.persistence?.recover(localStorage, APP_ENV.storagePrefix);
+if (pendingRecovery && !pendingRecovery.success) {
+  window.__PSAT_WRITE_BLOCKED__ = true;
+  document.addEventListener('DOMContentLoaded', () => offerSaveRecovery(null));
+} else {
+  runLocalSchemaMigration();
+}
 
 /** Registers the page's sync-badge refresher. Called once, at page-module load. */
 export function onPendingSyncCountChanged(fn) {
@@ -107,6 +113,7 @@ export function safeGetStorage(key, defaultVal) {
 }
 
 export function safeSetStorage(key, val) {
+  if (window.__PSAT_WRITE_BLOCKED__) return false;
   try {
     localStorage.setItem(APP_ENV.storagePrefix + key, JSON.stringify(val));
     if (SYNCED_KEYS.indexOf(key) !== -1) {
@@ -135,4 +142,31 @@ export function readSyncBadgeState() {
   const lastSync = localStorage.getItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time');
   const minutesAgo = lastSync ? Math.floor((Date.now() - parseInt(lastSync, 10)) / 60000) : null;
   return { pending: pending, lastSync: lastSync, minutesAgo: minutesAgo };
+}
+
+/** Keep failed target values in memory even when the journal itself cannot fit.
+ * Retrying writes the same values; it never repeats grading or counter increments.
+ */
+export function offerSaveRecovery(values) {
+  window.__PSAT_WRITE_BLOCKED__ = true;
+  const frozen = values ? JSON.parse(JSON.stringify(values)) : null;
+  document.getElementById('save-recovery-panel')?.remove();
+  const panel = document.createElement('section');
+  panel.id = 'save-recovery-panel'; panel.setAttribute('role', 'alert');
+  panel.style.cssText = 'position:sticky;top:0;z-index:10000;padding:16px;background:#fff3cd;color:#422006;border:2px solid #92400e';
+  panel.innerHTML = '<strong>Saving needs attention.</strong><p>Keep this tab open. Free device space, then retry saving. Download recovery data before closing if saving still fails.</p><button type="button" class="btn btn-md btn-primary" id="retry-pending-save">Retry saving</button> <button type="button" class="btn btn-md btn-secondary" id="download-pending-save">Download recovery data</button><p id="recovery-status"></p>';
+  document.body.prepend(panel);
+  panel.querySelector('#retry-pending-save').onclick = () => {
+    const P = window.__PSAT_ENGINE_PARTS.persistence;
+    const result = frozen ? P.writeBatch(localStorage, APP_ENV.storagePrefix, frozen) : P.recover(localStorage, APP_ENV.storagePrefix);
+    if (result.success) {window.__PSAT_WRITE_BLOCKED__ = false; location.reload();}
+    else panel.querySelector('#recovery-status').textContent = 'Still unable to save. Recovery data is retained; download it before closing this tab.';
+  };
+  panel.querySelector('#download-pending-save').onclick = () => {
+    const stored = {};
+    for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key.startsWith(APP_ENV.storagePrefix+'psat_'))stored[key]=localStorage.getItem(key);}
+    const blob = new Blob([JSON.stringify({format:'psat-save-recovery-v1',createdAt:Date.now(),prefix:APP_ENV.storagePrefix,pendingValues:frozen,stored},null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob), a=document.createElement('a');a.href=url;a.download='psat-save-recovery-'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    panel.querySelector('#recovery-status').textContent='Recovery file downloaded. Keep it for recovery assistance; it is not a standard profile import.';
+  };
 }

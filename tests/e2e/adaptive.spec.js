@@ -82,8 +82,8 @@ async function driveModuleCorrect(page, moduleIndex, bank) {
 
 /** Leave the current module entirely unanswered (0 correct), then submit it. */
 async function driveModuleBlank(page) {
-  await page.locator('#exam-palette-pills button').last().click({ force: true }); // jump to last question
-  await page.click('#btn-exam-next', { force: true }); // last question -> "Review Module →"
+  // The numbered palette is intentionally hidden on mobile; Review is available on both layouts.
+  await page.locator('button[onclick="showModuleReviewScreen()"]').click({ force: true });
   await expect(page.locator('#review-module-heading')).toBeVisible();
   await page.click('#btn-submit-module', { force: true });
 }
