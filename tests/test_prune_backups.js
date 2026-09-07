@@ -521,6 +521,87 @@ const silent = { log: () => {}, warn: () => {} };
   assert.strictEqual(cEmpty.deleteCalls.length, 0, 'An empty container must delete nothing');
   console.log('  ok  scheduled job: empty container => 0 delete calls');
 
+  // -------------------------------------------------------------------------
+  // REGRESSION: the floor must rank by the IMMUTABLE filename timestamp.
+  //
+  // Found by external review after the first implementation shipped. `ms` is
+  // max(filenameMs, lastModifiedMs), which is correct for the WINDOW (looking
+  // younger only keeps an archive longer) but was catastrophic for the FLOOR,
+  // where looking younger DISPLACES a genuinely newer archive out of protection.
+  // lastModified is mutable: a re-copy, tier change or metadata write bumps it.
+  //
+  // Original reproduction: seven January archives whose metadata had been bumped
+  // to August occupied all seven floor slots, and every one of the seven
+  // genuinely newer July archives was selected for deletion.
+  // -------------------------------------------------------------------------
+  {
+    const nm = (d) => 'cosmos_backup_' + d + '.json';
+    const blobs = [{ name: 'cosmos_backup_latest.json', lastModified: new Date(NOW) }];
+    // genuinely OLDEST, but metadata bumped to look recent
+    for (let i = 0; i < 7; i++) {
+      blobs.push({ name: nm('2026-01-0' + (i + 1) + 'T02-00-00-000Z'),
+                   lastModified: new Date(Date.UTC(2026, 7, 20 + (i % 5))) });
+    }
+    // genuinely NEWEST, untouched metadata
+    for (let i = 0; i < 7; i++) {
+      blobs.push({ name: nm('2026-07-0' + (i + 1) + 'T02-00-00-000Z'),
+                   lastModified: new Date(Date.UTC(2026, 6, 1 + i)) });
+    }
+    const r = selectBackupsForDeletion(blobs, NOW);
+    const deleted = r.toDelete.map(x => x.name);
+
+    assert.strictEqual(deleted.filter(n => n.includes('2026-07')).length, 0,
+      'REGRESSION: the seven genuinely NEWEST (July) archives must never be deleted. ' +
+      'A bumped lastModified on older archives must not displace them from the floor.');
+    assert.deepStrictEqual(
+      r.protectedByFloor.map(x => x.name.slice(14, 21)),
+      ['2026-07', '2026-07', '2026-07', '2026-07', '2026-07', '2026-07', '2026-07'],
+      'The floor must hold the seven newest by FILENAME timestamp, not by lastModified');
+    // The January archives look ~14-18 days old through their bumped metadata, so the
+    // window legitimately spares some of them. That direction is safe: max() only ever
+    // keeps an archive longer. What must never happen is a NEWER archive being deleted.
+    assert.ok(deleted.length > 0 && deleted.every(n => n.includes('2026-01')),
+      'Only the genuinely oldest archives may be selected');
+  }
+  console.log('  ok  floor ranks by immutable filename time — a bumped lastModified cannot displace a newer backup');
+
+  // -------------------------------------------------------------------------
+  // REGRESSION: Date.UTC() rolls impossible dates over instead of rejecting.
+  //   Date.UTC(2026, 1, 31) -> 2026-03-03      (February 31st)
+  //   Date.UTC(2026, 1, 29) -> 2026-03-01      (2026 is not a leap year)
+  // A rolled-over date is a FABRICATED age, and a fabricated age on a deletion
+  // path decides whether a real backup lives or dies. An archive whose age cannot
+  // be determined must never be a deletion candidate.
+  // -------------------------------------------------------------------------
+  {
+    const nm = (d) => 'cosmos_backup_' + d + '.json';
+    const base = [{ name: 'cosmos_backup_latest.json', lastModified: new Date(NOW) }];
+    for (let i = 0; i < 8; i++) {
+      base.push({ name: nm('2026-09-0' + (i + 1) + 'T02-00-00-000Z'),
+                  lastModified: new Date(Date.UTC(2026, 8, 1 + i)) });
+    }
+
+    const impossible = base.concat([
+      { name: nm('2026-02-31T02-00-00-000Z'), lastModified: new Date(Date.UTC(2026, 1, 28)) },
+      { name: nm('2026-02-29T02-00-00-000Z'), lastModified: new Date(Date.UTC(2026, 1, 28)) },
+      { name: nm('2026-13-01T02-00-00-000Z'), lastModified: new Date(Date.UTC(2026, 1, 28)) }
+    ]);
+    const rBad = selectBackupsForDeletion(impossible, NOW);
+    ['02-31', '02-29', '13-01'].forEach((frag) => {
+      assert.ok(!rBad.toDelete.some(x => x.name.includes(frag)),
+        'An archive dated ' + frag + ' has no determinable age and must never be selected');
+    });
+
+    // ...and the fix must not over-protect: a REAL leap day is a real date.
+    const leap = base.concat([
+      { name: nm('2024-02-29T02-00-00-000Z'), lastModified: new Date(Date.UTC(2024, 1, 29)) }
+    ]);
+    const rLeap = selectBackupsForDeletion(leap, NOW);
+    assert.ok(rLeap.toDelete.some(x => x.name.includes('2024-02-29')),
+      '2024-02-29 IS a valid leap day; rejecting it would silently keep archives forever');
+  }
+  console.log('  ok  impossible calendar dates are never deletable; a real leap day still is');
+
   console.log('\nAll backup retention tests passed.\n');
 })().catch(err => {
   console.error('\nTEST FAILURE: ' + (err && err.message ? err.message : err));

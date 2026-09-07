@@ -112,7 +112,26 @@ function timestampFromArchiveName(name) {
   if (!m) return null;
   const [, y, mo, d, h, mi, s, ms] = m;
   const t = Date.UTC(+y, +mo - 1, +d, +h, +mi, +s, +ms);
-  return Number.isNaN(t) ? null : t;
+  if (Number.isNaN(t)) return null;
+
+  // Date.UTC ROLLS OVER instead of rejecting: Date.UTC(2026, 1, 31) silently yields
+  // 2026-03-03, and 2026-02-29 (not a leap year) yields 2026-03-01. A rolled-over
+  // date is a fabricated timestamp, and a fabricated timestamp on a deletion path
+  // decides whether a real backup lives or dies — it made an impossible-dated
+  // archive eligible for deletion. Round-trip every component; any disagreement
+  // means we cannot know this archive's age, and an archive whose age we cannot
+  // determine is never a deletion candidate (CLAUDE.md mode 1: no invented value,
+  // and mode 7: when the safe operation is unavailable, do nothing).
+  const back = new Date(t);
+  const roundTrips =
+    back.getUTCFullYear() === +y &&
+    back.getUTCMonth() === +mo - 1 &&
+    back.getUTCDate() === +d &&
+    back.getUTCHours() === +h &&
+    back.getUTCMinutes() === +mi &&
+    back.getUTCSeconds() === +s &&
+    back.getUTCMilliseconds() === +ms;
+  return roundTrips ? t : null;
 }
 
 /**
@@ -242,11 +261,33 @@ function selectBackupsForDeletion(blobs, nowMs) {
     });
   }
 
-  // Newest first — the floor is defined by recency.
+  // The RETENTION WINDOW and the FLOOR must rank by different clocks, and getting
+  // this wrong deletes the newest backups you have.
+  //
+  //   window: ms = max(filenameMs, lastModifiedMs). Looking YOUNGER only ever KEEPS
+  //           an archive longer, so a bumped lastModified is harmless here.
+  //   floor : filenameMs ONLY. Here, looking younger DISPLACES a genuinely newer
+  //           archive out of the protected set — so the same max() that is
+  //           conservative for the window is actively dangerous for the floor.
+  //
+  // lastModified is mutable metadata: a re-copy, a tier change or a metadata write
+  // bumps it forward. The filename timestamp is written once by performCosmosBackup
+  // and never changes, so it is the only trustworthy statement of "which backups are
+  // actually the newest". Reproduced before this fix: seven January archives whose
+  // metadata had been bumped to August occupied the floor, and all seven genuinely
+  // newer July archives were selected for deletion.
+  //
+  // Every candidate has a non-null filenameMs — strict parsing is what made it a
+  // candidate — so this ranking is always well defined.
+  const byTrueRecency = candidates
+    .slice()
+    .sort((a, b) => (b.filenameMs - a.filenameMs) || a.name.localeCompare(b.name));
+
+  // Newest first for reporting; the window uses `ms`.
   candidates.sort((a, b) => (b.ms - a.ms) || a.name.localeCompare(b.name));
 
   const cutoffMs = nowMs - RETENTION_DAYS * DAY_MS;
-  const protectedByFloor = candidates.slice(0, MIN_KEEP_NEWEST);
+  const protectedByFloor = byTrueRecency.slice(0, MIN_KEEP_NEWEST);
   const floorNames = new Set(protectedByFloor.map(c => c.name));
 
   const toDelete = [];
