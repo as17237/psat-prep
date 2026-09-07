@@ -4,9 +4,31 @@ Reviewed September 5–6, 2026. Repository HEAD: `632fbe1`.
 
 ## Start here next session
 
-Implementation continued September 6 after Claude's partial work, with the user's authorization. **The core parent builder, SRS retakes, and local exam/import recovery are implemented in this working tree. Nothing has been committed, merged, deployed, or migrated in production.** Read the checkpoint below before using the original audit/roadmap that follows; those findings describe the earlier code, not a claim that every defect is still present.
+> **STATUS AS OF 2026-09-07 — the paragraph below is superseded. Read this first.**
+>
+> The work described here has been reviewed, committed, merged and **deployed to
+> production**. `aed2e7e` (client → `$web`) and the Azure Function separately;
+> promotion log `6c7ee09`. DATA-02 was verified fixed against the live server.
+>
+> **DONE and live:** EX-01..04 exam recovery · SRS-01..03 genuine repeat review ·
+> DATA-05 safe import (explicit Merge / Replace / Cancel) · exam history no longer
+> truncated to 15 · Milestone 4A parent focused-test builder · DATA-02 zero-answer
+> day erasure · DATA-01 made monotonic — **not closed**, it still yields 2 where
+> the truth is 3; the real fix is Milestone 3.
+>
+> **NOT done, still outstanding:** Milestone 3 exact concurrent-device sync
+> (durable append-only events with stable ids) · Milestone 4 exam blueprint and
+> score calibration · Milestone 5 conceptual-learning workflows · remaining mobile
+> layout cleanup · **the 46 exam-skipped questions that leave no record anywhere**
+> (audited 2026-09-07: true "seen" is 909; the portal's 863 is a correct count of
+> *attempted*, which is what its label says).
+>
+> **Do not mark the broader roadmap complete.** Those are separate implementation
+> scope, not regressions.
 
-The overriding requirement remains preservation of student data. Read `CLAUDE.md`, `CONTINUE_HERE.md`, and `docs/DISASTER_RECOVERY_RUNBOOK.md`. The repository requires the live backup preflight immediately before merge for storage/API changes; it has not been run because no merge or deployment was performed. Run the required restore drill at the appropriate refactor phase boundary. Neither live backup health nor infrastructure access controls have been verified here.
+Implementation continued September 6 after Claude's partial work, with the user's authorization. *(Superseded: at the time this was written nothing had been committed, merged or deployed. It has since been.)* Read the checkpoint below before using the original audit/roadmap that follows; those findings describe the earlier code, not a claim that every defect is still present.
+
+The overriding requirement remains preservation of student data. Read `CLAUDE.md`, `CONTINUE_HERE.md`, and `docs/DISASTER_RECOVERY_RUNBOOK.md`. The repository requires the live backup preflight immediately before merge for storage/API changes. *(Superseded: it has since been run twice and passed — `PREFLIGHT_BACKUP_OK cosmos_backup_2026-09-07T02-44-38-509Z.json` before the client promotion and `...T05-27-27-868Z.json` before the API change, 11/11 live integrity checks each. A `$web` rollback manifest exists at `refactor-baseline/pre_cutover_20260907T024509Z/manifest.json` and the pre-WI-22 API package at `function-releases/pre_wi22_20260907T025329Z_632fbe1.zip`.)* Run the required restore drill at the appropriate refactor phase boundary. Neither live backup health nor infrastructure access controls have been verified here.
 
 Pre-existing `explanations/area-and-volume.html` edits and the `model-review-link` symlink were left untouched. Before continuation, modified/untracked regular files were copied to `/private/tmp/psat-before-continuation-20260906`; this temporary source checkpoint is not a backup of live student data.
 
