@@ -1392,7 +1392,7 @@ async function cacheImageUrls(urls, concurrency) {
   return { ok, fail };
 }
 
-async function prepareOfflineExam() {
+async function prepareOfflineExam(examToPrepare) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
     setOfflinePrepStatus('You appear to be offline. Connect to the internet first, then prepare the exam.', 'warn');
     return;
@@ -1409,7 +1409,11 @@ async function prepareOfflineExam() {
     if ('serviceWorker' in navigator) {
       try { await navigator.serviceWorker.ready; swReady = true; } catch (e) { swReady = false; }
     }
-    const exam = PSAT_ENGINE.generateStandardPSAT89Exam(questions, { progressMap: progress, isAdaptive: true });
+    // WI-27 (finding 5): prepare whatever test was ASKED for, not always a full
+    // adaptive exam. A parent-built focused test (7 Craft and Structure questions, a
+    // 15-minute session) could previously be built online and then come back offline
+    // as a 98-question standard exam — a different test entirely.
+    const exam = examToPrepare || PSAT_ENGINE.generateStandardPSAT89Exam(questions, { progressMap: progress, isAdaptive: true });
     const ids = PSAT_ENGINE.collectExamQuestionIds(exam);
     const qMap = {}; (window.QUESTIONS_DATA || questions).forEach(q => { qMap[q.id] = q; });
     const urls = [];
@@ -1442,6 +1446,18 @@ async function prepareOfflineExam() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+/**
+ * WI-27 — prepare the CURRENTLY configured focused/custom test for offline use.
+ * Shares one prepare path with the full exam so the two cannot drift (mode 2).
+ */
+function prepareFocusedTestForOffline(customTestData) {
+  if (!customTestData) {
+    setOfflinePrepStatus('Build or open a test first, then prepare it for offline use.', 'warn');
+    return Promise.resolve();
+  }
+  return prepareOfflineExam(customTestData);
 }
 
 function startPreparedOfflineExam() {

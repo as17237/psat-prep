@@ -1169,7 +1169,18 @@
         totalTimeMinutes: exam.totalTimeMinutes,
         breakMinutes: exam.breakMinutes,
         createdAt: exam.createdAt,
-        modules: leanModules
+        modules: leanModules,
+        // WI-27 (review finding 5): a pin used to describe a full adaptive exam only,
+        // so a parent-built focused test could be prepared and then come back offline
+        // as something else — wrong length, wrong topics, wrong timing. These fields
+        // carry the test's IDENTITY, not just its questions. Absent stays null; a
+        // missing plan is never invented (CLAUDE.md mode 1).
+        examCategory: exam.examCategory || null,
+        customPlan: exam.customPlan || null,
+        blueprintVersion: exam.blueprintVersion || null,
+        isHighYield: (typeof exam.isHighYield === 'boolean') ? exam.isHighYield : null,
+        isUntimed: exam.isUntimed === true,
+        timeLimitMinutes: (typeof exam.timeLimitMinutes === 'number') ? exam.timeLimitMinutes : null
       },
       preparedAt: (typeof m.preparedAt === 'number') ? m.preparedAt : Date.now(),
       imageTotal: (typeof m.imageTotal === 'number') ? m.imageTotal : null,
@@ -1223,7 +1234,14 @@
       routingTracks: meta.routingTracks || { rw: 'Baseline', math: 'Baseline' },
       adaptivePools: pools,
       totalQuestions: meta.totalQuestions, totalTimeMinutes: meta.totalTimeMinutes,
-      breakMinutes: meta.breakMinutes, createdAt: meta.createdAt, modules: modules
+      breakMinutes: meta.breakMinutes, createdAt: meta.createdAt, modules: modules,
+      // WI-27: restore the test's identity, so a focused test resumes as the SAME test.
+      examCategory: meta.examCategory || null,
+      customPlan: meta.customPlan || null,
+      blueprintVersion: meta.blueprintVersion || null,
+      isHighYield: (typeof meta.isHighYield === 'boolean') ? meta.isHighYield : null,
+      isUntimed: meta.isUntimed === true,
+      timeLimitMinutes: (typeof meta.timeLimitMinutes === 'number') ? meta.timeLimitMinutes : null
     };
 
     return { ok: missingIds.length === 0, exam: exam, missingIds: missingIds, missingPoolIds: missingPoolIds };
