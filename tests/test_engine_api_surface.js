@@ -147,6 +147,10 @@ const EXPECTED_SYMBOLS = [
   'buildSyncDelta',    // WI-11
   'getSyncCursor',     // WI-11
   'resetSyncCursor',   // WI-11
+  'SYNC_RETRY',            // WI-26
+  'classifySyncOutcome',   // WI-26
+  'nextRetryDelayMs',      // WI-26
+  'createSyncCoordinator', // WI-26
 
   // --- WI-22 exam lifecycle state (js/engine/exam_state.js) ----------------
   'EXAM_STATE_SCHEMA_VERSION',
@@ -186,8 +190,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  101,
-  `The hand-written contract must list exactly 101 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22 + optionTextIssue from WI-23); found ${EXPECTED_SYMBOLS.length}. ` +
+  105,
+  `The hand-written contract must list exactly 105 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22 + optionTextIssue from WI-23 + 4 sync-retry symbols from WI-26); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 
@@ -215,7 +219,7 @@ console.log(`✓ exact set equality: ${actual.length} symbols, none missing, non
 //    the key set identical while breaking every caller.
 // ---------------------------------------------------------------------------
 const CONSTANT_SYMBOLS = [
-  'EXAM_PHASES','ATTEMPT_MODES','ATTEMPT_STATUS',
+  'EXAM_PHASES','ATTEMPT_MODES','ATTEMPT_STATUS','SYNC_RETRY',
   'SCALING_ASSUMPTIONS',
   'PSAT_89_SPECS',
   'OFFICIAL_BLUEPRINTS',

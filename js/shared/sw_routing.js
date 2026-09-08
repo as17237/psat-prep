@@ -90,7 +90,7 @@
    * @param {{setTimeout:Function, clearTimeout:Function}} [timers]
    * @returns {Promise<*>}
    */
-  function raceDeadline(networkPromise, cached, deadlineMs, timers) {
+  function raceDeadline(networkPromise, cached, deadlineMs, timers, boundWithoutCache) {
     // The default timers MUST be called with their native receiver. Copying them onto
     // a plain object — `{ setTimeout: setTimeout }` — and calling `t.setTimeout(...)`
     // passes that object as `this`, and Chromium's WorkerGlobalScope timer rejects it
@@ -105,24 +105,30 @@
       setTimeout: function (fn, ms) { return setTimeout(fn, ms); },
       clearTimeout: function (id) { return clearTimeout(id); }
     };
-    if (!cached) return Promise.resolve(networkPromise);
+    // With no cached copy there is normally nothing better to serve, so we wait for
+    // the real answer rather than inventing a failure. `boundWithoutCache` is the
+    // exception for OPTIONAL resources (CDN icons/fonts): there, giving up at the
+    // deadline and resolving null is better than letting a hanging request hold the
+    // page open. Review finding 6: without this the stated 2s external bound did not
+    // actually apply to an uncached request.
+    if (!cached && !boundWithoutCache) return Promise.resolve(networkPromise);
     return new Promise(function (resolve) {
       var settled = false;
       var timer = t.setTimeout(function () {
         if (settled) return;
         settled = true;
-        resolve(cached);
+        resolve(cached || null);
       }, deadlineMs);
       Promise.resolve(networkPromise).then(function (res) {
         if (settled) return;
         settled = true;
         t.clearTimeout(timer);
-        resolve(res || cached);
+        resolve(res || cached || null);
       }, function () {
         if (settled) return;
         settled = true;
         t.clearTimeout(timer);
-        resolve(cached);
+        resolve(cached || null);
       });
     });
   }

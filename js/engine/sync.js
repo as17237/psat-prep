@@ -805,6 +805,157 @@
       });
   }
 
+  // ==========================================================================
+  // WI-26 — sync retry coordinator (review finding 3)
+  // ==========================================================================
+  // The reconnect handler scheduled exactly ONE sync 2.5s after the `online` event.
+  // If the API happened to be unavailable at that moment the attempt failed and
+  // nothing ever tried again: an idle student's work sat queued until they answered
+  // another question, reloaded, or pressed Sync by hand. Measured on desktop and
+  // mobile — after a 503 the server recovered, and over the next 6.5s the POST count
+  // stayed 1 -> 1 with 1 op still queued.
+  //
+  // Everything here is PURE or injectable: `timers`, `rand` and `now` are parameters,
+  // so backoff is deterministic in tests and there is no patched global anywhere.
+
+  var SYNC_RETRY = {
+    baseDelayMs: 2000,
+    maxDelayMs: 5 * 60 * 1000,   // never hammer; a plane lands once
+    maxAttempts: 8,              // ~ covers a 5-minute outage with backoff
+    jitterRatio: 0.25            // spread retries so two tabs do not sync in lockstep
+  };
+
+  /**
+   * Is this outcome worth retrying?
+   *
+   * A transport failure or a 5xx is transient. A rejected payload is not — retrying it
+   * forever would spin without ever succeeding, and the student should SEE that rather
+   * than watch a silent loop (CLAUDE.md mode 5).
+   *
+   * @returns {'ok'|'retry'|'permanent'}
+   */
+  function classifySyncOutcome(result) {
+    if (result && result.success === true) return 'ok';
+    if (!result) return 'retry';
+    if (result.skipped === true || result.reason === 'demo_mode' || result.reason === 'readonly') {
+      return 'permanent';
+    }
+    if (typeof result.status === 'number' && result.status >= 400 && result.status < 500) {
+      return 'permanent';
+    }
+    return 'retry';
+  }
+
+  /**
+   * Exponential backoff with jitter. `attempt` is 1-based.
+   * @returns {number|null} milliseconds to wait, or null once attempts are exhausted
+   */
+  function nextRetryDelayMs(attempt, rand, config) {
+    var cfg = config || SYNC_RETRY;
+    if (!(attempt >= 1) || attempt > cfg.maxAttempts) return null;
+    var raw = cfg.baseDelayMs * Math.pow(2, attempt - 1);
+    var capped = Math.min(raw, cfg.maxDelayMs);
+    var r = (typeof rand === 'function') ? rand() : 0.5;
+    // Symmetric jitter around the capped delay, never negative.
+    var jitter = capped * cfg.jitterRatio * (r * 2 - 1);
+    return Math.max(0, Math.round(capped + jitter));
+  }
+
+  /**
+   * A single-flight sync driver with backoff.
+   *
+   *  - ONE drain in flight at a time. Requests arriving mid-flight set a "do it again
+   *    when this finishes" flag instead of stacking parallel pushes.
+   *  - Retries transient failures on their own, without needing another answer or
+   *    connectivity event.
+   *  - Stops on a permanent failure and reports it, rather than looping.
+   *  - `navigator.onLine` is treated as a HINT by the caller; this coordinator never
+   *    reads it, because a captive portal is "online" and an unavailable API is not.
+   *
+   * @param {{run:Function, timers?:Object, rand?:Function, onState?:Function,
+   *          config?:Object}} opts `run` returns a Promise of a pushToCloud-shaped result
+   */
+  function createSyncCoordinator(opts) {
+    var o = opts || {};
+    var timers = o.timers || {
+      setTimeout: function (fn, ms) { return setTimeout(fn, ms); },
+      clearTimeout: function (id) { return clearTimeout(id); }
+    };
+    var cfg = o.config || SYNC_RETRY;
+    var state = { status: 'idle', attempt: 0, inFlight: false, pendingRequest: false,
+                  lastError: null, timer: null };
+
+    function emit() {
+      if (typeof o.onState === 'function') {
+        o.onState({ status: state.status, attempt: state.attempt, lastError: state.lastError });
+      }
+    }
+
+    function cancelTimer() {
+      if (state.timer !== null) { timers.clearTimeout(state.timer); state.timer = null; }
+    }
+
+    function finish(status, err) {
+      state.inFlight = false;
+      state.status = status;
+      state.lastError = err || null;
+      emit();
+      if (state.pendingRequest) { state.pendingRequest = false; drain('coalesced'); }
+    }
+
+    function drain(reason) {
+      if (state.inFlight) { state.pendingRequest = true; return; }
+      cancelTimer();
+      state.inFlight = true;
+      state.status = 'syncing';
+      emit();
+      var p;
+      try { p = Promise.resolve(o.run(reason)); }
+      catch (e) { p = Promise.resolve({ success: false, error: e && e.message }); }
+      p.then(function (res) {
+        var verdict = classifySyncOutcome(res);
+        if (verdict === 'ok') { state.attempt = 0; finish('synced', null); return; }
+        if (verdict === 'permanent') {
+          state.attempt = 0;
+          finish('failed', (res && res.error) || 'Sync rejected');
+          return;
+        }
+        state.attempt += 1;
+        var delay = nextRetryDelayMs(state.attempt, o.rand, cfg);
+        if (delay === null) {
+          state.attempt = 0;
+          finish('failed', (res && res.error) || 'Sync failed after repeated retries');
+          return;
+        }
+        state.inFlight = false;
+        state.status = 'retrying';
+        state.lastError = (res && res.error) || 'Sync failed';
+        emit();
+        state.timer = timers.setTimeout(function () { state.timer = null; drain('retry'); }, delay);
+      }, function (err) {
+        state.attempt += 1;
+        var delay2 = nextRetryDelayMs(state.attempt, o.rand, cfg);
+        if (delay2 === null) { state.attempt = 0; finish('failed', err && err.message); return; }
+        state.inFlight = false;
+        state.status = 'retrying';
+        state.lastError = err && err.message;
+        emit();
+        state.timer = timers.setTimeout(function () { state.timer = null; drain('retry'); }, delay2);
+      });
+    }
+
+    return {
+      requestSync: function (reason) { drain(reason || 'manual'); },
+      stop: function () { cancelTimer(); state.pendingRequest = false; },
+      getState: function () {
+        return { status: state.status, attempt: state.attempt, inFlight: state.inFlight,
+                 pendingRequest: state.pendingRequest, lastError: state.lastError,
+                 retryScheduled: state.timer !== null };
+      }
+    };
+  }
+
+
   return {
     getClientVersion: getClientVersion,
     isReadOnlyMode: isReadOnlyMode,
@@ -816,6 +967,10 @@
     mergeProgress: mergeProgress,
     mergeSrsState: mergeSrsState,
     mergeSessionsState: mergeSessionsState,
-    mergeExamHistory: mergeExamHistory
+    mergeExamHistory: mergeExamHistory,
+    SYNC_RETRY: SYNC_RETRY,
+    classifySyncOutcome: classifySyncOutcome,
+    nextRetryDelayMs: nextRetryDelayMs,
+    createSyncCoordinator: createSyncCoordinator
   };
 });

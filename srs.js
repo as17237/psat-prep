@@ -134,7 +134,11 @@
       'mergeExamHistory',
       'buildSyncDelta',
       'getSyncCursor',
-      'resetSyncCursor'
+      'resetSyncCursor',
+      'SYNC_RETRY',
+      'classifySyncOutcome',
+      'nextRetryDelayMs',
+      'createSyncCoordinator'
     ],
     // WI-22 — the exam lifecycle's decisions and the ephemeral review attempt.
     // Both parts are PURE and clock-free (every function takes `now`), so the

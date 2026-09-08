@@ -39,14 +39,16 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 function updateSyncStatusBadge() {
-  const badge = document.getElementById('hdr-cloud-badge');
+  // #hdr-save-status is the student-facing indicator (no service names — see index.html).
+  // #hdr-cloud-badge is kept as a fallback for any lane whose markup still has it.
+  const badge = document.getElementById('hdr-save-status') || document.getElementById('hdr-cloud-badge');
   if (!badge) return;
   const { pending, lastSync, minutesAgo } = readSyncBadgeState();
 
   // WI-20: when the device is offline, say so honestly — the work is saved
   // locally and the reconnect handler will push it. Never show "Synced" offline.
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Offline${pending > 0 ? ` — ${pending} to sync` : ''} (syncs on reconnect)`;
+    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Saved on this device${pending > 0 ? ` — ${pending} waiting` : ''} (syncs when you reconnect)`;
     if (typeof lucide !== 'undefined') lucide.createIcons();
     return;
   }
@@ -60,10 +62,28 @@ function updateSyncStatusBadge() {
     else timeAgoStr = `${Math.floor(mins / 60)}h ago`;
   }
 
+  // WI-26 finding 4: distinguish "waiting", "retrying" and "failed" from "synced".
+  // "Synced" may only appear when the durable queue is actually empty.
+  const co = (typeof syncCoordinator !== 'undefined' && syncCoordinator) ? syncCoordinator.getState() : null;
+  if (co && co.status === 'syncing') {
+    badge.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1"></i> Syncing…`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+  if (co && co.status === 'retrying') {
+    badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Saved on this device — retrying (${pending} waiting)`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
+  if (co && co.status === 'failed') {
+    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-rose-600 mr-1"></i> Saved on this device — sync failed (${pending} waiting)`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
   if (pending > 0) {
-    badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: ${pending} Pending`;
+    badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> ${pending} change(s) waiting to sync`;
   } else {
-    badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB: Synced (${timeAgoStr})`;
+    badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> All work saved (${timeAgoStr})`;
   }
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -200,7 +220,7 @@ function manualTriggerCloudSync(isManual = false) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
   if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(pullRes => {
+    return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(async pullRes => {
       if (pullRes && pullRes.success) {
         progress = safeGetStorage('psat_progress', {});
         srsState = safeGetStorage('psat_srs', {});
@@ -211,20 +231,35 @@ function manualTriggerCloudSync(isManual = false) {
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
           renderAnalytics();
         }
-        if (typeof PSAT_ENGINE.pushToCloud === 'function') {
-          PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName);
-        }
+        // WI-26 finding 4: AWAIT the upload. This used to fire pushToCloud without
+        // awaiting it, then immediately zero the pending counter, stamp a sync time and
+        // say "all attempts are synchronized" — while the upload was still in flight or
+        // already failing. A successful download proves nothing about the upload.
+        // The pending counter is no longer force-zeroed either: pending is derived from
+        // the durable outbox (readSyncBadgeState takes max(outbox, legacy)), so the only
+        // thing that may clear it is a real acknowledgement.
+        const pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
+          ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName)
+          : { success: false, error: 'push unavailable' };
         if (btnText) btnText.innerText = 'Sync';
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+        const stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
+        if (pushRes && pushRes.success && stillPending === 0) {
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+        }
         updateSyncStatusBadge();
         if (isManual) {
-          if (pullRes.updated) {
-            alert(`✓ Successfully synced student progress from Cosmos DB (${APP_ENV.studentName})!\n${pullRes.totalAttempts || Object.keys(progress).length} total attempts loaded across all domains.`);
+          if (!pushRes || !pushRes.success) {
+            alert(`Downloaded fine, but the UPLOAD did not complete: ${(pushRes && pushRes.error) || 'unknown error'}.\n` +
+              `${stillPending} change(s) are still saved on this device and will retry automatically.`);
+          } else if (stillPending > 0) {
+            alert(`Sync ran, but ${stillPending} change(s) are still waiting to be confirmed by the server. ` +
+              'They remain saved on this device and will retry automatically.');
+          } else if (pullRes.updated) {
+            alert(`✓ Synced with Cosmos DB (${APP_ENV.studentName}).\n${pullRes.totalAttempts || Object.keys(progress).length} total attempts loaded.`);
           } else if (pullRes.empty) {
             alert(`Cosmos DB is connected, but no student test attempts exist yet for ${APP_ENV.studentName}.`);
           } else {
-            alert('✓ Cosmos DB is up to date — all attempts are synchronized.');
+            alert('✓ Cosmos DB is up to date — every change is confirmed saved.');
           }
         }
       } else {
@@ -300,25 +335,12 @@ let cloudPushDebounce = null;
 function triggerCloudSync() {
   if (cloudPushDebounce) clearTimeout(cloudPushDebounce);
   cloudPushDebounce = setTimeout(() => {
-    if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-      PSAT_ENGINE.pushToCloud(localStorage).then(res => {
-        const el = document.getElementById('hdr-cloud-badge');
-        if (el) {
-          if (res && res.success) {
-            el.innerHTML = '<i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> Cosmos DB Synced';
-          } else {
-            el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-          }
-          if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-      }).catch(() => {
-        const el = document.getElementById('hdr-cloud-badge');
-        if (el) {
-          el.innerHTML = '<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Cosmos DB: Offline';
-          if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-      });
-    }
+    // WI-26: route the post-write push through the coordinator, so a failure here
+    // retries on its own instead of waiting for the student's next answer. It also
+    // removes a second copy of the badge-rendering logic — these two branches wrote
+    // their own markup to an element that no longer existed, so they rendered nothing
+    // AND could contradict updateSyncStatusBadge (CLAUDE.md mode 2).
+    requestSync('write');
   }, 1500);
 }
 
@@ -1458,17 +1480,47 @@ function renderOfflineReadyStatus() {
 }
 
 let onlineSyncDebounce = null;
+/**
+ * WI-26 finding 3 — the single retrying sync driver.
+ *
+ * Reconnect used to schedule exactly ONE attempt 2.5s after the `online` event. If the
+ * API was briefly unavailable at that moment nothing ever tried again: an idle student's
+ * work sat queued until they answered, reloaded or pressed Sync. The coordinator retries
+ * transient failures on its own with bounded exponential backoff, keeps one drain in
+ * flight, and stops (visibly) on a permanent error.
+ *
+ * navigator.onLine is only ever a HINT for when to ASK — a captive portal reports online
+ * and an unavailable API does not move it at all, so the coordinator itself never reads it.
+ */
+const syncCoordinator = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createSyncCoordinator)
+  ? PSAT_ENGINE.createSyncCoordinator({
+      run: () => manualTriggerCloudSync(false),
+      onState: () => updateSyncStatusBadge()
+    })
+  : null;
+
+function requestSync(reason) {
+  if (syncCoordinator) syncCoordinator.requestSync(reason);
+  else manualTriggerCloudSync(false);
+}
+
 function handleNetworkChange() {
   updateSyncStatusBadge();
   if (typeof navigator !== 'undefined' && navigator.onLine) {
     // Debounce: a flapping connection on landing must not storm the sync API.
     if (onlineSyncDebounce) clearTimeout(onlineSyncDebounce);
-    onlineSyncDebounce = setTimeout(() => {
-      if (navigator.onLine && typeof manualTriggerCloudSync === 'function') {
-        manualTriggerCloudSync(false);
-      }
-    }, 2500);
+    onlineSyncDebounce = setTimeout(() => { requestSync('reconnect'); }, 2500);
   }
+}
+
+// Returning to the foreground is the other moment a stalled queue should drain — a
+// student who backgrounded the tab mid-flight gets no `online` event on landing.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && typeof navigator !== 'undefined' && navigator.onLine) {
+      requestSync('foreground');
+    }
+  });
 }
 
 function startGapDrillFromLobby() {

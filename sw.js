@@ -29,7 +29,7 @@
 
 importScripts('js/shared/sw_routing.js');
 
-var VERSION = '20260908-bounded-waits-1';
+var VERSION = '20260908-bounded-waits-2';
 var SHELL_CACHE = 'psat-shell-' + VERSION;
 var IMAGE_CACHE = 'psat-images';
 var EXT_CACHE = 'psat-ext';
@@ -144,6 +144,7 @@ function cacheFirst(request, cacheName) {
 // network-first shell assets and the navigation each waited on the browser default
 // timeout while the exam clock ran.
 var NETWORK_DEADLINE_MS = self.SW_ROUTING.NETWORK_DEADLINE_MS;
+var EXTERNAL_DEADLINE_MS = self.SW_ROUTING.EXTERNAL_DEADLINE_MS;
 var raceDeadline = self.SW_ROUTING.raceDeadline;
 
 /** fetch() that resolves to null instead of rejecting, refreshing `cacheName`. */
@@ -171,14 +172,12 @@ function networkFirst(request, cacheName) {
 
 function staleWhileRevalidate(request, cacheName) {
   return caches.match(request).then(function (cached) {
-    var network = fetch(request).then(function (res) {
-      if (res && (res.ok || res.type === 'opaque')) {
-        var copy = res.clone();
-        caches.open(cacheName).then(function (c) { c.put(request, copy); });
-      }
-      return res;
-    }).catch(function () { return cached; });
-    return cached || network;
+    var network = fetchAndCache(request, cacheName);
+    if (cached) return cached;
+    // Nothing cached and the resource is OPTIONAL (CDN icons/fonts). A hanging CDN
+    // must not hold the page open, so this one bounds even without a fallback —
+    // resolving null, which the browser surfaces as a normal failed subresource.
+    return raceDeadline(network, null, EXTERNAL_DEADLINE_MS, null, true);
   });
 }
 
