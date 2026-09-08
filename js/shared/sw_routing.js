@@ -59,5 +59,65 @@
     return 'external';
   }
 
-  return { classifyRequest: classifyRequest };
+  /**
+   * WI-24 — bounded network wait. THE DESIGNED SOFT-OFFLINE FIX, NOT YET WIRED.
+   *
+   * !! sw.js does NOT call this yet. !! Wiring it into networkFirst / the navigation
+   * handler regressed 32 browser tests (net::ERR_FAILED on reload) and was reverted;
+   * the service worker still has its original unbounded behaviour. This function is
+   * correct and tested in isolation — see tests/test_sw_routing.js — but the bug it
+   * targets is still live. Do not read its presence as the problem being solved.
+   *
+   * Resolves to the network response if it arrives within `deadlineMs`, otherwise to
+   * `cached`. The network promise always runs to completion so the cache is still
+   * refreshed by a slow response. Never rejects.
+   *
+   * Hard offline (radio off) was never the problem: fetch rejects at once and the
+   * cache serves. Soft offline — plane wifi, captive portal — leaves navigator.onLine
+   * TRUE and makes fetches HANG, so every network-first asset waited on the browser's
+   * default timeout. Racing rather than aborting keeps a slow-but-working response
+   * useful: it still lands in the cache for the next load.
+   *
+   * With no cached copy there is nothing better to serve, so the deadline does not
+   * apply — we wait for the real answer rather than inventing a failure.
+   *
+   * Pure and injectable: `timers` lets a test drive it without real delays.
+   *
+   * @param {Promise<*>} networkPromise a fetch that resolves (never rejects) to a
+   *   Response or null
+   * @param {*} cached the cached Response, or null/undefined when there is none
+   * @param {number} deadlineMs
+   * @param {{setTimeout:Function, clearTimeout:Function}} [timers]
+   * @returns {Promise<*>}
+   */
+  function raceDeadline(networkPromise, cached, deadlineMs, timers) {
+    var t = timers || { setTimeout: setTimeout, clearTimeout: clearTimeout };
+    if (!cached) return Promise.resolve(networkPromise);
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer = t.setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        resolve(cached);
+      }, deadlineMs);
+      Promise.resolve(networkPromise).then(function (res) {
+        if (settled) return;
+        settled = true;
+        t.clearTimeout(timer);
+        resolve(res || cached);
+      }, function () {
+        if (settled) return;
+        settled = true;
+        t.clearTimeout(timer);
+        resolve(cached);
+      });
+    });
+  }
+
+  return {
+    classifyRequest: classifyRequest,
+    raceDeadline: raceDeadline,
+    NETWORK_DEADLINE_MS: 2500,
+    EXTERNAL_DEADLINE_MS: 2000
+  };
 });
