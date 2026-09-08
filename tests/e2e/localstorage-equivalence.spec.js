@@ -304,13 +304,25 @@ function stripAcceptedWi22Deltas(dump, baseline) {
   // what survives to the dump is the completed mini exam, which pushToCloud has
   // not yet acked. Assert the op is exactly that -- a durable, identified record
   // of the exam this session finished -- rather than accepting any queue content.
+  // WI-25 changed what belongs here, and the change is the point. The quarantine
+  // stub answers every POST with `ackOpIds: []`. The shipped code treated an empty
+  // acknowledgement as "acknowledge everything sent" and cleared the whole queue —
+  // unrecoverable loss of unsynced work. Nothing is acknowledged now, so every op
+  // this session produced is still queued, which is exactly right: unconfirmed work
+  // is retained and re-sending is idempotent.
   const outbox = out.psat_sync_outbox || [];
-  if (outbox.length !== 1 || outbox[0].type !== 'exam_completed') {
-    fail(`expected the outbox to hold exactly the completed exam, found ${JSON.stringify(outbox.map((o) => o.type))}`);
+  const types = outbox.map((o) => o.type);
+  if (outbox.length < 2 || types[types.length - 1] !== 'exam_completed') {
+    fail(`expected the unacknowledged ops to be retained and to end with the completed ` +
+      `exam, found ${JSON.stringify(types)}`);
+  }
+  if (!types.slice(0, -1).every((t) => t === 'question_attempt')) {
+    fail(`only question attempts and the completed exam belong in this queue, found ${JSON.stringify(types)}`);
   }
   const completedId = ((out.psat_exam_history || [])[0] || {}).examId;
-  if (!completedId || outbox[0].id.indexOf(completedId) === -1) {
-    fail(`the queued exam_completed op (${outbox[0].id}) does not identify the exam just finished (${completedId})`);
+  const examOp = outbox[outbox.length - 1];
+  if (!completedId || examOp.id.indexOf(completedId) === -1) {
+    fail(`the queued exam_completed op (${examOp.id}) does not identify the exam just finished (${completedId})`);
   }
   out.psat_sync_outbox = base.psat_sync_outbox;
   out.psat_pending_sync_count = base.psat_pending_sync_count;

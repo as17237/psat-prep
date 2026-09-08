@@ -1018,6 +1018,14 @@
   /**
    * Acknowledges and removes confirmed operations from the outbox.
    */
+  /**
+   * Removes acknowledged ops from the queue.
+   *
+   * @returns {number|null} the count ACTUALLY removed and persisted, or NULL when the
+   *   write failed. Null is distinct from 0 on purpose: 0 means "nothing matched",
+   *   null means "we could not persist the removal", and a caller that treats those
+   *   the same will report a drained queue that is still full (CLAUDE.md mode 5).
+   */
   function ackOutboxOps(store, ackOpIds, loc) {
     if (!store || !Array.isArray(ackOpIds) || ackOpIds.length === 0) return 0;
     var env = getEnvironmentConfig(loc);
@@ -1033,8 +1041,11 @@
       store.setItem(outboxKey, JSON.stringify(filtered));
       return initialLen - filtered.length;
     } catch (e) {
-      console.warn('Failed to ack outbox ops:', e);
-      return 0;
+      // Report, never pretend. Returning 0 here made a storage failure indistinguishable
+      // from "nothing to remove", and the caller advanced its cursor and claimed success
+      // while every operation was still queued.
+      console.error('Failed to persist outbox acknowledgement; queue left intact:', e);
+      return null;
     }
   }
 

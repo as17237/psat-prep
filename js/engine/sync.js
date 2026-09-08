@@ -602,25 +602,46 @@
         if (!result || !result.success || result.error) {
           return { success: false, error: (result && result.error) ? result.error : 'Server returned error', syncMode: syncMode };
         }
-        // Acknowledge synced outbox ops
-        if (Array.isArray(result.ackOpIds) && result.ackOpIds.length > 0) {
-          ackOutboxOps(store, result.ackOpIds, loc);
-        } else if (outbox.length > 0) {
-          ackOutboxOps(store, outbox.map(function(o) { return o.id; }), loc);
-        }
+        // Acknowledge ONLY what the server explicitly confirmed, and only ops we
+        // actually sent.
+        //
+        // Two defects lived here. (a) The `else` branch cleared the ENTIRE sent queue
+        // whenever ackOpIds was absent or empty — a reply acknowledging nothing
+        // deleted everything, which is unrecoverable local data loss. An empty
+        // acknowledgement must acknowledge nothing. (b) Ids were removed without
+        // checking they were in this request, so an unrelated id could drop an op the
+        // server never saw. Unconfirmed work stays queued; re-sending is idempotent
+        // (ops carry content-derived ids), so retaining is always the safe direction.
+        var sentIds = {};
+        outbox.forEach(function (o) { if (o && o.id) sentIds[o.id] = true; });
+        var confirmed = (Array.isArray(result.ackOpIds) ? result.ackOpIds : [])
+          .filter(function (id) { return sentIds[id] === true; });
+        var removed = confirmed.length > 0 ? ackOutboxOps(store, confirmed, loc) : 0;
+        var ackPersisted = removed !== null;
+        if (!ackPersisted) removed = 0;
         // Advance the cursor ONLY after the server confirmed the write. An
         // interrupted ack therefore re-sends this window next time (at worst a
         // duplicate merge, which is idempotent) rather than skipping it.
-        writeSyncCursor(store, loc, {
-          lastPushAt: pushStartedAt,
-          lastFullPushAt: slice.isFull ? pushStartedAt : cursor.lastFullPushAt,
-          lastAckAt: Date.now(),
-          lastMode: syncMode
-        });
+        // Only advance the cursor once the acknowledgement is durable. If the local
+        // removal failed, resending this window next time is a duplicate merge — which
+        // is idempotent — and that is strictly better than skipping it.
+        if (ackPersisted) {
+          writeSyncCursor(store, loc, {
+            lastPushAt: pushStartedAt,
+            lastFullPushAt: slice.isFull ? pushStartedAt : cursor.lastFullPushAt,
+            lastAckAt: Date.now(),
+            lastMode: syncMode
+          });
+        }
         return {
           success: true,
           updatedAt: result.updatedAt,
-          ackCount: outbox.length,
+          // The number DURABLY removed — not the number sent. Reporting the sent count
+          // told the UI everything was synced while ops remained queued.
+          ackCount: removed,
+          sentCount: outbox.length,
+          pendingOps: getOutboxOps(store, loc).length,
+          ackPersisted: ackPersisted,
           syncMode: syncMode,
           counts: slice.counts,
           bytes: JSON.stringify(payload).length
