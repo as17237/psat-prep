@@ -29,7 +29,7 @@
 
 importScripts('js/shared/sw_routing.js');
 
-var VERSION = '20260906-focused-recovery-1';
+var VERSION = '20260908-bounded-waits-1';
 var SHELL_CACHE = 'psat-shell-' + VERSION;
 var IMAGE_CACHE = 'psat-images';
 var EXT_CACHE = 'psat-ext';
@@ -138,20 +138,34 @@ function cacheFirst(request, cacheName) {
   });
 }
 
-function networkFirst(request, cacheName) {
-  // Online: always take the fresh network copy (and refresh the cache), so a
-  // future deploy is never masked by a stale cached asset — the classic service
-  // worker footgun. Offline: fall back to the precached/last-seen copy. This is
-  // why a production SW here is safe: it adds an offline fallback without ever
-  // pinning users to an old build while they have a connection.
+// WI-24 — bounded network waits. Hard offline (radio off) was never the problem:
+// fetch rejects instantly and the cache serves. SOFT offline — plane wifi, captive
+// portal — leaves navigator.onLine TRUE and makes fetches HANG, so all 44
+// network-first shell assets and the navigation each waited on the browser default
+// timeout while the exam clock ran.
+var NETWORK_DEADLINE_MS = self.SW_ROUTING.NETWORK_DEADLINE_MS;
+var raceDeadline = self.SW_ROUTING.raceDeadline;
+
+/** fetch() that resolves to null instead of rejecting, refreshing `cacheName`. */
+function fetchAndCache(request, cacheName) {
   return fetch(request).then(function (res) {
-    if (res && res.ok) {
+    if (res && (res.ok || res.type === 'opaque')) {
       var copy = res.clone();
       caches.open(cacheName).then(function (c) { c.put(request, copy); });
     }
     return res;
-  }).catch(function () {
-    return caches.match(request, { ignoreSearch: true });
+  }).catch(function () { return null; });
+}
+
+function networkFirst(request, cacheName) {
+  // Online and responsive: the fresh copy still wins, so a deploy is never masked by
+  // a stale asset. Hanging: the cached copy is served at the deadline while the
+  // in-flight request keeps going and refreshes the cache for next time.
+  var network = fetchAndCache(request, cacheName);
+  return caches.match(request, { ignoreSearch: true }).then(function (cached) {
+    return raceDeadline(network, cached, NETWORK_DEADLINE_MS).then(function (res) {
+      return res || cached;
+    });
   });
 }
 
@@ -186,8 +200,11 @@ self.addEventListener('fetch', function (event) {
   if (decision === 'navigate') {
     event.respondWith(
       caches.match('index.html', { ignoreSearch: true }).then(function (cached) {
-        return fetch(request).catch(function () {
-          return cached || caches.match('index.html', { ignoreSearch: true });
+        // The navigation decides whether the app appears at all, so it gets the same
+        // bounded wait as the shell it pulls in.
+        var network = fetch(request).catch(function () { return null; });
+        return raceDeadline(network, cached, NETWORK_DEADLINE_MS).then(function (res) {
+          return res || cached || caches.match('index.html', { ignoreSearch: true });
         });
       })
     );

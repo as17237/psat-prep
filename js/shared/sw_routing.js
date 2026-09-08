@@ -91,7 +91,20 @@
    * @returns {Promise<*>}
    */
   function raceDeadline(networkPromise, cached, deadlineMs, timers) {
-    var t = timers || { setTimeout: setTimeout, clearTimeout: clearTimeout };
+    // The default timers MUST be called with their native receiver. Copying them onto
+    // a plain object — `{ setTimeout: setTimeout }` — and calling `t.setTimeout(...)`
+    // passes that object as `this`, and Chromium's WorkerGlobalScope timer rejects it
+    // with "TypeError: Illegal invocation". Inside the service worker that threw on
+    // EVERY branch where a cached response existed, including ordinary online cache
+    // hits, so respondWith rejected and the page saw net::ERR_FAILED.
+    //
+    // Node's setTimeout is not receiver-bound, so this is invisible to a Node test
+    // that exercises the default path — and the injected-timer tests never touch it
+    // at all. Wrapping in plain functions keeps the global receiver intact.
+    var t = timers || {
+      setTimeout: function (fn, ms) { return setTimeout(fn, ms); },
+      clearTimeout: function (id) { return clearTimeout(id); }
+    };
     if (!cached) return Promise.resolve(networkPromise);
     return new Promise(function (resolve) {
       var settled = false;

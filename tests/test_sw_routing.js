@@ -155,8 +155,47 @@ eq(classifyRequest({}), 'passthrough', 'no method -> passthrough');
       assert.strictEqual(await p, 'CACHED', 'the resolved value must not change after settling');
     }
 
+    // 7. THE ONE THE INJECTED-TIMER TESTS CANNOT SEE.
+    //    Checks 1-6 all pass `timers`, so the DEFAULT timer path is never exercised.
+    //    The shipped bug lived exactly there: raceDeadline copied the native timers
+    //    onto a plain object and called t.setTimeout(...), which passes that object as
+    //    `this`. Chromium's WorkerGlobalScope timer rejects a foreign receiver with
+    //    "TypeError: Illegal invocation", so the service worker threw on every branch
+    //    with a cached response — including online cache hits — and the page saw
+    //    net::ERR_FAILED. Node's setTimeout accepts any receiver, so nothing in Node
+    //    could see it.
+    //
+    //    This substitutes a receiver-STRICT timer for the duration, which is what a
+    //    Worker actually provides. Patching a global is normally forbidden here; it is
+    //    the point of this check, because the defect IS in how the global is called.
+    {
+      const realSetTimeout = global.setTimeout;
+      const realClearTimeout = global.clearTimeout;
+      let illegalInvocation = false;
+      global.setTimeout = function (fn, ms) {
+        if (this !== global && this !== undefined && this !== null) {
+          illegalInvocation = true;
+          throw new TypeError('Illegal invocation');
+        }
+        return realSetTimeout(fn, ms);
+      };
+      global.clearTimeout = function (id) { return realClearTimeout(id); };
+      try {
+        // No `timers` argument: the default path, exactly as the service worker uses it.
+        const out = await raceDeadline(Promise.resolve('FRESH'), 'CACHED', 50);
+        assert.strictEqual(out, 'FRESH');
+        assert.strictEqual(illegalInvocation, false,
+          'raceDeadline must call the host timers with their native receiver. Copying ' +
+          'them onto a plain object throws "Illegal invocation" inside a Worker and ' +
+          'takes down the whole fetch handler.');
+      } finally {
+        global.setTimeout = realSetTimeout;
+        global.clearTimeout = realClearTimeout;
+      }
+    }
+
     raceChecksDone = true;
-    console.log('  ✓ raceDeadline: 6 soft-offline checks');
+    console.log('  ✓ raceDeadline: 7 soft-offline checks (incl. native timer receiver)');
   })().catch((e) => { console.error('\nTEST FAILURE: ' + e.message); process.exit(1); });
 }
 
