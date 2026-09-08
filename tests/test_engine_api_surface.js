@@ -70,6 +70,7 @@ const EXPECTED_SYMBOLS = [
   'formatAcceptedAnswers',
   'gradeAttempt',
   'renderRationale',
+  'optionTextIssue',   // WI-23
   'evaluateScientificExpression',
 
   // --- SM-2 scheduling, daily sessions, streaks ----------------------------
@@ -185,8 +186,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  100,
-  `The hand-written contract must list exactly 100 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22); found ${EXPECTED_SYMBOLS.length}. ` +
+  101,
+  `The hand-written contract must list exactly 101 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22 + optionTextIssue from WI-23); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 

@@ -638,7 +638,9 @@ function loadQuestion(idx) {
 
   // Text View Warnings (#text-mode-warning was removed in 7b22ff6 -- guard it)
   const textWarning = document.getElementById('text-mode-warning');
-  if (q.text_complete === false) {
+  // WI-23: `text_complete` covers the question STEM only — it is true for every one
+  // of the 917 records whose OPTIONS are unusable, which is why nothing caught this.
+  if (q.text_complete === false || (PSAT_ENGINE.optionTextIssue(q) || {}).useless) {
     if (textWarning) textWarning.classList.remove('hidden');
     if (viewMode === 'text') setViewMode('card');
   } else {
@@ -677,6 +679,13 @@ function loadQuestion(idx) {
     optContainer.classList.add('question-options');
     frContainer.classList.add('hidden');
 
+    // WI-23: 917 of 2,694 MC records have option text the student cannot use
+    // (876 literal "Option A" placeholders, 17 all-identical, 24 duplicated).
+    // One rule and one wording, in the engine, so this view, the exam view and
+    // js/components/questionCard.js cannot drift (CLAUDE.md mode 2).
+    const optIssue = PSAT_ENGINE.optionTextIssue(q);
+    renderOptionTextNotice(optIssue);
+
     q.options.forEach(opt => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -696,7 +705,10 @@ function loadQuestion(idx) {
       keySpan.textContent = opt.key;
 
       const textSpan = document.createElement('span');
-      textSpan.textContent = opt.text;
+      // When the extracted text says nothing ("Option A", "and"), showing it
+      // invites a blind click. The letter is the honest label; the choices are
+      // on the official card, which every affected record has.
+      textSpan.textContent = (optIssue && optIssue.useless) ? '' : opt.text;
 
       btn.appendChild(keySpan);
       btn.appendChild(textSpan);
@@ -756,6 +768,36 @@ function loadQuestion(idx) {
 
   renderPalette();
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+/**
+ * WI-23 — renders (or clears) the answer-choice-quality notice above the options.
+ *
+ * The element is created on demand rather than added to index.html: the UI
+ * simplification pass (7b22ff6) deleted #text-mode-warning and #mismatch-notice and
+ * left the JS reading them, which threw and aborted the rest of loadQuestion. Owning
+ * the node here means there is nothing for a future markup change to delete out from
+ * under us.
+ *
+ * @param {null|{message:string, code:string}} issue from PSAT_ENGINE.optionTextIssue
+ */
+function renderOptionTextNotice(issue) {
+  const optContainer = document.getElementById('options-container');
+  let el = document.getElementById('option-text-notice');
+  if (!issue) {
+    if (el) el.classList.add('hidden');
+    return;
+  }
+  if (!el) {
+    if (!optContainer || !optContainer.parentNode) return;
+    el = document.createElement('div');
+    el.id = 'option-text-notice';
+    optContainer.parentNode.insertBefore(el, optContainer);
+  }
+  el.className = 'banner banner-warning';
+  el.setAttribute('data-issue', issue.code);
+  el.textContent = issue.message;
+  el.classList.remove('hidden');
 }
 
 function recordAttempt(selectedAnswer, isCorrect) {
@@ -1660,6 +1702,21 @@ function renderExamMcqOptions(q) {
   container.innerHTML = '';
   const selected = examUserAnswers[q.id];
 
+  // WI-23: same engine rule as the practice view. Inside a timed exam a blind click
+  // is worse than anywhere else, because there is no going back to it.
+  const examOptIssue = PSAT_ENGINE.optionTextIssue(q);
+  const examNotice = document.getElementById('exam-option-text-notice');
+  if (examNotice) {
+    if (examOptIssue) {
+      examNotice.className = 'banner banner-warning';
+      examNotice.setAttribute('data-issue', examOptIssue.code);
+      examNotice.textContent = examOptIssue.message;
+      examNotice.classList.remove('hidden');
+    } else {
+      examNotice.classList.add('hidden');
+    }
+  }
+
   ['A', 'B', 'C', 'D'].forEach(letter => {
     const isSelected = (selected === letter);
     let optText = `Choice (${letter})`;
@@ -1670,6 +1727,7 @@ function renderExamMcqOptions(q) {
     } else if (q.options && q.options[letter]) {
       optText = q.options[letter];
     }
+    if (examOptIssue && examOptIssue.useless) optText = '';
 
     const btn = document.createElement('button');
     btn.type = 'button';

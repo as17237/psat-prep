@@ -58,6 +58,7 @@
       'formatAcceptedAnswers',
       'gradeAttempt',
       'renderRationale',
+      'optionTextIssue',
       'evaluateScientificExpression'
     ],
     scheduler: [

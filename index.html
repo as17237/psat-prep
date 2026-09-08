@@ -832,6 +832,11 @@
             <!-- Answer Input Controls -->
             <div class="pt-6 border-t border-slate-100">
               
+              <!-- WI-23: answer-choice-quality notice. 917 of 2,694 MC records have
+                   option text the student cannot use; the choices live on the official
+                   card above. Hidden unless PSAT_ENGINE.optionTextIssue() reports one. -->
+              <div id="exam-option-text-notice" class="banner banner-warning hidden max-w-3xl mx-auto mb-3"></div>
+
               <!-- Multiple Choice Options -->
               <div id="exam-mcq-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
                 <!-- Dynamically populated choices A, B, C, D -->

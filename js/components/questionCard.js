@@ -53,6 +53,14 @@ export function questionCard({ question, state = 'default', selectedKey = null, 
   }
 
   const options = Array.isArray(question.options) ? question.options : [];
+  // WI-23: the same engine rule the practice and exam views use. This component is
+  // the design-system renderer, so any future consumer inherits the guard rather than
+  // reinventing it (CLAUDE.md mode 2). Guarded because the design page can render
+  // without the engine loaded.
+  const optIssue =
+    (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.optionTextIssue)
+      ? PSAT_ENGINE.optionTextIssue(question)
+      : null;
   const optionsHtml = options
     .map((opt) => {
       const isSelected = selectedKey != null && opt.key === selectedKey;
@@ -67,7 +75,7 @@ export function questionCard({ question, state = 'default', selectedKey = null, 
           testId && testId + '-option-' + opt.key
         )}>` +
         `<span class="question-option-key">${esc(opt.key)}</span>` +
-        `<span>${esc(opt.text)}</span>` +
+        `<span>${optIssue && optIssue.useless ? '' : esc(opt.text)}</span>` +
         `</button>`
       );
     })
@@ -84,6 +92,7 @@ export function questionCard({ question, state = 'default', selectedKey = null, 
     `</div>` +
     (imgSrc ? `<img class="question-image" src="${esc(imgSrc)}" alt="Question diagram">` : '') +
     `<p class="question-text">${esc(question.question_text || '')}</p>` +
+    (optIssue ? `<div class="banner banner-warning" data-issue="${esc(optIssue.code)}">${esc(optIssue.message)}</div>` : '') +
     (options.length ? `<div class="question-options">${optionsHtml}</div>` : '') +
     `</div>`
   );

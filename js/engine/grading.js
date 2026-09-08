@@ -599,6 +599,79 @@
   }
 
 
+  /**
+   * WI-23 — is this question's answer-choice TEXT actually usable on screen?
+   *
+   * 917 of the 2,694 multiple-choice records (34%) carry option text that tells the
+   * student nothing. The PDF extraction produced three distinct failures:
+   *
+   *   placeholder  876  every choice is the literal string "Option A".."Option D"
+   *   identical     17  every choice has the SAME text ('and', '%', 'Value Frequency')
+   *   duplicate     24  two or more choices share text, so they are indistinguishable
+   *
+   * A student hit this for real: on f463a4f4 all four buttons read "and", and he had
+   * to answer by letter off the card image. Two questions he got WRONG (f4d98e1c,
+   * 86d35711) were the same defect — he was graded on choices the app never showed
+   * him, and those misses fed his accuracy and his SRS schedule.
+   *
+   * Every one of the 917 HAS a card image and every card file exists on disk
+   * (verified 2026-09-07), so "read the official card" is always a real fallback.
+   *
+   * The severity split matters. When the text is useless the buttons must not pretend
+   * otherwise — they show the letter only. When choices are merely ambiguous the text
+   * is still worth showing, with a warning. Both the code and the wording live here so
+   * the practice view, the exam view and the shared component cannot drift
+   * (CLAUDE.md mode 2).
+   *
+   * This is deliberately about the DATA, never about the student. It reports what the
+   * record contains; it does not guess what he meant.
+   *
+   * @param {Object} question a bank record
+   * @returns {null|{code:string, useless:boolean, message:string}} null when fine
+   */
+  function optionTextIssue(question) {
+    var q = question || {};
+    if ((q.type || '') !== 'multiple_choice') return null;
+    if (!Array.isArray(q.options) || q.options.length === 0) {
+      return {
+        code: 'missing',
+        useless: true,
+        message: 'The answer choices for this question could not be extracted. Read them on the official card above and choose by letter.'
+      };
+    }
+
+    var texts = q.options.map(function (o) {
+      return String((o && o.text) || '').trim();
+    });
+
+    var allPlaceholder = texts.every(function (t) { return /^Option [A-Z]$/.test(t); });
+    if (allPlaceholder) {
+      return {
+        code: 'placeholder',
+        useless: true,
+        message: 'The answer choices for this question are shown on the official card above. Choose by letter.'
+      };
+    }
+
+    var unique = texts.filter(function (t, i) { return texts.indexOf(t) === i; });
+    if (texts.length > 1 && unique.length === 1) {
+      return {
+        code: 'identical',
+        useless: true,
+        message: 'The answer choices for this question are shown on the official card above. Choose by letter.'
+      };
+    }
+    if (texts.length > 1 && unique.length < texts.length) {
+      return {
+        code: 'duplicate',
+        useless: false,
+        message: 'Two or more choices below look the same because of a text-extraction problem. Check the official card above before answering.'
+      };
+    }
+    return null;
+  }
+
+
   return {
     parseNumeric: parseNumeric,
     extractAcceptedForms: extractAcceptedForms,
@@ -606,6 +679,7 @@
     formatAcceptedAnswers: formatAcceptedAnswers,
     gradeAttempt: gradeAttempt,
     renderRationale: renderRationale,
-    evaluateScientificExpression: evaluateScientificExpression
+    evaluateScientificExpression: evaluateScientificExpression,
+    optionTextIssue: optionTextIssue
   };
 });
