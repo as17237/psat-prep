@@ -112,6 +112,26 @@ export function safeGetStorage(key, defaultVal) {
   }
 }
 
+/**
+ * WI-28 finding 4 — write WITHOUT bumping the pending-sync counter.
+ *
+ * safeSetStorage increments the legacy pending count for every SYNCED_KEY write, and
+ * pullFromCloud writes progress/srs/history through it. So a SUCCESSFUL download
+ * manufactured "3 change(s) waiting to sync" out of data that had just arrived FROM
+ * the server. Reproduced: outbox 0, legacy count 3, badge claiming 3 pending.
+ *
+ * Downloaded state is not an unsent change. This is the writer the pull path uses.
+ */
+export function safeSetStorageDownloaded(key, val) {
+  try {
+    localStorage.setItem(APP_ENV.storagePrefix + key, JSON.stringify(val));
+    return true;
+  } catch (e) {
+    console.error('Storage write error for downloaded key:', key, e);
+    return false;
+  }
+}
+
 export function safeSetStorage(key, val) {
   if (window.__PSAT_WRITE_BLOCKED__) return false;
   try {

@@ -17,7 +17,7 @@ import { mountFocusedBuilder } from '../shared/focused_builder.js';
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, offerSaveRecovery, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, safeSetStorageDownloaded, offerSaveRecovery, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { setClassName } from '../shared/dom.js';
@@ -214,13 +214,17 @@ function restoreRealStudentData() {
 function manualTriggerCloudSync(isManual = false) {
   const btnText = document.getElementById('cloud-sync-btn-text');
   if (btnText) btnText.innerText = 'Syncing...';
-  const el = document.getElementById('hdr-cloud-badge');
+  const el = document.getElementById('hdr-save-status') || document.getElementById('hdr-cloud-badge');
   if (el) {
-    el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing...';
+    el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing…';
     if (typeof lucide !== 'undefined') lucide.createIcons();
   }
   if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage, window.location, isManual).then(async pullRes => {
+    return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded, window.location, isManual).then(async pullRes => {
+      // Declared out here because the combined outcome below is computed after the
+      // branch; block-scoped `const`s inside the branch were not visible to it.
+      let pushRes = null;
+      let stillPending = null;
       if (pullRes && pullRes.success) {
         progress = safeGetStorage('psat_progress', {});
         srsState = safeGetStorage('psat_srs', {});
@@ -238,11 +242,11 @@ function manualTriggerCloudSync(isManual = false) {
         // The pending counter is no longer force-zeroed either: pending is derived from
         // the durable outbox (readSyncBadgeState takes max(outbox, legacy)), so the only
         // thing that may clear it is a real acknowledgement.
-        const pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
+        pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
           ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName)
           : { success: false, error: 'push unavailable' };
         if (btnText) btnText.innerText = 'Sync';
-        const stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
+        stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
         if (pushRes && pushRes.success && stillPending === 0) {
           localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
         }
@@ -269,17 +273,59 @@ function manualTriggerCloudSync(isManual = false) {
           const errMsg = (pullRes && pullRes.error) ? pullRes.error : 'Could not connect to Cosmos DB server';
           alert(`Sync notice: ${errMsg}. Practice data remains safely stored in local cache.`);
         }
+        // A failed download is itself an unfinished drain — report it as such so the
+        // coordinator retries rather than treating the attempt as done.
+        return {
+          success: false, pullSuccess: false, pushSuccess: false,
+          pendingOps: PSAT_ENGINE.getOutboxOps(localStorage, window.location).length,
+          error: (pullRes && pullRes.error) || 'Download failed',
+          status: pullRes ? pullRes.status : undefined
+        };
       }
       if (typeof lucide !== 'undefined') lucide.createIcons();
-      return pullRes;
+      // WI-28 finding 1: return the COMBINED outcome, not the download's.
+      // This returned `pullRes`, so the coordinator saw success whenever the GET
+      // succeeded — even with the POST failing 503 and an operation still queued.
+      // It then stopped instead of retrying. A drain is only complete when the
+      // upload succeeded, its acknowledgement persisted, and nothing is left.
+      const done = !!(pushRes && pushRes.success)
+        && pushRes.ackPersisted !== false
+        && stillPending === 0;
+      return {
+        success: done,
+        pullSuccess: true,
+        pushSuccess: !!(pushRes && pushRes.success),
+        ackPersisted: pushRes ? pushRes.ackPersisted !== false : false,
+        pendingOps: stillPending,
+        // Carry the upload's failure upward so classifySyncOutcome can tell a
+        // rejected payload (permanent) from an outage (retryable).
+        error: done ? null : ((pushRes && pushRes.error) || (stillPending > 0 ? 'Unconfirmed operations remain' : null)),
+        status: pushRes ? pushRes.status : undefined
+      };
     }).catch(err => {
       console.warn('Manual cloud sync failed:', err);
       if (btnText) btnText.innerText = 'Sync';
       updateSyncStatusBadge();
-      if (isManual) alert('Sync notice: Could not reach Cosmos DB sync endpoint.');
+      if (isManual) alert('Sync notice: Could not reach the sync endpoint.');
       if (typeof lucide !== 'undefined') lucide.createIcons();
+      // WI-28: a thrown sync is still an UNFINISHED drain. Returning undefined here
+      // gave the coordinator nothing to classify, and an absent result was treated as
+      // a completed attempt — the queue stopped draining silently.
+      return {
+        success: false, pullSuccess: false, pushSuccess: false,
+        pendingOps: (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getOutboxOps)
+          ? PSAT_ENGINE.getOutboxOps(localStorage, window.location).length : null,
+        error: (err && err.message) || 'Sync threw'
+      };
     });
   }
+  // The guard above can decline to sync (local recovery pending, engine absent).
+  // Say so explicitly rather than returning undefined.
+  return Promise.resolve({
+    success: false, pullSuccess: false, pushSuccess: false, pendingOps: null,
+    error: window.__PSAT_WRITE_BLOCKED__ ? 'Local recovery pending' : 'Sync engine unavailable',
+    skipped: true
+  });
 }
 
 // Explainer index: question id -> step-by-step explainer.
@@ -1421,6 +1467,16 @@ async function prepareOfflineExam(examToPrepare) {
 
     const { ok: cachedOk, fail } = await cacheImageUrls(urls, 6);
 
+    // WI-28 finding 2: refuse to pin something with no questions. This reported
+    // "Offline-ready" for a pin holding 0 modules and 0 images.
+    const pinnedCount = (exam.modules || []).reduce(function (a, m) {
+      return a + ((m.questions || []).length);
+    }, 0);
+    if (!pinnedCount) {
+      setOfflinePrepStatus('That test has no questions to prepare, so nothing was pinned. ' +
+        'Rebuild it and try again.', 'error');
+      return;
+    }
     const pin = PSAT_ENGINE.toOfflineExamPin(exam, { imageTotal: urls.length, imageCached: cachedOk, preparedAt: Date.now() });
     const stored = safeSetStorage(OFFLINE_PIN_KEY, pin);
     if (!stored) {
@@ -1457,7 +1513,12 @@ function prepareFocusedTestForOffline(customTestData) {
     setOfflinePrepStatus('Build or open a test first, then prepare it for offline use.', 'warn');
     return Promise.resolve();
   }
-  return prepareOfflineExam(customTestData);
+  const built = buildCustomExamFromPlan(customTestData);
+  if (!built.ok) {
+    setOfflinePrepStatus(built.error, 'error');
+    return Promise.resolve();
+  }
+  return prepareOfflineExam(built.exam);
 }
 
 function startPreparedOfflineExam() {
@@ -1579,39 +1640,68 @@ function startSectionTest(testType) {
   initExamSession();
 }
 
+/**
+ * WI-28 finding 2 — the ONE conversion from builder output to a runnable exam.
+ *
+ * The builder emits `questionIds`; generateCustomTest emits `questions`; the pinning
+ * path needs `exam.modules`. That conversion lived only inside startCustomTestDirect,
+ * so the offline-prepare path received raw builder data, found no modules, pinned
+ * NOTHING, and still displayed "Offline-ready" — measured at 0 modules / 0 images for
+ * a 7-question Craft and Structure test. Start and prepare now share this function so
+ * they cannot disagree about what the test is (CLAUDE.md mode 2).
+ *
+ * @returns {{ok:boolean, exam:Object|null, error:string|null}}
+ */
+function buildCustomExamFromPlan(customTestData) {
+  if (!customTestData) return { ok: false, exam: null, error: 'No test was provided.' };
+  let data = customTestData;
+  if (data.questionIds) {
+    const byId = new Map(questions.map(q => [q.id, q]));
+    data = { ...data, questions: data.questionIds.map(id => byId.get(id)) };
+  }
+  if (!Array.isArray(data.questions) || !data.questions.length ||
+      data.questions.some(q => !q) ||
+      new Set(data.questions.map(q => q.id)).size !== data.questions.length) {
+    return { ok: false, exam: null,
+      error: 'This test has missing or duplicate questions. Please return to the builder. Existing work is unchanged.' };
+  }
+  return {
+    ok: true,
+    error: null,
+    exam: {
+      id: data.id || 'custom_' + Date.now(),
+      title: data.title || 'Custom Practice Test',
+      type: data.type || 'custom_test',
+      examCategory: data.examCategory || 'focused_test',
+      customPlan: data.customPlan || null,
+      isUntimed: data.isUntimed === true,
+      isAdaptive: false,
+      totalQuestions: data.questions.length,
+      totalTimeMinutes: data.isUntimed ? null : (data.timeLimitMinutes || 30),
+      timeLimitMinutes: data.isUntimed ? null : (data.timeLimitMinutes || 30),
+      breakMinutes: 0,
+      createdAt: Date.now(),
+      modules: [
+        {
+          id: 'custom_m1',
+          section: new Set(data.questions.map(q => q.test)).size > 1
+            ? 'Mixed subjects' : (data.questions[0]?.test || 'Practice'),
+          moduleNumber: 1,
+          name: data.title || 'Custom Test Module',
+          questionsCount: data.questions.length,
+          timeLimitSeconds: (data.isUntimed ? 999999 : (data.timeLimitMinutes || 30) * 60),
+          questions: data.questions
+        }
+      ]
+    }
+  };
+}
+
 function startCustomTestDirect(customTestData) {
   if (!canStartNewExam()) return;
-  if (customTestData.questionIds) {
-    const byId = new Map(questions.map(q=>[q.id,q]));
-    customTestData = {...customTestData, questions:customTestData.questionIds.map(id=>byId.get(id))};
-  }
-  if (!Array.isArray(customTestData.questions) || !customTestData.questions.length || customTestData.questions.some(q=>!q) || new Set(customTestData.questions.map(q=>q.id)).size!==customTestData.questions.length) {
-    alert('This test has missing or duplicate questions. Please return to the builder. Existing work is unchanged.');return;
-  }
-  activeExam = {
-    id: customTestData.id || 'custom_' + Date.now(),
-    title: customTestData.title || 'Custom Practice Test',
-    type: customTestData.type || 'custom_test',
-    customPlan:customTestData.customPlan || null,
-    isUntimed:customTestData.isUntimed === true,
-    isAdaptive:false,
-    totalQuestions: customTestData.questions.length,
-    totalTimeMinutes: customTestData.isUntimed ? null : (customTestData.timeLimitMinutes || 30),
-    breakMinutes: 0,
-    createdAt: Date.now(),
-    modules: [
-      {
-        id: 'custom_m1',
-        section: new Set(customTestData.questions.map(q=>q.test)).size > 1 ? 'Mixed subjects' : (customTestData.questions[0]?.test || 'Practice'),
-        moduleNumber: 1,
-        name: customTestData.title || 'Custom Test Module',
-        questionsCount: customTestData.questions.length,
-        timeLimitSeconds: (customTestData.isUntimed ? 999999 : (customTestData.timeLimitMinutes || 30) * 60),
-        questions: customTestData.questions
-      }
-    ]
-  };
-
+  const built = buildCustomExamFromPlan(customTestData);
+  if (!built.ok) { alert(built.error); return; }
+  activeExam = built.exam;
   initExamSession();
 }
 
@@ -2657,9 +2747,9 @@ function setQuestionErrorTag(qid, tagId) {
   }
   progress[qid].errorTag = tagId;
   safeSetStorage('psat_progress', progress);
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-    PSAT_ENGINE.pushToCloud(localStorage);
-  }
+  // WI-28 finding 3: route every trigger through the one coordinator. A direct
+  // pushToCloud here bypassed retry, single-flight and status entirely.
+  requestSync('error-tag');
   // Re-render tag buttons for this question
   const bar = document.getElementById(`tag-bar-${qid}`);
   if (bar && PSAT_ENGINE.ERROR_TAGS) {
@@ -2745,7 +2835,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Automatic cloud sync on app start
   if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
+    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
       if (res && res.success) {
         progress = safeGetStorage('psat_progress', {});
         srsState = safeGetStorage('psat_srs', {});
@@ -2839,6 +2929,8 @@ Object.assign(window, {
   startStandardExam,
   startMiniExam,
   prepareOfflineExam,
+  prepareFocusedTestForOffline,
+  buildCustomExamFromPlan,
   startPreparedOfflineExam,
   renderOfflineReadyStatus,
   startGapDrillFromLobby,

@@ -136,6 +136,7 @@
       'getSyncCursor',
       'resetSyncCursor',
       'SYNC_RETRY',
+      'SYNC_REQUEST_TIMEOUT_MS',
       'classifySyncOutcome',
       'nextRetryDelayMs',
       'createSyncCoordinator'

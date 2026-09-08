@@ -589,7 +589,7 @@
       syncMode: syncMode
     };
 
-    return fetchFn(CLOUD_SYNC_ENDPOINT, {
+    return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -692,7 +692,7 @@
       }
     };
 
-    return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
+    return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
       .then(function(res) {
         if (!res || !res.ok) {
           return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
@@ -756,7 +756,7 @@
             };
           } else if (env.isBeta && !result.exists) {
             // Beta sandbox auto-seed from production default_student if beta cloud profile is empty
-            return fetchFn(CLOUD_SYNC_ENDPOINT + '?student_name=default_student')
+            return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=default_student')
               .then(function(prodRes) {
                 if (!prodRes || !prodRes.ok) return { success: true, updated: false, empty: true };
                 return prodRes.json().then(function(prodResult) {
@@ -818,6 +818,38 @@
   // Everything here is PURE or injectable: `timers`, `rand` and `now` are parameters,
   // so backoff is deterministic in tests and there is no patched global anywhere.
 
+  // WI-28 finding 3: every sync fetch was unbounded. A hanging connection kept the
+  // coordinator `inFlight` forever, which blocks BOTH the retry timer and any
+  // coalesced request — the exact stall the bounded service-worker waits were meant
+  // to prevent, one layer up. AbortController is used where available; where it is
+  // not, the race still resolves so the coordinator can move on.
+  var SYNC_REQUEST_TIMEOUT_MS = 20000;
+
+  function fetchWithTimeout(fetchFn, url, options, timeoutMs) {
+    var ms = (typeof timeoutMs === 'number') ? timeoutMs : SYNC_REQUEST_TIMEOUT_MS;
+    var opts = options || {};
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    if (controller) opts = Object.assign({}, opts, { signal: controller.signal });
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = setTimeout(function () {
+        if (done) return;
+        done = true;
+        if (controller) { try { controller.abort(); } catch (e) {} }
+        var err = new Error('SYNC_TIMEOUT');
+        err.isTimeout = true;
+        reject(err);
+      }, ms);
+      fetchFn(url, opts).then(function (res) {
+        if (done) return;
+        done = true; clearTimeout(timer); resolve(res);
+      }, function (e) {
+        if (done) return;
+        done = true; clearTimeout(timer); reject(e);
+      });
+    });
+  }
+
   var SYNC_RETRY = {
     baseDelayMs: 2000,
     maxDelayMs: 5 * 60 * 1000,   // never hammer; a plane lands once
@@ -840,8 +872,19 @@
     if (result.skipped === true || result.reason === 'demo_mode' || result.reason === 'readonly') {
       return 'permanent';
     }
-    if (typeof result.status === 'number' && result.status >= 400 && result.status < 500) {
-      return 'permanent';
+    // The engine returns `error: 'HTTP_400'` strings, not a numeric status, so the
+    // original numeric-only check classified every 4xx as retryable — a rejected
+    // payload would have been retried until the attempt budget ran out. Read both.
+    var status = (typeof result.status === 'number') ? result.status : null;
+    if (status === null && typeof result.error === 'string') {
+      var m = /^HTTP_(\d{3})$/.exec(result.error);
+      if (m) status = parseInt(m[1], 10);
+    }
+    if (status !== null) {
+      // 408 and 429 are 4xx but explicitly transient — a timeout or a rate limit
+      // will succeed later, and giving up on them would strand the queue.
+      if (status === 408 || status === 429) return 'retry';
+      if (status >= 400 && status < 500) return 'permanent';
     }
     return 'retry';
   }
@@ -969,6 +1012,7 @@
     mergeSessionsState: mergeSessionsState,
     mergeExamHistory: mergeExamHistory,
     SYNC_RETRY: SYNC_RETRY,
+    SYNC_REQUEST_TIMEOUT_MS: SYNC_REQUEST_TIMEOUT_MS,
     classifySyncOutcome: classifySyncOutcome,
     nextRetryDelayMs: nextRetryDelayMs,
     createSyncCoordinator: createSyncCoordinator
