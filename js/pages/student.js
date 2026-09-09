@@ -225,6 +225,7 @@ function manualTriggerCloudSync(isManual = false) {
       // branch; block-scoped `const`s inside the branch were not visible to it.
       let pushRes = null;
       let stillPending = null;
+      let legacyRemaining = null;
       if (pullRes && pullRes.success) {
         progress = safeGetStorage('psat_progress', {});
         srsState = safeGetStorage('psat_srs', {});
@@ -245,8 +246,21 @@ function manualTriggerCloudSync(isManual = false) {
         // Captured BEFORE the upload: anything added to this counter while the POST
         // is in flight is dirty state this response did not carry.
         const legacyBeforePush = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
+        // WI-31: a legacy-only write (safeSetStorage bumps the counter WITHOUT
+        // queueing an outbox op) can be invisible to a DELTA push — buildSyncDelta
+        // selects on `p.timestamp`, and toggling a flag does not move it. So a delta
+        // retry would spin forever without ever carrying the change.
+        //
+        // Whenever the legacy counter is non-zero we therefore push in FULL. That is
+        // the only push that is guaranteed to include unqueued local state, and it is
+        // what makes the reconciliation below sound: after a successful full push we
+        // KNOW everything counted before it started was sent, so subtracting it is a
+        // fact rather than an assumption. (The previous version subtracted after a
+        // delta push too, which is how a change that was never transmitted got marked
+        // as covered.)
         pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
-          ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName)
+          ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName,
+              window.location, legacyBeforePush > 0 ? { full: true } : undefined)
           : { success: false, error: 'push unavailable' };
         if (btnText) btnText.innerText = 'Sync';
         stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
@@ -272,15 +286,23 @@ function manualTriggerCloudSync(isManual = false) {
         // durable queue, and never below zero.
         if (pushRes && pushRes.success && pushRes.ackPersisted !== false) {
           const legacyNow = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
-          const covered = Math.min(legacyBeforePush, legacyNow);
+          // Only a FULL push provably carried the pre-push dirt. After a delta, assume
+          // it carried nothing beyond the outbox — never mark unsent state as covered.
+          const covered = (pushRes.syncMode === 'full') ? Math.min(legacyBeforePush, legacyNow) : 0;
           const remaining = Math.max(stillPending, legacyNow - covered);
           localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(remaining));
+          legacyRemaining = remaining;
+        } else {
+          legacyRemaining = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
         }
         updateSyncStatusBadge();
         if (isManual) {
           if (!pushRes || !pushRes.success) {
             alert(`Downloaded fine, but the UPLOAD did not complete: ${(pushRes && pushRes.error) || 'unknown error'}.\n` +
               `${stillPending} change(s) are still saved on this device and will retry automatically.`);
+          } else if (stillPending === 0 && legacyRemaining > 0) {
+            alert(`Sync ran, but ${legacyRemaining} local change(s) have not been confirmed by ` +
+              'the server yet. They are saved on this device and will upload automatically.');
           } else if (stillPending > 0) {
             alert(`Sync ran, but ${stillPending} change(s) are still waiting to be confirmed by the server. ` +
               'They remain saved on this device and will retry automatically.');
@@ -314,18 +336,29 @@ function manualTriggerCloudSync(isManual = false) {
       // succeeded — even with the POST failing 503 and an operation still queued.
       // It then stopped instead of retrying. A drain is only complete when the
       // upload succeeded, its acknowledgement persisted, and nothing is left.
+      // WI-31: `stillPending` is the OUTBOX length only. A legacy-only write bumps the
+      // counter without queueing an operation, so a drain that checked the outbox alone
+      // reported `synced` and STOPPED while dirty local state remained — the reviewer
+      // measured legacy pending 1, local flag true, server flag false, coordinator
+      // synced with no retry scheduled. Completion now requires BOTH to be clear.
+      const legacyLeft = (typeof legacyRemaining === 'number') ? legacyRemaining : 0;
       const done = !!(pushRes && pushRes.success)
         && pushRes.ackPersisted !== false
-        && stillPending === 0;
+        && stillPending === 0
+        && legacyLeft === 0;
       return {
         success: done,
         pullSuccess: true,
         pushSuccess: !!(pushRes && pushRes.success),
         ackPersisted: pushRes ? pushRes.ackPersisted !== false : false,
         pendingOps: stillPending,
+        pendingLegacy: legacyLeft,
         // Carry the upload's failure upward so classifySyncOutcome can tell a
-        // rejected payload (permanent) from an outage (retryable).
-        error: done ? null : ((pushRes && pushRes.error) || (stillPending > 0 ? 'Unconfirmed operations remain' : null)),
+        // rejected payload (permanent) from an outage (retryable). Leftover dirty
+        // state is transient by nature, so it must read as retryable.
+        error: done ? null : ((pushRes && pushRes.error)
+          || (stillPending > 0 ? 'Unconfirmed operations remain' : null)
+          || (legacyLeft > 0 ? 'Local changes not yet confirmed by the server' : null)),
         status: pushRes ? pushRes.status : undefined
       };
     }).catch(err => {
@@ -3027,6 +3060,7 @@ Object.assign(window, {
   prepareOfflineExam,
   prepareFocusedTestForOffline,
   requestManualSync,
+  requestSync,
   __coordState: () => (syncCoordinator ? syncCoordinator.getState() : "no-coordinator"),
   prepareSelectedTestForOffline,
   buildCustomExamFromPlan,
