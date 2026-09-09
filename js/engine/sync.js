@@ -693,11 +693,15 @@
     };
 
     return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName), undefined, undefined, readJsonEnvelope)
-      .then(function(env) {
-        if (!env || !env.ok) {
-          return { success: false, error: 'HTTP_' + ((env && env.status) || 'Unknown'), status: (env && env.status) || undefined };
+      // WI-30 finding 4: this parameter was named `env` and SHADOWED the
+      // `var env = getEnvironmentConfig(loc)` above it, so the `env.isBeta` test
+      // further down was permanently false and an empty beta profile never entered
+      // its seed-from-production fallback. Named `resEnv` so both stay reachable.
+      .then(function(resEnv) {
+        if (!resEnv || !resEnv.ok) {
+          return { success: false, error: 'HTTP_' + ((resEnv && resEnv.status) || 'Unknown'), status: (resEnv && resEnv.status) || undefined };
         }
-        return Promise.resolve(env.body).then(function(result) {
+        return Promise.resolve(resEnv.body).then(function(result) {
         if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
           if (!result || !result.success || result.error) {
             return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };

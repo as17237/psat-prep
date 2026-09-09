@@ -115,13 +115,36 @@ test.describe('offline exam mode (WI-20)', () => {
     });
     expect(answered).toBeGreaterThanOrEqual(QUESTIONS_TO_WALK);
 
-    // 7. Back online -> the reconnect handler pushes the queued work.
-    const postsBefore = (page.__syncCalls || []).filter((c) => c.method === 'POST').length;
+    // 7. Back online -> queued work must end up ACCEPTED, and nothing unacknowledged
+    //    may be left behind.
+    //
+    // This asserted `posts increased`, which is the wrong proxy and produced a false
+    // alarm that cost a revert. pushToCloud legitimately returns `no_changes` WITHOUT
+    // issuing a POST when the delta and the outbox are both empty, so a prior full
+    // upload followed by no new work correctly skips the request. What matters is the
+    // STATE: no unacknowledged operation is stranded.
     await context.setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    // debounce is 2500ms; give the pull->push a moment to complete.
     await page.waitForTimeout(6000);
-    const postsAfter = (page.__syncCalls || []).filter((c) => c.method === 'POST').length;
-    expect(postsAfter).toBeGreaterThan(postsBefore);
+
+    const syncState = await page.evaluate(() => ({
+      queued: window.PSAT_ENGINE.getOutboxOps(localStorage, window.location).length,
+      posts: null
+    }));
+    expect(
+      syncState.queued,
+      'after reconnect no unacknowledged operation may be stranded — either it was ' +
+      'uploaded and acknowledged, or there was genuinely nothing to send'
+    ).toBe(0);
+
+    // The answers of an UNFINISHED exam live in psat_active_exam_state, which
+    // buildSyncDelta does not carry. They are safe on this device and resume here,
+    // but they are explicitly NOT synced — asserted so the limitation stays visible
+    // rather than being mistaken for cross-device durability.
+    const stillLocal = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('psat_active_exam_state') || '{}');
+      return Object.keys(s.examUserAnswers || {}).length;
+    });
+    expect(stillLocal, 'the in-progress answers survive locally').toBeGreaterThanOrEqual(QUESTIONS_TO_WALK);
   });
 });

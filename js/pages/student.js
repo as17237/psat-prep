@@ -242,6 +242,9 @@ function manualTriggerCloudSync(isManual = false) {
         // The pending counter is no longer force-zeroed either: pending is derived from
         // the durable outbox (readSyncBadgeState takes max(outbox, legacy)), so the only
         // thing that may clear it is a real acknowledgement.
+        // Captured BEFORE the upload: anything added to this counter while the POST
+        // is in flight is dirty state this response did not carry.
+        const legacyBeforePush = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
         pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
           ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName)
           : { success: false, error: 'push unavailable' };
@@ -256,8 +259,22 @@ function manualTriggerCloudSync(isManual = false) {
         // with an empty outbox. Setting it to the queue length (not zero) preserves any
         // write that landed while this upload was in flight — such a write bumps BOTH
         // counters, so it is still represented. Never reconcile on a GET alone.
+        // WI-30 finding 1: reconcile against a SNAPSHOT taken before the upload, not
+        // against the outbox alone. safeSetStorage bumps the legacy counter WITHOUT
+        // appending an operation, so a local write made while this POST was in flight
+        // is real dirty state that the outbox cannot see. Setting the counter to the
+        // outbox length erased it: the reviewer held a POST, saved a newer flag
+        // locally, then acknowledged — and the badge said "All work saved" while the
+        // newer value had never been uploaded.
+        //
+        // Subtracting only what this upload actually covered keeps any later write
+        // counted. Clamped at the outbox length so the count can never understate the
+        // durable queue, and never below zero.
         if (pushRes && pushRes.success && pushRes.ackPersisted !== false) {
-          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(stillPending));
+          const legacyNow = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
+          const covered = Math.min(legacyBeforePush, legacyNow);
+          const remaining = Math.max(stillPending, legacyNow - covered);
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(remaining));
         }
         updateSyncStatusBadge();
         if (isManual) {
@@ -1536,8 +1553,27 @@ function getSelectedFocusedTest() {
   } catch (e) {
     console.warn('Could not read the handed-over test:', e);
   }
-  // Fall back to a non-adaptive test already loaded in this tab.
-  if (activeExam && activeExam.isAdaptive === false) return activeExam;
+  // Fall back to a non-adaptive test already loaded in this tab. It is ALREADY
+  // normalised (modules with resolved questions), whereas buildCustomExamFromPlan
+  // expects raw builder output (questions/questionIds). Feeding it straight through
+  // produced "This test has missing or duplicate questions" and pinned nothing
+  // (WI-30 finding 3), so flatten it back to the builder's shape here.
+  if (activeExam && activeExam.isAdaptive === false) {
+    const flat = (activeExam.modules || []).reduce(function (acc, m) {
+      return acc.concat(m.questions || []);
+    }, []);
+    if (!flat.length) return null;
+    return {
+      id: activeExam.id,
+      title: activeExam.title,
+      type: activeExam.type,
+      examCategory: activeExam.examCategory || 'focused_test',
+      customPlan: activeExam.customPlan || null,
+      isUntimed: activeExam.isUntimed === true,
+      timeLimitMinutes: activeExam.timeLimitMinutes || activeExam.totalTimeMinutes || null,
+      questions: flat
+    };
+  }
   return null;
 }
 
@@ -2899,34 +2935,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // alone, which is the same "download proves the upload" mistake as finding 4.
   // Startup now asks the ONE coordinator for a full drain, so queued work uploads and
   // a failure retries by itself.
+  // WI-30 finding 2: startup asks the ONE coordinator for a full drain, so work
+  // queued offline uploads on reopen instead of waiting for another trigger.
   //
-  // ATTEMPTED AND REVERTED: routing startup through requestSync('startup') made the
-  // reconnect drain stop producing a POST in tests/e2e/offline_exam.spec.js (POSTs
-  // 1 -> 1 after reconnect, coordinator reporting `synced` from the startup drain).
-  // I could not explain that within a reasonable budget, and changing sync behaviour
-  // I do not understand is worse than leaving a known gap. Startup therefore still
-  // performs a standalone pull, and finding 1's STARTUP half remains OPEN: work queued
-  // offline still waits for a write, a manual click, or a reconnect event.
-  // The manual-button half of finding 1 IS fixed — those now go through the coordinator.
+  // Shipped on the third attempt. Both earlier rollbacks were misdiagnoses of my own
+  // making, recorded here because the reasoning matters more than the outcome:
+  //   WI-29 blamed offline_exam.spec.js seeing POSTs stay 1 -> 1 after reconnect. That
+  //     was a false alarm — pushToCloud legitimately returns `no_changes` WITHOUT
+  //     posting when the delta and the outbox are both empty (js/engine/sync.js:571),
+  //     so a startup full-push that already drained everything correctly skips the
+  //     reconnect request. Asserting request COUNT was the wrong proxy; that test now
+  //     asserts queue STATE.
+  //   WI-30's first attempt blamed a service worker that never took control. That was
+  //     a stray pair of braces I had left in this file — a syntax error that killed
+  //     module evaluation, so nothing registered. Nothing to do with startup at all.
   if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
-      if (res && res.success) {
-        progress = safeGetStorage('psat_progress', {});
-        srsState = safeGetStorage('psat_srs', {});
-        sessionsState = safeGetStorage('psat_sessions', {});
-        updateHeaderStats();
-        renderPalette();
-        renderExamLobbyHistory();
-        if (!document.getElementById('view-analytics').classList.contains('hidden')) {
-          renderAnalytics();
-        }
-        // NOT stamping a sync time or zeroing the pending counter here: a GET proves
-        // nothing about the upload. That part of finding 1/4 stays fixed.
-      }
-      updateSyncStatusBadge();
-    }).catch(() => {
-      updateSyncStatusBadge();
-    });
+    requestSync('startup');
   }
 });
 
