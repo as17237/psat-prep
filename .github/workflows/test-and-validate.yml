@@ -31,11 +31,14 @@ jobs:
         run: |
           python -m unittest test_extractor.py -v
 
-      - name: Run Node SRS and Free-Response Tests
-        run: |
-          node tests/test_free_response.js
-          node tests/test_srs.js
-          node tests/test_dataset_free_response.js
+      # WI-32: ONE command, identical locally and in CI. This step used to name three
+      # suites by hand, so everything written to protect the sync and offline paths
+      # (test_outbox_ack, test_sync_retry, test_storage_v2, test_offline_pin_identity,
+      # test_page_syntax, …) never ran here. The runner DISCOVERS suites, because a
+      # hand-maintained list is exactly how that gap appeared, and it fails if
+      # discovery finds implausibly few.
+      - name: Run offline Node test suites
+        run: ./scripts/run_offline_tests.sh
 
       # WI-07 data-integrity suite — OFFLINE parts only.
       # These need no Azure credentials: test_merge_pins.js runs the extracted

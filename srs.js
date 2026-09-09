@@ -116,7 +116,6 @@
       'enqueueOutboxOp',
       'getOutboxOps',
       'ackOutboxOps',
-      'clearOutbox',
       'SCHEMA_VERSION',
       'readSchemaMeta',
       'migrateLocalStateToV2',

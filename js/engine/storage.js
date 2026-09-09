@@ -1050,16 +1050,6 @@
   }
 
 
-  /**
-   * Clears the outbox queue.
-   */
-  function clearOutbox(store, loc) {
-    if (!store) return;
-    var env = getEnvironmentConfig(loc);
-    try {
-      store.removeItem(env.storagePrefix + 'psat_sync_outbox');
-    } catch (e) {}
-  }
 
   return {
     getEnvironmentConfig: getEnvironmentConfig,
@@ -1076,7 +1066,6 @@
     enqueueOutboxOp: enqueueOutboxOp,
     getOutboxOps: getOutboxOps,
     ackOutboxOps: ackOutboxOps,
-    clearOutbox: clearOutbox,
     // Part-level only (not in srs.js's API_MANIFEST, so it never reaches the frozen
     // PSAT_ENGINE surface): js/engine/sync.js reads the cursor key from here.
     SYNC_CURSOR_KEY: SYNC_CURSOR_KEY,

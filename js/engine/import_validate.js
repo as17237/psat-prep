@@ -472,9 +472,6 @@
   // The preview
   // ---------------------------------------------------------------------------
 
-  function countKeys(v) {
-    return isPlainObject(v) ? Object.keys(v).length : 0;
-  }
 
   /**
    * Compares one map-shaped section (progress / srs / sessions).

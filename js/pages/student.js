@@ -1004,9 +1004,12 @@ function submitFreeResponse() {
 function toggleFlagCurrentQuestion() {
   const q = filteredQuestions[currentIndex];
   if (!progress[q.id]) {
-    progress[q.id] = { answered: false, isFlagged: true };
+    progress[q.id] = { answered: false, isFlagged: true, flagUpdatedAt: Date.now() };
   } else {
     progress[q.id].isFlagged = !progress[q.id].isFlagged;
+    // WI-32: stamp WHEN the bookmark changed. Deliberately not `timestamp` — that
+    // feeds learning metrics and the delta cursor, and a bookmark is not an attempt.
+    progress[q.id].flagUpdatedAt = Date.now();
   }
   saveProgress();
   loadQuestion(currentIndex);

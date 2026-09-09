@@ -128,7 +128,6 @@ const EXPECTED_SYMBOLS = [
   'enqueueOutboxOp',
   'getOutboxOps',
   'ackOutboxOps',
-  'clearOutbox',
   'SCHEMA_VERSION',         // WI-11
   'readSchemaMeta',         // WI-11
   'migrateLocalStateToV2',  // WI-11
@@ -191,8 +190,8 @@ const dupes = EXPECTED_SYMBOLS.filter((s, i) => EXPECTED_SYMBOLS.indexOf(s) !== 
 assert.deepStrictEqual(dupes, [], `EXPECTED_SYMBOLS contains duplicates: ${dupes.join(', ')}`);
 assert.strictEqual(
   EXPECTED_SYMBOLS.length,
-  106,
-  `The hand-written contract must list exactly 106 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22 + optionTextIssue from WI-23 + 4 sync-retry symbols from WI-26); found ${EXPECTED_SYMBOLS.length}. ` +
+  105,
+  `The hand-written contract must list exactly 105 symbols (56 @66c88cc + 11 from WI-11 + routeAdaptiveTrack from WI-16 + isReadOnlyMode from WI-18 + collectExamQuestionIds/toOfflineExamPin/rehydrateOfflineExamPin from WI-20 + 14 exam_state and 14 attempt symbols from WI-22 + optionTextIssue from WI-23 + 4 sync-retry symbols from WI-26); found ${EXPECTED_SYMBOLS.length}. ` +
     'If the API genuinely changed, that is a deliberate contract change: update the count and say so in the PR.'
 );
 

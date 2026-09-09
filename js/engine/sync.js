@@ -195,7 +195,26 @@
         (older.attempts || []).concat(newer.attempts || []).forEach(function(att) {
           if (att && (att.attemptId || att.at != null)) attemptMap[att.attemptId ? 'id:'+att.attemptId : 'at:'+att.at] = att;
         });
-        if (c.isFlagged || l.isFlagged) chosen.isFlagged = true;
+        // WI-32: a bookmark REMOVAL used to be undone. Both merges forced the flag
+        // true if either side had it, so unflagging synced up as "still flagged" and
+        // came straight back. `flagUpdatedAt` gives flag edits their own ordering,
+        // independent of `timestamp` — which must not move for a bookmark, because it
+        // also drives learning metrics and the delta cursor.
+        //
+        // When neither side carries flagUpdatedAt we keep the old OR: an absent field
+        // means "legacy record, ordering unknown", and losing a raise is worse than
+        // keeping one. Only an explicit, newer edit can clear it.
+        var cAt = (typeof c.flagUpdatedAt === 'number') ? c.flagUpdatedAt : null;
+        var lAt = (typeof l.flagUpdatedAt === 'number') ? l.flagUpdatedAt : null;
+        if (cAt === null && lAt === null) {
+          if (c.isFlagged || l.isFlagged) chosen.isFlagged = true;
+        } else if (cAt !== null && (lAt === null || cAt >= lAt)) {
+          chosen.isFlagged = c.isFlagged === true;
+          chosen.flagUpdatedAt = cAt;
+        } else {
+          chosen.isFlagged = l.isFlagged === true;
+          chosen.flagUpdatedAt = lAt;
+        }
         if (Array.isArray(c.historicalErrorTags) || Array.isArray(l.historicalErrorTags)) {
           var tags = new Map();
           (newer.historicalErrorTags || []).concat(older.historicalErrorTags || []).forEach(function(t) {

@@ -9,7 +9,7 @@
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, safeSetStorageDownloaded, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { launchTargetedMistakeDrill } from '../shared/drill.js';
@@ -53,12 +53,17 @@ function syncMistakesFromCloud(isManual = false) {
   if (txt) txt.innerText = 'Syncing...';
 
   if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorage).then(res => {
+    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
       if (res && res.success) {
         loadMistakesData();
         renderMistakesFeed();
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
+        // WI-32: a PULL must never acknowledge local changes. This zeroed the
+        // pending counter and stamped a sync time after a successful GET, so a write
+        // saved on the student page and then viewed here lost its unsent status —
+        // zero POSTs, no server record, and the badge claiming everything was synced.
+        // student.js was fixed in WI-28; these twins were missed (CLAUDE.md mode 2).
+        // Downloaded state also writes through safeSetStorageDownloaded so it cannot
+        // manufacture pending counts of its own.
         updateMistakesSyncBadge();
         if (isManual) {
           if (res.updated) {

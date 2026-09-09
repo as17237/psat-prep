@@ -60,13 +60,13 @@
   }
 
   /**
-   * WI-24 — bounded network wait. THE DESIGNED SOFT-OFFLINE FIX, NOT YET WIRED.
+   * WI-24 — bounded network wait, the SOFT-OFFLINE fix. WIRED AND LIVE.
    *
-   * !! sw.js does NOT call this yet. !! Wiring it into networkFirst / the navigation
-   * handler regressed 32 browser tests (net::ERR_FAILED on reload) and was reverted;
-   * the service worker still has its original unbounded behaviour. This function is
-   * correct and tested in isolation — see tests/test_sw_routing.js — but the bug it
-   * targets is still live. Do not read its presence as the problem being solved.
+   * sw.js calls this from three paths: networkFirst (shell assets), the navigation
+   * handler, and staleWhileRevalidate (optional CDN resources, via boundWithoutCache).
+   * The earlier revert — and the comment that survived it claiming this was unwired —
+   * was caused by a timer-receiver bug in this function, since fixed. Ticket-by-ticket
+   * narration that outlives the code it describes is worse than no comment at all.
    *
    * Resolves to the network response if it arrives within `deadlineMs`, otherwise to
    * `cached`. The network promise always runs to completion so the cache is still

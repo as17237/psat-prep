@@ -285,8 +285,22 @@ function mergeProgress(existing, incoming) {
     const tags = mergeHistoricalErrorTags(incomingWins ? p : prior, incomingWins ? prior : p);
     if (tags !== null) out.historicalErrorTags = tags;
 
-    // A flag raised on either device stays raised; never invented when neither set it.
-    if (prior.isFlagged || p.isFlagged) out.isFlagged = true;
+    // WI-32: flag edits are ordered by their own `flagUpdatedAt`, so a deliberate
+    // REMOVAL is no longer undone by the other side's stale `true`. This mirrors
+    // js/engine/sync.js exactly — the same rule on both ends, or they fight.
+    // With neither side carrying the field we keep the old OR: absent means "legacy
+    // record, ordering unknown", and losing a raise is worse than keeping one.
+    var priorAt = (typeof prior.flagUpdatedAt === 'number') ? prior.flagUpdatedAt : null;
+    var incomingAt = (typeof p.flagUpdatedAt === 'number') ? p.flagUpdatedAt : null;
+    if (priorAt === null && incomingAt === null) {
+      if (prior.isFlagged || p.isFlagged) out.isFlagged = true;
+    } else if (incomingAt !== null && (priorAt === null || incomingAt >= priorAt)) {
+      out.isFlagged = p.isFlagged === true;
+      out.flagUpdatedAt = incomingAt;
+    } else {
+      out.isFlagged = prior.isFlagged === true;
+      out.flagUpdatedAt = priorAt;
+    }
 
     merged[qid] = out;
   });

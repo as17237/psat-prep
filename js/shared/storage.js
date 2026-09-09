@@ -56,10 +56,6 @@ let pendingSyncListener = null;
  */
 let migrationReport = null;
 
-/** @returns {Object|null} the migration report for this page load. */
-export function getMigrationReport() {
-  return migrationReport;
-}
 
 /**
  * Runs the one-time, non-destructive v1 -> v2 local migration for this lane.
