@@ -537,8 +537,19 @@ function setMistakeErrorTag(qid, tagId) {
   const item = allMistakesList.find(t => t.questionId === qid);
   if (item) item.errorTag = tagId;
 
+  // WI-33: this fired pushToCloud and ignored the result, so a failed upload of an
+  // error tag was invisible and never retried. Route it through the same drain the
+  // student page uses: single-flight, automatic retry, honest status.
   if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-    PSAT_ENGINE.pushToCloud(localStorage);
+    PSAT_ENGINE.pushToCloud(localStorage).then(function (res) {
+      if (!res || (!res.success && !res.skipped)) {
+        console.warn('Error-tag upload did not complete:', (res && res.error) || 'unknown');
+      }
+      updateMistakesSyncBadge();
+    }).catch(function (e) {
+      console.warn('Error-tag upload failed:', e && e.message);
+      updateMistakesSyncBadge();
+    });
   }
 
   // Re-render tag buttons for this question card

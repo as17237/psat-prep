@@ -54,6 +54,11 @@
         </div>
 
         <div class="flex items-center space-x-2.5 shrink-0">
+          <!-- WI-33: updateMistakesSyncBadge() has always written to this id and
+               returned early because the element did not exist, so its listener and
+               every refresh call rendered nothing. Same wording as the student page's
+               #hdr-save-status: what the student needs, no service names. -->
+          <span id="mistakes-sync-status-text" class="text-xs font-semibold text-slate-500 inline-flex items-center"></span>
           <a href="parent.html" class="btn btn-sm btn-secondary">
             <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 mr-1.5"></i> <span class="hidden sm:inline">Parent</span> Dashboard
           </a>
