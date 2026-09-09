@@ -247,8 +247,17 @@ function manualTriggerCloudSync(isManual = false) {
           : { success: false, error: 'push unavailable' };
         if (btnText) btnText.innerText = 'Sync';
         stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
-        if (pushRes && pushRes.success && stillPending === 0) {
+        if (pushRes && pushRes.success && pushRes.ackPersisted !== false && stillPending === 0) {
           localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
+        }
+        // WI-29 finding 4: reconcile the LEGACY counter against the durable queue,
+        // but only after a confirmed upload. readSyncBadgeState takes
+        // max(outbox, legacy), so a stale legacy count kept claiming "1 change waiting"
+        // with an empty outbox. Setting it to the queue length (not zero) preserves any
+        // write that landed while this upload was in flight — such a write bumps BOTH
+        // counters, so it is still represented. Never reconcile on a GET alone.
+        if (pushRes && pushRes.success && pushRes.ackPersisted !== false) {
+          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(stillPending));
         }
         updateSyncStatusBadge();
         if (isManual) {
@@ -1508,6 +1517,40 @@ async function prepareOfflineExam(examToPrepare) {
  * WI-27 — prepare the CURRENTLY configured focused/custom test for offline use.
  * Shares one prepare path with the full exam so the two cannot drift (mode 2).
  */
+/**
+ * WI-29 finding 3 — the UI entry point for focused offline preparation.
+ *
+ * prepareFocusedTestForOffline existed and worked, but NOTHING called it: the only
+ * markup control invoked prepareOfflineExam() with no argument, so a parent-built
+ * focused test could never be prepared through the interface. This resolves what the
+ * student currently has selected — the assignment handed over in sessionStorage, or
+ * the exam already loaded — and prepares exactly that.
+ *
+ * It reports honestly when there is nothing selected rather than silently preparing a
+ * full exam the parent did not ask for.
+ */
+function getSelectedFocusedTest() {
+  try {
+    const stored = sessionStorage.getItem(APP_ENV.storagePrefix + 'psat_active_custom_test');
+    if (stored) return JSON.parse(stored);
+  } catch (e) {
+    console.warn('Could not read the handed-over test:', e);
+  }
+  // Fall back to a non-adaptive test already loaded in this tab.
+  if (activeExam && activeExam.isAdaptive === false) return activeExam;
+  return null;
+}
+
+function prepareSelectedTestForOffline() {
+  const selected = getSelectedFocusedTest();
+  if (!selected) {
+    setOfflinePrepStatus('No focused test is selected. Open the assignment from the parent ' +
+      'portal first, or use "Prepare for offline" to prepare a full practice exam.', 'warn');
+    return Promise.resolve();
+  }
+  return prepareFocusedTestForOffline(selected);
+}
+
 function prepareFocusedTestForOffline(customTestData) {
   if (!customTestData) {
     setOfflinePrepStatus('Build or open a test first, then prepare it for offline use.', 'warn');
@@ -1571,14 +1614,30 @@ let onlineSyncDebounce = null;
  */
 const syncCoordinator = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createSyncCoordinator)
   ? PSAT_ENGINE.createSyncCoordinator({
-      run: () => manualTriggerCloudSync(false),
+      run: () => { const m = nextSyncIsManual; nextSyncIsManual = false; return manualTriggerCloudSync(m); },
       onState: () => updateSyncStatusBadge()
     })
   : null;
 
-function requestSync(reason) {
+// Set for the next drain only, so the coordinator's single `run` can still produce
+// the manual path's alerts without a second, competing sync entry point.
+let nextSyncIsManual = false;
+
+function requestSync(reason, isManual) {
+  if (isManual) nextSyncIsManual = true;
   if (syncCoordinator) syncCoordinator.requestSync(reason);
-  else manualTriggerCloudSync(false);
+  else manualTriggerCloudSync(!!isManual);
+}
+
+/**
+ * WI-29 finding 1 — what the header/manual buttons call.
+ *
+ * They used to invoke manualTriggerCloudSync directly, so a click could overlap a
+ * coordinator drain and, on failure, scheduled no recovery of its own. Going through
+ * the coordinator gives manual clicks single-flight coalescing and automatic retry.
+ */
+function requestManualSync() {
+  requestSync('manual', true);
 }
 
 function handleNetworkChange() {
@@ -2833,7 +2892,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   updateSyncStatusBadge();
 
-  // Automatic cloud sync on app start
+  // WI-29 finding 1: startup used to perform a standalone PULL only. Work queued
+  // offline therefore survived a reload and then just sat there — measured as 0 POSTs
+  // and 1 operation still queued five seconds after reopening with connectivity back.
+  // It also stamped a sync time and zeroed the legacy pending count after the GET
+  // alone, which is the same "download proves the upload" mistake as finding 4.
+  // Startup now asks the ONE coordinator for a full drain, so queued work uploads and
+  // a failure retries by itself.
+  //
+  // ATTEMPTED AND REVERTED: routing startup through requestSync('startup') made the
+  // reconnect drain stop producing a POST in tests/e2e/offline_exam.spec.js (POSTs
+  // 1 -> 1 after reconnect, coordinator reporting `synced` from the startup drain).
+  // I could not explain that within a reasonable budget, and changing sync behaviour
+  // I do not understand is worse than leaving a known gap. Startup therefore still
+  // performs a standalone pull, and finding 1's STARTUP half remains OPEN: work queued
+  // offline still waits for a write, a manual click, or a reconnect event.
+  // The manual-button half of finding 1 IS fixed — those now go through the coordinator.
   if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
     PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
       if (res && res.success) {
@@ -2846,12 +2920,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('view-analytics').classList.contains('hidden')) {
           renderAnalytics();
         }
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
-        localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', '0');
-        updateSyncStatusBadge();
-      } else {
-        updateSyncStatusBadge();
+        // NOT stamping a sync time or zeroing the pending counter here: a GET proves
+        // nothing about the upload. That part of finding 1/4 stays fixed.
       }
+      updateSyncStatusBadge();
     }).catch(() => {
       updateSyncStatusBadge();
     });
@@ -2930,6 +3002,9 @@ Object.assign(window, {
   startMiniExam,
   prepareOfflineExam,
   prepareFocusedTestForOffline,
+  requestManualSync,
+  __coordState: () => (syncCoordinator ? syncCoordinator.getState() : "no-coordinator"),
+  prepareSelectedTestForOffline,
   buildCustomExamFromPlan,
   startPreparedOfflineExam,
   renderOfflineReadyStatus,

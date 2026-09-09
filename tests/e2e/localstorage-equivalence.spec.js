@@ -299,6 +299,24 @@ function stripAcceptedWi22Deltas(dump, baseline) {
     out.psat_srs[pid] = baseCard;
   });
 
+  // --- F. a download no longer stamps a "last synced" time -------------------
+  // WI-28/29: startup used to write psat_last_cloud_sync_time (and zero the pending
+  // counter) as soon as the GET succeeded. A successful download proves nothing about
+  // the upload, so the stamp now happens only when an upload is CONFIRMED. The
+  // quarantine stub answers every POST with `ackOpIds: []`, so nothing is ever
+  // confirmed in this session and the key is legitimately absent.
+  //
+  // Asserted, not waived: it may only be missing while work is still unconfirmed. If
+  // the queue were empty the stamp would be required, and its absence would be a bug.
+  if (!('psat_last_cloud_sync_time' in out) && ('psat_last_cloud_sync_time' in base)) {
+    const queued = (out.psat_sync_outbox || []).length;
+    if (queued === 0) {
+      fail('no last-sync time was stamped even though nothing is queued — a confirmed ' +
+        'sync must record when it happened');
+    }
+    out.psat_last_cloud_sync_time = base.psat_last_cloud_sync_time;
+  }
+
   // --- D. batched persistence ---------------------------------------------
   // The session's practice/review attempts are pushed and acked during the run;
   // what survives to the dump is the completed mini exam, which pushToCloud has

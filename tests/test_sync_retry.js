@@ -19,6 +19,19 @@ let n = 0;
 const ok = (name) => { n++; console.log('  ok ' + n + ' — ' + name); };
 const settle = () => new Promise((r) => setImmediate(r));
 
+// Completion watchdog. Several checks await a promise; break the timeout handling and
+// one of them awaits a promise that never settles, so node drains its loop and exits 0
+// with no output — indistinguishable from success. This is the same trap that hid the
+// service-worker timer bug (CLAUDE.md: a run that produced no output has verified nothing).
+let allChecksDone = false;
+process.on('exit', function (code) {
+  if (code === 0 && !allChecksDone) {
+    console.error('\nTEST FAILURE: the sync retry checks never completed — a promise ' +
+      'never settled, most likely because a request or its body is not bounded.');
+    process.exitCode = 1;
+  }
+});
+
 // A hand-driven clock: nothing fires until fire() is called.
 function fakeTimers() {
   let seq = 0;
@@ -182,5 +195,36 @@ function fakeTimers() {
   }
   ok('a throwing run is treated as transient and recovers');
 
+  // ---- WI-29 finding 2: the deadline must cover BODY consumption ------------
+  // The timer used to clear when HEADERS arrived; callers then awaited res.json().
+  // A server answering instantly but stalling its body left the drain pending
+  // forever — measured at 21,038 ms against a 20,000 ms timeout.
+  {
+    const store = {
+      m: { psat_progress: '{}', psat_srs: '{}', psat_sessions: '{}', psat_exam_history: '[]' },
+      getItem(k) { return this.m[k] || null; },
+      setItem(k, v) { this.m[k] = String(v); },
+      removeItem(k) { delete this.m[k]; }
+    };
+    const stalledBody = () => Promise.resolve({
+      ok: true, status: 200, json: () => new Promise(() => {})   // never settles
+    });
+    const t0 = Date.now();
+    const res = await PSAT_ENGINE.pushToCloud(store, stalledBody, 'default_student',
+      { pathname: '/', search: '' });
+    const ms = Date.now() - t0;
+    assert.strictEqual(res.success, false);
+    assert.strictEqual(res.error, 'SYNC_TIMEOUT',
+      'a stalled response BODY must hit the timeout, not hang the drain forever');
+    assert.ok(ms < PSAT_ENGINE.SYNC_REQUEST_TIMEOUT_MS + 5000,
+      'it must settle near the configured deadline, not beyond it (took ' + ms + 'ms)');
+    assert.strictEqual(PSAT_ENGINE.classifySyncOutcome(res), 'retry',
+      'and a timeout is transient, so the coordinator retries it');
+    console.log('    stalled body settled after ' + ms + 'ms (deadline ' +
+      PSAT_ENGINE.SYNC_REQUEST_TIMEOUT_MS + 'ms)');
+  }
+  ok('FINDING 2: a stalled response body is bounded by the sync timeout');
+
+  allChecksDone = true;
   console.log('\n✓ All ' + n + ' sync retry checks passed.\n');
 })().catch((e) => { console.error('\nTEST FAILURE: ' + (e && e.message)); process.exit(1); });

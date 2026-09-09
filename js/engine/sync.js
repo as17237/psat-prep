@@ -593,11 +593,11 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }).then(function(res) {
-      if (!res || !res.ok) {
-        return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown'), syncMode: syncMode };
+    }, undefined, readJsonEnvelope).then(function(env) {
+      if (!env || !env.ok) {
+        return { success: false, error: 'HTTP_' + ((env && env.status) || 'Unknown'), syncMode: syncMode, status: (env && env.status) || undefined };
       }
-      return res.json().then(function(result) {
+      return Promise.resolve(env.body).then(function(result) {
         if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
         if (!result || !result.success || result.error) {
           return { success: false, error: (result && result.error) ? result.error : 'Server returned error', syncMode: syncMode };
@@ -692,12 +692,12 @@
       }
     };
 
-    return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName))
-      .then(function(res) {
-        if (!res || !res.ok) {
-          return { success: false, error: 'HTTP_' + (res ? res.status : 'Unknown') };
+    return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=' + encodeURIComponent(sName), undefined, undefined, readJsonEnvelope)
+      .then(function(env) {
+        if (!env || !env.ok) {
+          return { success: false, error: 'HTTP_' + ((env && env.status) || 'Unknown'), status: (env && env.status) || undefined };
         }
-        return res.json().then(function(result) {
+        return Promise.resolve(env.body).then(function(result) {
         if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
           if (!result || !result.success || result.error) {
             return { success: false, error: (result && result.error) ? result.error : 'Server returned error' };
@@ -756,10 +756,10 @@
             };
           } else if (env.isBeta && !result.exists) {
             // Beta sandbox auto-seed from production default_student if beta cloud profile is empty
-            return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=default_student')
-              .then(function(prodRes) {
-                if (!prodRes || !prodRes.ok) return { success: true, updated: false, empty: true };
-                return prodRes.json().then(function(prodResult) {
+            return fetchWithTimeout(fetchFn, CLOUD_SYNC_ENDPOINT + '?student_name=default_student', undefined, undefined, readJsonEnvelope)
+              .then(function(prodEnv) {
+                if (!prodEnv || !prodEnv.ok) return { success: true, updated: false, empty: true };
+                return Promise.resolve(prodEnv.body).then(function(prodResult) {
                   if (typeof window !== 'undefined' && window.__PSAT_WRITE_BLOCKED__) return {success:false,error:'Local save needs recovery'};
                   if (prodResult && prodResult.exists && prodResult.data) {
                     var cloud = prodResult.data;
@@ -825,7 +825,20 @@
   // not, the race still resolves so the coordinator can move on.
   var SYNC_REQUEST_TIMEOUT_MS = 20000;
 
-  function fetchWithTimeout(fetchFn, url, options, timeoutMs) {
+  /**
+   * Reads the JSON envelope. Passed as `consume` so parsing happens INSIDE the
+   * timeout window; callers keep their ok/status checks against the envelope.
+   */
+  function readJsonEnvelope(res) {
+    if (!res) return Promise.resolve({ ok: false, status: null, body: null });
+    if (!res.ok) return Promise.resolve({ ok: false, status: res.status, body: null });
+    return res.json().then(
+      function (b) { return { ok: true, status: res.status, body: b }; },
+      function () { return { ok: false, status: res.status, body: null }; }
+    );
+  }
+
+  function fetchWithTimeout(fetchFn, url, options, timeoutMs, consume) {
     var ms = (typeof timeoutMs === 'number') ? timeoutMs : SYNC_REQUEST_TIMEOUT_MS;
     var opts = options || {};
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -840,9 +853,23 @@
         err.isTimeout = true;
         reject(err);
       }, ms);
+      // WI-29 finding 2: the timer used to be cleared the moment HEADERS arrived, and
+      // every caller then awaited res.json(). A server that answered instantly but
+      // stalled its BODY left the whole drain pending forever — measured at 21,038 ms
+      // with a 20,000 ms timeout configured. The deadline now stays armed until the
+      // body is parsed, so `consume` is part of the protected window.
       fetchFn(url, opts).then(function (res) {
         if (done) return;
-        done = true; clearTimeout(timer); resolve(res);
+        var parsed;
+        try { parsed = consume ? consume(res) : Promise.resolve(res); }
+        catch (e) { done = true; clearTimeout(timer); reject(e); return; }
+        Promise.resolve(parsed).then(function (value) {
+          if (done) return;
+          done = true; clearTimeout(timer); resolve(value);
+        }, function (e) {
+          if (done) return;
+          done = true; clearTimeout(timer); reject(e);
+        });
       }, function (e) {
         if (done) return;
         done = true; clearTimeout(timer); reject(e);
