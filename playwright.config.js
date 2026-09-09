@@ -17,8 +17,15 @@ module.exports = defineConfig({
   expect: { timeout: 8000 },
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
+  // retries stay at 0 ON PURPOSE. A retry turns a real intermittent defect into a
+  // green run, and this suite exists to catch exactly those. WI-34 removed the
+  // harness's actual sources of nondeterminism (a single-threaded test server and an
+  // order-dependent assertion) rather than papering over them with a retry.
   retries: 0,
-  workers: 1,
+  // Parallelism is now SAFE: verified at --workers=1, 2 and 4, three consecutive
+  // clean runs each. 2 is the default because it is roughly twice as fast as serial
+  // with no loss of determinism; the value is not load-bearing.
+  workers: 2,
   reporter: [['list']],
   outputDir: 'test-results',
   use: {
@@ -63,7 +70,11 @@ module.exports = defineConfig({
     },
   ],
   webServer: {
-    command: `python3 -m http.server ${PORT} --bind 127.0.0.1`,
+    // WI-34: threaded, NOT `python3 -m http.server`. The stdlib one-liner is
+    // single-threaded, so two workers serialise behind it and timing-sensitive specs
+    // time out — a different one each run, all passing in isolation. That looked like
+    // flake for weeks. See scripts/test_server.py.
+    command: `python3 scripts/test_server.py ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 20000,

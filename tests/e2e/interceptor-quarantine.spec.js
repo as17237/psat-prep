@@ -54,8 +54,16 @@ test.describe('sync interceptor quarantine (negative test)', () => {
     // No violation should be recorded -- the request was safely rewritten,
     // not aborted.
     expect(page.__quarantineViolations.length).toBe(0);
-    const call1 = page.__syncCalls.find((c) => c.rewrittenFrom);
-    expect(call1).toBeTruthy();
+    // WI-34: find THIS request, not "the first rewritten call". The page performs its
+    // own startup sync, whose POST body is also rewritten, and under parallel workers
+    // either can land first — so `find(c => c.rewrittenFrom)` picked the POST (whose
+    // URL carries no student_name) and the assertion failed on timing rather than on
+    // behaviour. Matching the URL-rewritten GET explicitly is order-independent and a
+    // stronger statement of what this test is actually about.
+    const call1 = page.__syncCalls.find(
+      (c) => c.rewrittenFrom && c.rewrittenFrom.indexOf('student_name=default_student') !== -1
+    );
+    expect(call1, 'the GET carrying default_student in its URL must have been rewritten').toBeTruthy();
     expect(call1.rewrittenFrom).toContain('default_student');
     expect(call1.url).not.toContain('default_student');
     expect(call1.url).toContain('e2e_test_student');
@@ -75,9 +83,13 @@ test.describe('sync interceptor quarantine (negative test)', () => {
     }, SYNC_HOST);
 
     expect(page.__quarantineViolations.length).toBe(0);
-    const call2 = page.__syncCalls.find((c) => c.postData && c.postData.includes('e2e_test_student'));
-    expect(call2).toBeTruthy();
-    expect(call2.postData).not.toContain('default_student');
+    // Same reasoning: several POSTs may be in flight, so assert the property across
+    // EVERY rewritten body rather than trusting whichever one `find` returns first.
+    const bodyCalls = page.__syncCalls.filter((c) => c.postData && c.postData.indexOf('e2e_test_student') !== -1);
+    expect(bodyCalls.length, 'the POST body carrying default_student must have been rewritten').toBeGreaterThan(0);
+    bodyCalls.forEach((c) => {
+      expect(c.postData, 'no rewritten body may still contain the live student name').not.toContain('default_student');
+    });
 
     // A legitimate, already-safe e2e_test_student request passes through
     // unmodified (not double-rewritten, not flagged).
