@@ -1,3 +1,9 @@
+## [Promotion] — 2026-09-09T11:26:45Z (Commit: cf653db)
+* **Branch:** `main`
+* **Tool:** `scripts/promote_to_prod.sh` (production root only; soak lanes untouched)
+* **Bundle drift check:** local 6080994 B vs deployed 6080994 B
+* **Target:** Azure Storage `psatprep4915` (`$web` root)
+
 ## [Promotion] — 2026-09-08T15:48:34Z (Commit: d037de2)
 * **Branch:** `main`
 * **Tool:** `scripts/promote_to_prod.sh` (production root only; soak lanes untouched)
