@@ -49,11 +49,17 @@
     TOTAL_FLOOR: 240,
     TOTAL_CEILING: 1440,
     MIN_PER_SECTION: 15,
-    // WI-35: the separate "is this test long enough to score at all" gate for a single
-    // short test. It does NOT relax MIN_PER_SECTION — a section still needs 15 answered
-    // before it gets a number, so a 20-question single-subject test yields one section
-    // estimate and no composite. Both gates apply; neither substitutes for the other.
-    MIN_SCORED_TEST_QUESTIONS: 20,
+    // WI-36: a single short test is scored only at 30+ answered WITH at least
+    // MIN_PER_SECTION in EACH section. 30 is the arithmetic consequence of 15 each,
+    // not an independent number.
+    //
+    // An earlier version scored a 20-question single-subject test as one section
+    // estimate. That is withdrawn, and not only for simplicity: a topic-filtered test
+    // is BIASED BY CONSTRUCTION. A Craft-and-Structure-only drill is not a sample of
+    // Reading and Writing, so scaling it onto the 120-720 section scale would look
+    // official while measuring something much narrower. A test that covers both
+    // sections is the weakest input that can honestly carry a scaled number.
+    MIN_SCORED_TEST_QUESTIONS: 30,
     LOW_SAMPLE_THRESHOLD: 30, // Sample sizes < 30 per section indicate high variance
     HARD_TRACK_EXPONENT: 0.85, // Upper difficulty track power curve (unvalidated)
     EASY_TRACK_EXPONENT: 1.1,  // Lower difficulty track power curve (unvalidated)

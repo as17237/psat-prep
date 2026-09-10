@@ -6,12 +6,13 @@
  *    away. Pausing banks the remaining seconds and DROPS the deadline; resuming mints
  *    a new one from the bank. However long they are gone costs them nothing.
  *
- * 2. SHORT-TEST SCALED SCORE. Two independent gates: at least
- *    MIN_SCORED_TEST_QUESTIONS answered overall before any score, and the existing
- *    MIN_PER_SECTION before a SECTION gets a number. A composite therefore needs 15 in
- *    each section — 30 questions — and a 20-question single-subject test correctly
- *    yields one section estimate and no total. Reporting a total from one section
- *    would be inventing the other half (CLAUDE.md mode 1).
+ * 2. SHORT-TEST SCALED SCORE. At least MIN_PER_SECTION (15) answered in EACH section,
+ *    which makes MIN_SCORED_TEST_QUESTIONS (30) the arithmetic floor. Nothing is
+ *    scored otherwise — not even a single section. A topic-filtered test is biased by
+ *    construction, so a section score drawn from one would look official while
+ *    measuring something far narrower than the section it names (CLAUDE.md mode 1).
+ *    Below the gate the report still has accuracy, timing and topics, which are
+ *    measurements rather than estimates.
  *
  * Clock-free: every call takes `now`. Expected values hand-written.
  */
@@ -99,53 +100,75 @@ const answer = (qs, correctCount) =>
   Object.fromEntries(qs.map((q, i) => [q.id, { answered: true, isCorrect: i < correctCount }]));
 
 {
-  const qs = mk(19, 'Math', 'm');
-  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 15));
-  assert.strictEqual(r.isScored, false, '19 answered is below the 20-question gate');
+  const qs = mk(29, 'Math', 'm');
+  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 20));
+  assert.strictEqual(r.isScored, false, '29 answered is below the 30-question threshold');
   assert.strictEqual(r.totalScore, null);
-  assert.ok(/at least 20/.test(r.reason), 'and it says why, in plain words');
+  assert.ok(/at least 30/.test(r.reason), 'and it says why');
 }
-ok('a test below 20 answered questions gets no score at all');
+ok('a test below 30 answered questions gets no scaled score');
 
 {
-  const qs = mk(20, 'Math', 'm');
-  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 15));
-  assert.strictEqual(r.isScored, true, '20 answered clears the test gate');
-  assert.ok(typeof r.mathScore === 'number', 'Math has 20 >= 15, so it gets a section estimate');
-  assert.strictEqual(r.rwScore, null, 'Reading and Writing had none, so it gets nothing');
-  assert.strictEqual(r.totalScore, null,
-    'a composite needs 15 in EACH section; half measured and half invented is not a total');
-  assert.ok(/one section/.test(r.reason), 'and the reason names that explicitly');
-  assert.strictEqual(r.isSingleTestEstimate, true, 'never confusable with the bank-wide score');
+  // The rule the user set: 15 in EACH section, so 30 is the floor. A single-subject
+  // test gets no scaled number however long it is — a topic-filtered test is biased by
+  // construction, and scaling it would look official while measuring something much
+  // narrower than the section it names.
+  const qs = mk(40, 'Math', 'm');
+  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 30));
+  assert.strictEqual(r.isScored, false,
+    'forty Math questions still yield no scaled score — a section needs the OTHER section too');
+  assert.strictEqual(r.mathScore, null, 'not even a section estimate is produced');
+  assert.strictEqual(r.totalScore, null);
+  assert.ok(/EACH/.test(r.reason), 'the reason states the per-section requirement');
+  assert.ok(/Accuracy and topic breakdown/.test(r.reason),
+    'and points at what IS measured, rather than just refusing');
 }
-ok('20 single-subject questions give one section estimate and NO composite');
+ok('a single-subject test is never scaled, however long — bias by construction');
 
 {
-  const qs = mk(15, 'Math', 'm').concat(mk(15, 'Reading and Writing', 'r'));
-  const ans = Object.assign(answer(mk(15, 'Math', 'm'), 12), answer(mk(15, 'Reading and Writing', 'r'), 9));
-  const r = PSAT_ENGINE.scoreShortTest(qs, ans);
-  assert.strictEqual(r.isScored, true);
-  assert.strictEqual(r.mathAttempted, 15);
-  assert.strictEqual(r.rwAttempted, 15);
-  assert.ok(typeof r.totalScore === 'number', 'both sections cleared the gate, so a composite is legitimate');
-  assert.strictEqual(r.totalScore, r.rwScore + r.mathScore, 'the total is the two sections, not a re-derivation');
+  const qs = mk(20, 'Math', 'm').concat(mk(14, 'Reading and Writing', 'r'));
+  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 25));
+  assert.strictEqual(r.isScored, false,
+    '34 questions but Reading and Writing is one short of 15 — the per-section gate is not a total');
+  assert.strictEqual(r.rwAttempted, 14);
+  assert.strictEqual(r.mathAttempted, 20);
+}
+ok('34 questions still fails when one section is one question short');
+
+{
+  const mq = mk(15, 'Math', 'm');
+  const rq = mk(15, 'Reading and Writing', 'r');
+  const ans = Object.assign(answer(mq, 12), answer(rq, 9));
+  const r = PSAT_ENGINE.scoreShortTest(mq.concat(rq), ans);
+  assert.strictEqual(r.isScored, true, 'exactly 15 + 15 is the minimum scorable test');
+  assert.strictEqual(r.totalAttempted, 30);
+  assert.ok(typeof r.rwScore === 'number' && typeof r.mathScore === 'number');
+  assert.strictEqual(r.totalScore, r.rwScore + r.mathScore,
+    'the total is the two sections, not a re-derivation');
   assert.ok(r.totalRange[0] <= r.totalScore && r.totalScore <= r.totalRange[1],
     'and the score sits inside its own interval');
 }
-ok('15 + 15 gives both sections and a composite');
+ok('exactly 15 + 15 scores, and the total is the sum of its sections');
 
 {
-  const qs = mk(25, 'Math', 'm');
-  const partial = Object.fromEntries(qs.map((q, i) => [q.id, { answered: i < 18, isCorrect: i < 10 }]));
-  const r = PSAT_ENGINE.scoreShortTest(qs, partial);
-  assert.strictEqual(r.mathAttempted, 18, 'unanswered questions are not counted as attempted');
-  assert.strictEqual(r.isScored, false, '18 answered is still below the 20-question gate');
+  const mq = mk(20, 'Math', 'm');
+  const rq = mk(20, 'Reading and Writing', 'r');
+  const partial = Object.assign(
+    Object.fromEntries(mq.map((q, i) => [q.id, { answered: i < 14, isCorrect: i < 10 }])),
+    answer(rq, 15)
+  );
+  const r = PSAT_ENGINE.scoreShortTest(mq.concat(rq), partial);
+  assert.strictEqual(r.mathAttempted, 14, 'unanswered questions are not counted as attempted');
+  assert.strictEqual(r.isScored, false,
+    'skipping down to 14 in a section withdraws the score — answered, not delivered, is what counts');
 }
-ok('skipped questions count as unanswered, not as wrong');
+ok('skipped questions count as unanswered and can drop a test below the gate');
 
 {
-  const qs = mk(20, 'Math', 'm');
-  const r = PSAT_ENGINE.scoreShortTest(qs, answer(qs, 20));
+  const mq = mk(15, 'Math', 'm');
+  const rq = mk(15, 'Reading and Writing', 'r');
+  const r = PSAT_ENGINE.scoreShortTest(mq.concat(rq), Object.assign(answer(mq, 15), answer(rq, 15)));
+  assert.strictEqual(r.isSingleTestEstimate, true, 'never confusable with the bank-wide score');
   assert.ok(/estimate/i.test(r.label) && /not comparable to an official score/i.test(r.disclosure),
     'a short-test number must always carry that it is an estimate, never presented as official');
   assert.ok(/not included in exam trends/i.test(r.disclosure),

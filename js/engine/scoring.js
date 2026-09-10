@@ -316,11 +316,16 @@
       return base;
     }
 
+    // WI-36: BOTH sections must clear the gate before anything is scored. A
+    // single-section result is withdrawn — a topic-filtered test is biased by
+    // construction, so a section score from one would look official while measuring
+    // something much narrower than the section it names.
     var rwReady = rwAttempted >= MIN_SECTION;
     var mathReady = mathAttempted >= MIN_SECTION;
-    if (!rwReady && !mathReady) {
-      base.reason = 'No section has the ' + MIN_SECTION + ' answered questions needed for a reliable ' +
-        'section estimate (Reading and Writing ' + rwAttempted + ', Math ' + mathAttempted + ').';
+    if (!rwReady || !mathReady) {
+      base.reason = 'A scaled estimate needs at least ' + MIN_SECTION + ' answered questions in EACH ' +
+        'section; this test has ' + rwAttempted + ' Reading and Writing and ' + mathAttempted + ' Math. ' +
+        'Accuracy and topic breakdown are shown instead.';
       return base;
     }
 
@@ -363,9 +368,6 @@
         Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(base.totalScore + dU))
       ];
       base.totalRangeFormatted = base.totalRange[0] + '–' + base.totalRange[1];
-    } else {
-      base.reason = 'Only one section had enough answered questions (' + MIN_SECTION + ' needed each), ' +
-        'so a combined estimate would be half measured and half invented. Section estimate shown instead.';
     }
 
     base.isScored = true;
