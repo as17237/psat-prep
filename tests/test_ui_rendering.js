@@ -9,7 +9,13 @@ const { pageScript } = require('./helpers/page_source');
 
 console.log('Testing UI Page Script Executions & Trouble Spots Error Diagnostic Hub...');
 
-const PSAT_ENGINE = require('../srs.js');
+const engine = require('../srs.js');
+// Rendering suites never contact a server or schedule background sync retries.
+const PSAT_ENGINE = { ...engine,
+  pullFromCloud: async () => ({ success: false, error: 'offline render fixture' }),
+  createSyncCoordinator: opts => engine.createSyncCoordinator({ ...opts,
+    timers: { setTimeout: () => 0, clearTimeout: () => {} } })
+};
 const questionsData = require('../data/ela_questions.json').concat(require('../data/math_questions.json'));
 
 // 1. Test mistakes.html Script Execution & Rendering
@@ -40,6 +46,7 @@ function testMistakesPage() {
   }
 
   const window = {
+    addEventListener: () => {},
     location: { pathname: '/mistakes.html', search: '' },
     QUESTIONS_DATA: questionsData,
     localStorage: {
@@ -140,6 +147,7 @@ function testTroubleSpotsPracticeAndExamIntegration() {
   }
 
   const window = {
+    addEventListener: () => {},
     location: { pathname: '/mistakes.html', search: '' },
     QUESTIONS_DATA: questionsData,
     localStorage: {
@@ -304,6 +312,7 @@ function testParentDashboardTargetFocusAreaReaction() {
   };
 
   const window = {
+    addEventListener: () => {},
     location: { href: 'parent.html', origin: 'http://localhost:8000', pathname: '/parent.html' },
     localStorage: localStorage,
     sessionStorage: { setItem: () => {}, getItem: () => null },

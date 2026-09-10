@@ -13,11 +13,14 @@
  * that stub is exactly what lets us assert the reconnect push fired.
  */
 const { test, expect, seedEmpty } = require('./fixtures');
+const { intercept, state } = require('./synthetic_sync');
 
 test.describe('offline exam mode (WI-20)', () => {
   test('prepare online, take offline after a cold reload, sync on reconnect', async ({ page, context }) => {
     test.setTimeout(150000); // precaching the shell + ~150 images over the local server
 
+    const server = state();
+    await intercept(page, context, server);
     await page.goto('/index.html');
     await seedEmpty(page);
     page.on('dialog', (d) => d.accept());
@@ -146,5 +149,40 @@ test.describe('offline exam mode (WI-20)', () => {
       return Object.keys(s.examUserAnswers || {}).length;
     });
     expect(stillLocal, 'the in-progress answers survive locally').toBeGreaterThanOrEqual(QUESTIONS_TO_WALK);
+
+    // Finish all four modules offline, then lose the first server acknowledgement.
+    await context.setOffline(true);
+    server.connected = false;
+    await page.reload();
+    await page.click('#tab-exam', { force: true });
+    await page.evaluate(() => resumeActiveExamState());
+    for (let module = 0; module < 4; module++) {
+      if (module === 2) await page.evaluate(() => resumeExamAfterBreak());
+      await page.evaluate(() => { showModuleReviewScreen(); submitCurrentExamModule(); });
+    }
+    await expect(page.locator('#exam-report')).toBeVisible();
+    const completed = await page.evaluate(() => JSON.parse(localStorage.getItem('psat_exam_history'))[0]);
+    expect(completed.totalQuestions).toBe(98);
+    expect(completed.totalAttempted).toBe(5);
+    expect(completed.examId).toEqual(expect.any(String));
+    expect(completed.examId.length).toBeGreaterThan(0);
+    const queuedBefore = await page.evaluate(() => PSAT_ENGINE.getOutboxOps(localStorage, location).length);
+    expect(queuedBefore).toBeGreaterThan(0);
+    expect(server.cloud.examHistory).toHaveLength(0);
+
+    server.connected = true;
+    server.loseAck = true;
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(() => server.cloud.examHistory.length).toBe(1);
+    await expect.poll(() => page.evaluate(() => PSAT_ENGINE.getOutboxOps(localStorage, location).length),
+      { timeout: 20000 }).toBe(0);
+    expect(server.cloud.examHistory).toHaveLength(1);
+    expect(server.cloud.examHistory[0].examId).toBe(completed.examId);
+    expect(Object.keys(server.cloud.progress)).toHaveLength(5);
+    for (const entry of Object.values(server.cloud.progress)) expect(entry.timesSeen).toBe(1);
+    expect(server.posts.filter(p => p.examHistory.some(r => r.examId === completed.examId)).length).toBeGreaterThanOrEqual(2);
+    console.log('Offline completion: 98 questions, 5 attempts, one server report after lost-ack replay.');
+
   });
 });

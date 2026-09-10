@@ -1,3 +1,4 @@
+import { createPageSync, syncStatusText } from '../shared/sync.js';
 /**
  * js/pages/mistakes.js — page controller for mistakes.html.
  *
@@ -9,7 +10,7 @@
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, safeSetStorageDownloaded, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, offerSaveRecovery, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { launchTargetedMistakeDrill } from '../shared/drill.js';
@@ -17,28 +18,15 @@ import { launchTargetedMistakeDrill } from '../shared/drill.js';
 // safeSetStorage bumps the pending-sync counter; this is how it reaches this
 // page's badge. Registered during module evaluation, before any write can
 // happen -- the inline original called updateMistakesSyncBadge() directly.
-onPendingSyncCountChanged(updateMistakesSyncBadge);
+onPendingSyncCountChanged(() => { updateMistakesSyncBadge(); pageSync.schedule(); });
+
+const pageSync = createPageSync({ onState: updateMistakesSyncBadge, onPull: () => { loadMistakesData(); renderMistakesFeed(); } });
 
 function updateMistakesSyncBadge() {
-  const txt = document.getElementById('mistakes-sync-status-text');
-  if (!txt) return;
-  const { pending, lastSync, minutesAgo } = readSyncBadgeState();
-
-  let timeAgoStr = '';
-  if (lastSync) {
-    const mins = minutesAgo;
-    if (mins < 1) timeAgoStr = ' (Just now)';
-    else if (mins === 1) timeAgoStr = ' (1m ago)';
-    else if (mins < 60) timeAgoStr = ` (${mins}m ago)`;
-    else timeAgoStr = ` (${Math.floor(mins / 60)}h ago)`;
-  }
-
-  if (pending > 0) {
-    txt.innerText = `Cosmos DB: ${pending} Pending`;
-  } else {
-    txt.innerText = `Cosmos DB Synced${timeAgoStr}`;
-  }
+  const badge = document.getElementById('mistakes-sync-status-text');
+  if (badge) badge.textContent = syncStatusText(pageSync.getState());
 }
+
 
 let allMistakesList = [];
 let currentSubjectTab = 'all';
@@ -49,43 +37,9 @@ let currentPage = 1;
 const pageSize = 8;
 
 function syncMistakesFromCloud(isManual = false) {
-  const txt = document.getElementById('mistakes-sync-status-text');
-  if (txt) txt.innerText = 'Syncing...';
-
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
-      if (res && res.success) {
-        loadMistakesData();
-        renderMistakesFeed();
-        // WI-32: a PULL must never acknowledge local changes. This zeroed the
-        // pending counter and stamped a sync time after a successful GET, so a write
-        // saved on the student page and then viewed here lost its unsent status —
-        // zero POSTs, no server record, and the badge claiming everything was synced.
-        // student.js was fixed in WI-28; these twins were missed (CLAUDE.md mode 2).
-        // Downloaded state also writes through safeSetStorageDownloaded so it cannot
-        // manufacture pending counts of its own.
-        updateMistakesSyncBadge();
-        if (isManual) {
-          if (res.updated) {
-            alert(`Successfully synced latest student progress from Cosmos DB profile (${APP_ENV.studentName})! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
-          } else {
-            alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
-          }
-        }
-      } else {
-        updateMistakesSyncBadge();
-      }
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    }).catch(err => {
-      updateMistakesSyncBadge();
-      console.warn('Sync failed:', err);
-      if (isManual) alert('Sync failed: Could not reach Cosmos DB sync endpoint.');
-    });
-  } else {
-    if (txt) txt.innerText = 'Cosmos DB Sync';
-    if (isManual) alert('Engine is still loading. Please refresh and try again.');
-  }
+  return pageSync.requestSync(isManual ? 'manual' : 'startup', isManual);
 }
+
 
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -531,26 +485,24 @@ function setMistakeErrorTag(qid, tagId) {
     progress[qid] = { answered: true, isCorrect: false, timestamp: Date.now() };
   }
   progress[qid].errorTag = tagId;
-  safeSetStorage('psat_progress', progress);
+  // WI-38: stamp the metadata revision so the delta push can SEE this change.
+  // An error tag on an already-answered question moves no answer timestamp, so
+  // without this the tag stayed on the device and never reached the server.
+  progress[qid].metaUpdatedAt = Math.max(Date.now(), (progress[qid].metaUpdatedAt || 0) + 1);
+  if (!safeSetStorage('psat_progress', progress)) {
+    offerSaveRecovery({ psat_progress: progress });
+    return;
+  }
 
   // Update in-memory item
   const item = allMistakesList.find(t => t.questionId === qid);
   if (item) item.errorTag = tagId;
 
-  // WI-33: this fired pushToCloud and ignored the result, so a failed upload of an
-  // error tag was invisible and never retried. Route it through the same drain the
-  // student page uses: single-flight, automatic retry, honest status.
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pushToCloud) {
-    PSAT_ENGINE.pushToCloud(localStorage).then(function (res) {
-      if (!res || (!res.success && !res.skipped)) {
-        console.warn('Error-tag upload did not complete:', (res && res.error) || 'unknown');
-      }
-      updateMistakesSyncBadge();
-    }).catch(function (e) {
-      console.warn('Error-tag upload failed:', e && e.message);
-      updateMistakesSyncBadge();
-    });
-  }
+  // WI-38: through the coordinator, so a transient failure actually retries. The
+  // previous version observed the outcome and logged it — better than fire-and-forget,
+  // but still one attempt: a 503 left the tag on the device with nothing scheduled.
+  // The comment here used to CLAIM retry and single-flight; it now does them.
+  pageSync.requestSync('error-tag');
 
   // Re-render tag buttons for this question card
   const bar = document.getElementById(`mtag-bar-${qid}`);

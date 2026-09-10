@@ -246,32 +246,8 @@
   }
 
 
-  /**
-   * WI-35 — a scaled-score ESTIMATE for a single short test (not the practice bank).
-   *
-   * The parent test builder deliberately produced no score at all: a 7-question drill
-   * rendered as a PSAT number would be worse than no number. That rule stays for short
-   * tests. This adds a middle tier for tests long enough to say something.
-   *
-   * Two gates, both of which must pass, and they are NOT the same gate:
-   *   - MIN_SCORED_TEST_QUESTIONS (20) answered in the test overall. This is the
-   *     "is this test substantial enough to score at all" gate.
-   *   - MIN_PER_SECTION (15) answered within a section, before that SECTION gets a
-   *     number. This is the existing statistical gate and is not relaxed here.
-   *
-   * The consequence is deliberate and worth stating: a 20-question single-subject test
-   * yields ONE section estimate and NO composite, because a composite needs 15 in each
-   * section — 30 questions minimum. Reporting a total from one section would be
-   * inventing the other half (CLAUDE.md mode 1).
-   *
-   * Everything returned is labelled an estimate from a single short test. It carries
-   * `isSingleTestEstimate` so no caller can mistake it for the bank-wide
-   * calculateScaledScore or fold it into full-exam trends.
-   *
-   * @param {Array} questions the questions actually in the test
-   * @param {Object} answersById questionId -> {isCorrect:boolean, answered:boolean}
-   * @returns {Object} the estimate, with `isScored` false and a plain-English `reason`
-   *   when a gate is not met
+  /** Single-test estimate: at least 30 answers, including 15 in each section.
+   * Focused estimates carry their own provenance and never enter full-exam trends.
    */
   function scoreShortTest(questions, answersById) {
     var qs = Array.isArray(questions) ? questions : [];
@@ -342,38 +318,52 @@
       };
     }
 
-    if (rwReady) {
-      var rw = sectionEstimate(rwCorrect, rwAttempted);
-      base.rwScore = rw.score; base.rwRange = rw.range;
-      base.rwRangeFormatted = rw.range[0] + '–' + rw.range[1];
-    }
-    if (mathReady) {
-      var mt = sectionEstimate(mathCorrect, mathAttempted);
-      base.mathScore = mt.score; base.mathRange = mt.range;
-      base.mathRangeFormatted = mt.range[0] + '–' + mt.range[1];
-    }
-
-    // A composite requires BOTH sections to clear the statistical gate. One section
-    // plus a guess is not a total.
-    // Belt and braces: BOTH sections must have produced a score AND an interval. The
-    // readiness flags alone were enough until someone loosened them; requiring the
-    // actual values means a half-composite cannot be produced even by mistake.
-    if (rwReady && mathReady && base.rwScore !== null && base.mathScore !== null &&
-        base.rwRange && base.mathRange) {
-      base.totalScore = base.rwScore + base.mathScore;
-      var dL = Math.sqrt(Math.pow(base.rwScore - base.rwRange[0], 2) + Math.pow(base.mathScore - base.mathRange[0], 2));
-      var dU = Math.sqrt(Math.pow(base.rwRange[1] - base.rwScore, 2) + Math.pow(base.mathRange[1] - base.mathScore, 2));
-      base.totalRange = [
-        Math.max(SCALING_ASSUMPTIONS.TOTAL_FLOOR, Math.round(base.totalScore - dL)),
-        Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(base.totalScore + dU))
-      ];
-      base.totalRangeFormatted = base.totalRange[0] + '–' + base.totalRange[1];
-    }
+    var rw = sectionEstimate(rwCorrect, rwAttempted);
+    var mt = sectionEstimate(mathCorrect, mathAttempted);
+    base.rwScore = rw.score; base.rwRange = rw.range;
+    base.rwRangeFormatted = rw.range[0] + '–' + rw.range[1];
+    base.mathScore = mt.score; base.mathRange = mt.range;
+    base.mathRangeFormatted = mt.range[0] + '–' + mt.range[1];
+    base.totalScore = rw.score + mt.score;
+    var dL = Math.sqrt(Math.pow(rw.score - rw.range[0], 2) + Math.pow(mt.score - mt.range[0], 2));
+    var dU = Math.sqrt(Math.pow(rw.range[1] - rw.score, 2) + Math.pow(mt.range[1] - mt.score, 2));
+    base.totalRange = [
+      Math.max(SCALING_ASSUMPTIONS.TOTAL_FLOOR, Math.round(base.totalScore - dL)),
+      Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(base.totalScore + dU))
+    ];
+    base.totalRangeFormatted = base.totalRange[0] + '–' + base.totalRange[1];
 
     base.isScored = true;
     return base;
   }
 
+
+  // Both portals read the same result; old reports can be interpreted without
+  // rewriting history or inventing missing pause measurements.
+  function summarizeExamReport(report, questions) {
+    var r = report || {};
+    var estimate = r.shortTestEstimate || null;
+    if (!estimate && r.type !== 'standard_psat89' && !(r.scores && r.scores.isScaledReady)) {
+      var byId = new Map((questions || []).map(function (q) { return [q.id, q]; }));
+      var selected = [], answers = {}, seen = new Set();
+      (r.moduleReports || []).forEach(function (m) {
+        (m.questions || []).forEach(function (a) {
+          var q = byId.get(a.questionId);
+          if (!q || seen.has(q.id)) return;
+          seen.add(q.id); selected.push(q);
+          answers[q.id] = { answered: a.answered === true, isCorrect: a.isCorrect === true };
+        });
+      });
+      estimate = scoreShortTest(selected, answers);
+    }
+    var pauseText = '';
+    if (Number.isInteger(r.pauseCount) && r.pauseCount >= 0 && Number.isFinite(r.totalPausedMs) && r.totalPausedMs >= 0) {
+      pauseText = r.pauseCount === 0 ? 'Completed without pauses.' :
+        'Paused ' + r.pauseCount + ' time' + (r.pauseCount === 1 ? '' : 's') + '; ' +
+        (r.totalPausedMs / 1000).toFixed(1) + ' seconds away. Timing excludes pauses.';
+    }
+    return { shortTestEstimate: estimate, pauseText: pauseText };
+  }
 
   /**
    * Calculates an empirical practice scaled score estimate for a section (120–720 scale).
@@ -808,6 +798,7 @@
     SCALING_ASSUMPTIONS: SCALING_ASSUMPTIONS,
     scaleSectionRawScore: scaleSectionRawScore,
     scoreShortTest: scoreShortTest,
+    summarizeExamReport: summarizeExamReport,
     routeAdaptiveTrack: routeAdaptiveTrack,
     calculateWilsonScoreInterval: calculateWilsonScoreInterval,
     calculateScaledScore: calculateScaledScore,

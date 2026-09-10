@@ -177,3 +177,23 @@ ok('skipped questions count as unanswered and can drop a test below the gate');
 ok('every short-test score is labelled an estimate and excluded from trends');
 
 console.log('\n✓ All ' + n + ' pause and short-score checks passed.\n');
+
+{
+  const fs = require('fs');
+  const text = fs.readFileSync(require('path').join(__dirname, '../data/questions_data.js'), 'utf8');
+  const bank = JSON.parse(text.slice(text.indexOf('=') + 1, text.lastIndexOf(']') + 1));
+  const selected = ['Reading and Writing', 'Math'].flatMap(section => bank.filter(q => q.test === section).slice(0, 15));
+  const report = { examId: 'persisted-report', type: 'focused_custom_test', pauseCount: 2,
+    totalPausedMs: 65000, moduleReports: [{ questions: selected.map(q => ({questionId:q.id, answered:true, isCorrect:true})) }] };
+  report.shortTestEstimate = PSAT_ENGINE.summarizeExamReport(report, bank).shortTestEstimate;
+  assert.strictEqual(report.shortTestEstimate.totalScore, 1440);
+  const lean = JSON.parse(JSON.stringify(PSAT_ENGINE.toLeanReport(report)));
+  const restored = PSAT_ENGINE.rehydrateReport(lean, bank);
+  assert.strictEqual(restored.pauseCount, 2);
+  assert.strictEqual(restored.totalPausedMs, 65000);
+  assert.deepStrictEqual(restored.shortTestEstimate, report.shortTestEstimate);
+  assert.ok(PSAT_ENGINE.summarizeExamReport(restored, bank).pauseText.includes('65.0 seconds away'));
+  assert.strictEqual(PSAT_ENGINE.summarizeExamReport({type:'standard_psat89'}, bank).pauseText, '');
+  assert.strictEqual(PSAT_ENGINE.summarizeExamReport({type:'standard_psat89'}, bank).shortTestEstimate, null);
+  console.log('Real-bank report round-trip: 30/30 correct, 1440 estimate, 2 pauses, 65 seconds retained.');
+}

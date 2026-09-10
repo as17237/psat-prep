@@ -1,3 +1,4 @@
+import { createPageSync, syncStatusText } from '../shared/sync.js';
 import { mountFocusedBuilder } from '../shared/focused_builder.js';
 /**
  * js/pages/student.js — page controller for index.html.
@@ -17,7 +18,7 @@ import { mountFocusedBuilder } from '../shared/focused_builder.js';
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, safeSetStorageDownloaded, offerSaveRecovery, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, offerSaveRecovery, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { setClassName } from '../shared/dom.js';
@@ -39,53 +40,11 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 }
 
 function updateSyncStatusBadge() {
-  // #hdr-save-status is the student-facing indicator (no service names — see index.html).
-  // #hdr-cloud-badge is kept as a fallback for any lane whose markup still has it.
   const badge = document.getElementById('hdr-save-status') || document.getElementById('hdr-cloud-badge');
-  if (!badge) return;
-  const { pending, lastSync, minutesAgo } = readSyncBadgeState();
-
-  // WI-20: when the device is offline, say so honestly — the work is saved
-  // locally and the reconnect handler will push it. Never show "Synced" offline.
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-slate-400 mr-1"></i> Saved on this device${pending > 0 ? ` — ${pending} waiting` : ''} (syncs when you reconnect)`;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
-  }
-
-  let timeAgoStr = 'Never';
-  if (lastSync) {
-    const mins = minutesAgo;
-    if (mins < 1) timeAgoStr = 'Just now';
-    else if (mins === 1) timeAgoStr = '1m ago';
-    else if (mins < 60) timeAgoStr = `${mins}m ago`;
-    else timeAgoStr = `${Math.floor(mins / 60)}h ago`;
-  }
-
-  // WI-26 finding 4: distinguish "waiting", "retrying" and "failed" from "synced".
-  // "Synced" may only appear when the durable queue is actually empty.
-  const co = (typeof syncCoordinator !== 'undefined' && syncCoordinator) ? syncCoordinator.getState() : null;
-  if (co && co.status === 'syncing') {
-    badge.innerHTML = `<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1"></i> Syncing…`;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
-  }
-  if (co && co.status === 'retrying') {
-    badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> Saved on this device — retrying (${pending} waiting)`;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
-  }
-  if (co && co.status === 'failed') {
-    badge.innerHTML = `<i data-lucide="cloud-off" class="w-3.5 h-3.5 text-rose-600 mr-1"></i> Saved on this device — sync failed (${pending} waiting)`;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
-  }
-  if (pending > 0) {
-    badge.innerHTML = `<i data-lucide="cloud-rain" class="w-3.5 h-3.5 text-amber-500 mr-1"></i> ${pending} change(s) waiting to sync`;
-  } else {
-    badge.innerHTML = `<i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-500 mr-1"></i> All work saved (${timeAgoStr})`;
-  }
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+  const state = pageSync.getState();
+  if (badge) badge.textContent = syncStatusText(state);
+  const button = document.getElementById('cloud-sync-btn-text');
+  if (button) button.textContent = state.status === 'syncing' ? 'Syncing…' : 'Sync';
 }
 
 let questions = window.QUESTIONS_DATA || [];
@@ -160,8 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderOfflineReadyStatus();
   // WI-20: auto-sync when the connection returns (e.g. the plane lands) and
   // reflect offline/online in the badge. Registered once, after initial render.
-  window.addEventListener('online', handleNetworkChange);
-  window.addEventListener('offline', handleNetworkChange);
   updateSyncStatusBadge();
 });
 
@@ -212,180 +169,9 @@ function restoreRealStudentData() {
 }
 
 function manualTriggerCloudSync(isManual = false) {
-  const btnText = document.getElementById('cloud-sync-btn-text');
-  if (btnText) btnText.innerText = 'Syncing...';
-  const el = document.getElementById('hdr-save-status') || document.getElementById('hdr-cloud-badge');
-  if (el) {
-    el.innerHTML = '<i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-600 mr-1 animate-spin"></i> Syncing…';
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-  }
-  if (!window.__PSAT_WRITE_BLOCKED__ && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    return PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded, window.location, isManual).then(async pullRes => {
-      // Declared out here because the combined outcome below is computed after the
-      // branch; block-scoped `const`s inside the branch were not visible to it.
-      let pushRes = null;
-      let stillPending = null;
-      let legacyRemaining = null;
-      if (pullRes && pullRes.success) {
-        progress = safeGetStorage('psat_progress', {});
-        srsState = safeGetStorage('psat_srs', {});
-        sessionsState = safeGetStorage('psat_sessions', {});
-        updateHeaderStats();
-        renderPalette();
-        renderExamLobbyHistory();
-        if (!document.getElementById('view-analytics').classList.contains('hidden')) {
-          renderAnalytics();
-        }
-        // WI-26 finding 4: AWAIT the upload. This used to fire pushToCloud without
-        // awaiting it, then immediately zero the pending counter, stamp a sync time and
-        // say "all attempts are synchronized" — while the upload was still in flight or
-        // already failing. A successful download proves nothing about the upload.
-        // The pending counter is no longer force-zeroed either: pending is derived from
-        // the durable outbox (readSyncBadgeState takes max(outbox, legacy)), so the only
-        // thing that may clear it is a real acknowledgement.
-        // Captured BEFORE the upload: anything added to this counter while the POST
-        // is in flight is dirty state this response did not carry.
-        const legacyBeforePush = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
-        // WI-31: a legacy-only write (safeSetStorage bumps the counter WITHOUT
-        // queueing an outbox op) can be invisible to a DELTA push — buildSyncDelta
-        // selects on `p.timestamp`, and toggling a flag does not move it. So a delta
-        // retry would spin forever without ever carrying the change.
-        //
-        // Whenever the legacy counter is non-zero we therefore push in FULL. That is
-        // the only push that is guaranteed to include unqueued local state, and it is
-        // what makes the reconciliation below sound: after a successful full push we
-        // KNOW everything counted before it started was sent, so subtracting it is a
-        // fact rather than an assumption. (The previous version subtracted after a
-        // delta push too, which is how a change that was never transmitted got marked
-        // as covered.)
-        pushRes = (typeof PSAT_ENGINE.pushToCloud === 'function')
-          ? await PSAT_ENGINE.pushToCloud(localStorage, null, APP_ENV.studentName,
-              window.location, legacyBeforePush > 0 ? { full: true } : undefined)
-          : { success: false, error: 'push unavailable' };
-        if (btnText) btnText.innerText = 'Sync';
-        stillPending = PSAT_ENGINE.getOutboxOps(localStorage, window.location).length;
-        if (pushRes && pushRes.success && pushRes.ackPersisted !== false && stillPending === 0) {
-          localStorage.setItem(APP_ENV.storagePrefix + 'psat_last_cloud_sync_time', String(Date.now()));
-        }
-        // WI-29 finding 4: reconcile the LEGACY counter against the durable queue,
-        // but only after a confirmed upload. readSyncBadgeState takes
-        // max(outbox, legacy), so a stale legacy count kept claiming "1 change waiting"
-        // with an empty outbox. Setting it to the queue length (not zero) preserves any
-        // write that landed while this upload was in flight — such a write bumps BOTH
-        // counters, so it is still represented. Never reconcile on a GET alone.
-        // WI-30 finding 1: reconcile against a SNAPSHOT taken before the upload, not
-        // against the outbox alone. safeSetStorage bumps the legacy counter WITHOUT
-        // appending an operation, so a local write made while this POST was in flight
-        // is real dirty state that the outbox cannot see. Setting the counter to the
-        // outbox length erased it: the reviewer held a POST, saved a newer flag
-        // locally, then acknowledged — and the badge said "All work saved" while the
-        // newer value had never been uploaded.
-        //
-        // Subtracting only what this upload actually covered keeps any later write
-        // counted. Clamped at the outbox length so the count can never understate the
-        // durable queue, and never below zero.
-        if (pushRes && pushRes.success && pushRes.ackPersisted !== false) {
-          const legacyNow = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
-          // Only a FULL push provably carried the pre-push dirt. After a delta, assume
-          // it carried nothing beyond the outbox — never mark unsent state as covered.
-          const covered = (pushRes.syncMode === 'full') ? Math.min(legacyBeforePush, legacyNow) : 0;
-          const remaining = Math.max(stillPending, legacyNow - covered);
-          localStorage.setItem(APP_ENV.storagePrefix + 'psat_pending_sync_count', String(remaining));
-          legacyRemaining = remaining;
-        } else {
-          legacyRemaining = parseInt(localStorage.getItem(APP_ENV.storagePrefix + 'psat_pending_sync_count') || '0', 10) || 0;
-        }
-        updateSyncStatusBadge();
-        if (isManual) {
-          if (!pushRes || !pushRes.success) {
-            alert(`Downloaded fine, but the UPLOAD did not complete: ${(pushRes && pushRes.error) || 'unknown error'}.\n` +
-              `${stillPending} change(s) are still saved on this device and will retry automatically.`);
-          } else if (stillPending === 0 && legacyRemaining > 0) {
-            alert(`Sync ran, but ${legacyRemaining} local change(s) have not been confirmed by ` +
-              'the server yet. They are saved on this device and will upload automatically.');
-          } else if (stillPending > 0) {
-            alert(`Sync ran, but ${stillPending} change(s) are still waiting to be confirmed by the server. ` +
-              'They remain saved on this device and will retry automatically.');
-          } else if (pullRes.updated) {
-            alert(`✓ Synced with Cosmos DB (${APP_ENV.studentName}).\n${pullRes.totalAttempts || Object.keys(progress).length} total attempts loaded.`);
-          } else if (pullRes.empty) {
-            alert(`Cosmos DB is connected, but no student test attempts exist yet for ${APP_ENV.studentName}.`);
-          } else {
-            alert('✓ Cosmos DB is up to date — every change is confirmed saved.');
-          }
-        }
-      } else {
-        if (btnText) btnText.innerText = 'Sync';
-        updateSyncStatusBadge();
-        if (isManual) {
-          const errMsg = (pullRes && pullRes.error) ? pullRes.error : 'Could not connect to Cosmos DB server';
-          alert(`Sync notice: ${errMsg}. Practice data remains safely stored in local cache.`);
-        }
-        // A failed download is itself an unfinished drain — report it as such so the
-        // coordinator retries rather than treating the attempt as done.
-        return {
-          success: false, pullSuccess: false, pushSuccess: false,
-          pendingOps: PSAT_ENGINE.getOutboxOps(localStorage, window.location).length,
-          error: (pullRes && pullRes.error) || 'Download failed',
-          status: pullRes ? pullRes.status : undefined
-        };
-      }
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-      // WI-28 finding 1: return the COMBINED outcome, not the download's.
-      // This returned `pullRes`, so the coordinator saw success whenever the GET
-      // succeeded — even with the POST failing 503 and an operation still queued.
-      // It then stopped instead of retrying. A drain is only complete when the
-      // upload succeeded, its acknowledgement persisted, and nothing is left.
-      // WI-31: `stillPending` is the OUTBOX length only. A legacy-only write bumps the
-      // counter without queueing an operation, so a drain that checked the outbox alone
-      // reported `synced` and STOPPED while dirty local state remained — the reviewer
-      // measured legacy pending 1, local flag true, server flag false, coordinator
-      // synced with no retry scheduled. Completion now requires BOTH to be clear.
-      const legacyLeft = (typeof legacyRemaining === 'number') ? legacyRemaining : 0;
-      const done = !!(pushRes && pushRes.success)
-        && pushRes.ackPersisted !== false
-        && stillPending === 0
-        && legacyLeft === 0;
-      return {
-        success: done,
-        pullSuccess: true,
-        pushSuccess: !!(pushRes && pushRes.success),
-        ackPersisted: pushRes ? pushRes.ackPersisted !== false : false,
-        pendingOps: stillPending,
-        pendingLegacy: legacyLeft,
-        // Carry the upload's failure upward so classifySyncOutcome can tell a
-        // rejected payload (permanent) from an outage (retryable). Leftover dirty
-        // state is transient by nature, so it must read as retryable.
-        error: done ? null : ((pushRes && pushRes.error)
-          || (stillPending > 0 ? 'Unconfirmed operations remain' : null)
-          || (legacyLeft > 0 ? 'Local changes not yet confirmed by the server' : null)),
-        status: pushRes ? pushRes.status : undefined
-      };
-    }).catch(err => {
-      console.warn('Manual cloud sync failed:', err);
-      if (btnText) btnText.innerText = 'Sync';
-      updateSyncStatusBadge();
-      if (isManual) alert('Sync notice: Could not reach the sync endpoint.');
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-      // WI-28: a thrown sync is still an UNFINISHED drain. Returning undefined here
-      // gave the coordinator nothing to classify, and an absent result was treated as
-      // a completed attempt — the queue stopped draining silently.
-      return {
-        success: false, pullSuccess: false, pushSuccess: false,
-        pendingOps: (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.getOutboxOps)
-          ? PSAT_ENGINE.getOutboxOps(localStorage, window.location).length : null,
-        error: (err && err.message) || 'Sync threw'
-      };
-    });
-  }
-  // The guard above can decline to sync (local recovery pending, engine absent).
-  // Say so explicitly rather than returning undefined.
-  return Promise.resolve({
-    success: false, pullSuccess: false, pushSuccess: false, pendingOps: null,
-    error: window.__PSAT_WRITE_BLOCKED__ ? 'Local recovery pending' : 'Sync engine unavailable',
-    skipped: true
-  });
+  return pageSync.requestSync('manual', isManual);
 }
+
 
 // Explainer index: question id -> step-by-step explainer.
 // `questions` are the verified, always-on links. `betaQuestions` (the model-first
@@ -524,7 +310,7 @@ function switchTab(tab) {
     srsState = safeGetStorage('psat_srs', {});
     renderAnalytics();
     if (Object.keys(progress).length === 0 && typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-      manualTriggerCloudSync(false);
+      requestSync('analytics');
     }
   } else if (tab === 'bank') {
     renderBankTable();
@@ -1678,64 +1464,23 @@ function renderOfflineReadyStatus() {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-let onlineSyncDebounce = null;
-/**
- * WI-26 finding 3 — the single retrying sync driver.
- *
- * Reconnect used to schedule exactly ONE attempt 2.5s after the `online` event. If the
- * API was briefly unavailable at that moment nothing ever tried again: an idle student's
- * work sat queued until they answered, reloaded or pressed Sync. The coordinator retries
- * transient failures on its own with bounded exponential backoff, keeps one drain in
- * flight, and stops (visibly) on a permanent error.
- *
- * navigator.onLine is only ever a HINT for when to ASK — a captive portal reports online
- * and an unavailable API does not move it at all, so the coordinator itself never reads it.
- */
-const syncCoordinator = (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.createSyncCoordinator)
-  ? PSAT_ENGINE.createSyncCoordinator({
-      run: () => { const m = nextSyncIsManual; nextSyncIsManual = false; return manualTriggerCloudSync(m); },
-      onState: () => updateSyncStatusBadge()
-    })
-  : null;
-
-// Set for the next drain only, so the coordinator's single `run` can still produce
-// the manual path's alerts without a second, competing sync entry point.
-let nextSyncIsManual = false;
-
-function requestSync(reason, isManual) {
-  if (isManual) nextSyncIsManual = true;
-  if (syncCoordinator) syncCoordinator.requestSync(reason);
-  else manualTriggerCloudSync(!!isManual);
-}
-
-/**
- * WI-29 finding 1 — what the header/manual buttons call.
- *
- * They used to invoke manualTriggerCloudSync directly, so a click could overlap a
- * coordinator drain and, on failure, scheduled no recovery of its own. Going through
- * the coordinator gives manual clicks single-flight coalescing and automatic retry.
- */
-function requestManualSync() {
-  requestSync('manual', true);
-}
-
-function handleNetworkChange() {
-  updateSyncStatusBadge();
-  if (typeof navigator !== 'undefined' && navigator.onLine) {
-    // Debounce: a flapping connection on landing must not storm the sync API.
-    if (onlineSyncDebounce) clearTimeout(onlineSyncDebounce);
-    onlineSyncDebounce = setTimeout(() => { requestSync('reconnect'); }, 2500);
+const pageSync = createPageSync({
+  onState: updateSyncStatusBadge,
+  onPull: () => {
+    progress = safeGetStorage('psat_progress', {});
+    srsState = safeGetStorage('psat_srs', {});
+    sessionsState = safeGetStorage('psat_sessions', {});
+    updateHeaderStats(); renderPalette(); renderExamLobbyHistory();
+    if (!document.getElementById('view-analytics').classList.contains('hidden')) renderAnalytics();
   }
+});
+
+function requestSync(reason, isManual = false) {
+  return pageSync.requestSync(reason, isManual);
 }
 
-// Returning to the foreground is the other moment a stalled queue should drain — a
-// student who backgrounded the tab mid-flight gets no `online` event on landing.
-if (typeof document !== 'undefined') {
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && typeof navigator !== 'undefined' && navigator.onLine) {
-      requestSync('foreground');
-    }
-  });
+function requestManualSync() {
+  return requestSync('manual', true);
 }
 
 function startGapDrillFromLobby() {
@@ -1864,6 +1609,8 @@ function showExamToast(msg) {
 }
 
 function initExamSession() {
+  pausedRemainingSeconds = null; pausedAt = null; totalPausedMs = 0; examPauseCount = 0;
+  document.getElementById('exam-paused-overlay').classList.add('hidden');
   examPhase = 'module'; submittedModules = []; breakDeadline = null; pendingCompletion = null;
   currentModuleIndex = 0;
   currentExamQIndex = 0;
@@ -1965,15 +1712,15 @@ function pauseExamNow() {
   examPauseCount = res.snapshot.pauseCount;
   examModuleDeadline = null;
   if (!persistActiveExamState()) {
-    showExamToast('Could not save the paused exam — staying on the question instead.');
-    resumeExamNow();
+    showExamToast('Pause needs saving. Use the recovery controls before continuing.');
+    renderPausedOverlay();
     return;
   }
   renderPausedOverlay();
 }
 
 function resumeExamNow() {
-  if (examPhase !== 'paused') return;
+  if (window.__PSAT_WRITE_BLOCKED__ || examPhase !== 'paused') return;
   const snap = buildCurrentExamSnapshot();
   const res = PSAT_ENGINE.resumeFromPause(snap, Date.now());
   if (!res.ok) { showExamToast(res.reason); return; }
@@ -1983,7 +1730,14 @@ function resumeExamNow() {
   totalPausedMs = res.snapshot.totalPausedMs;
   pausedRemainingSeconds = null;
   pausedAt = null;
-  persistActiveExamState();
+  if (!persistActiveExamState(snap)) {
+    examPhase = snap.phase;
+    examModuleDeadline = snap.moduleDeadline;
+    totalPausedMs = snap.totalPausedMs;
+    pausedRemainingSeconds = snap.pausedRemainingSeconds;
+    pausedAt = snap.pausedAt;
+    return;
+  }
 
   const overlay = document.getElementById('exam-paused-overlay');
   if (overlay) overlay.classList.add('hidden');
@@ -2435,6 +2189,11 @@ function finishExamAndShowReport() {
   currentExamReport.title = activeExam.title || 'Practice Exam';
   currentExamReport.type = activeExam.type;
   currentExamReport.customPlan = activeExam.customPlan || null;
+  if (!recorded && !pendingCompletion) {
+    currentExamReport.pauseCount = examPauseCount;
+    currentExamReport.totalPausedMs = totalPausedMs;
+  }
+  currentExamReport.shortTestEstimate = PSAT_ENGINE.summarizeExamReport(currentExamReport, questions).shortTestEstimate;
   currentExamReport.formattedDate ||= new Date(currentExamReport.completedAt).toLocaleString();
   const leanReport = PSAT_ENGINE.toLeanReport(currentExamReport);
   pendingCompletion = leanReport; examPhase = 'completed_pending_save';
@@ -2483,35 +2242,12 @@ function finishExamAndShowReport() {
   renderExamLobbyHistory();renderExamReport(currentExamReport);showExamSubview('exam-report');
 }
 
-/**
- * WI-37 — the short-test scaled estimate, for a report that is not a full exam.
- *
- * A full standard exam already scores through scoreStandardExam; this is the tier
- * between that and "raw count only". It only ever produces a number when the test had
- * 15+ answered in EACH section (30 minimum), and the engine decides that — this just
- * assembles the input from the report and the bank.
- *
- * Returns null when the report is a full exam (already scored) or the engine declines.
- */
-function shortTestEstimateFor(fullReport) {
-  if (!fullReport || fullReport.type === 'standard_psat89') return null;
-  if (typeof PSAT_ENGINE === 'undefined' || !PSAT_ENGINE.scoreShortTest) return null;
-  const qMap = {};
-  (window.QUESTIONS_DATA || questions).forEach(q => { qMap[q.id] = q; });
-  const qs = [];
-  const ans = {};
-  (fullReport.moduleReports || []).forEach(m => (m.questions || []).forEach(r => {
-    const q = qMap[r.questionId];
-    if (!q) return;                       // a question missing from the bank is not invented
-    qs.push(q);
-    ans[q.id] = { answered: r.answered === true, isCorrect: r.isCorrect === true };
-  }));
-  return PSAT_ENGINE.scoreShortTest(qs, ans);
-}
-
 function renderExamReport(report) {
   const fullReport = PSAT_ENGINE.rehydrateReport(report, window.QUESTIONS_DATA || questions);
   currentExamReport = fullReport;
+  const summary = PSAT_ENGINE.summarizeExamReport(fullReport, questions);
+  const est = summary.shortTestEstimate;
+  document.getElementById('report-pause-note').textContent = summary.pauseText;
 
   document.getElementById('report-date').innerText = fullReport.formattedDate || new Date(fullReport.completedAt || Date.now()).toLocaleString();
   
@@ -2530,11 +2266,10 @@ function renderExamReport(report) {
     const rangeStr = fullReport.scores.totalRangeFormatted ? `Score Range: ${fullReport.scores.totalRangeFormatted} (${fullReport.scores.confidenceInterval || '90% Confidence Interval'}). ` : '';
     const basisStr = fullReport.scores.dataBasis ? `Basis: ${fullReport.scores.dataBasis}. ` : '';
     document.getElementById('report-scaling-note').innerText = `${rangeStr}${basisStr}Estimated from section accuracy scaled to the 240–1440 PSAT 8/9 scale.`;
-  } else if (shortTestEstimateFor(fullReport) && shortTestEstimateFor(fullReport).isScored) {
+  } else if (est && est.isScored) {
     // WI-37: a focused test long enough to be measurable in both sections. Labelled as
     // an estimate from THIS test, never as an official or composite PSAT result, and
     // never folded into exam trends.
-    const est = shortTestEstimateFor(fullReport);
     document.getElementById('report-score-label').innerText = 'Estimated Score from this test (240–1440)';
     document.getElementById('report-total-score').innerText = est.totalScore;
     document.getElementById('report-scale-denom').innerText = '/ 1440 (estimate)';
@@ -2702,7 +2437,7 @@ function viewExamReportFromHistory(examId) {
 // ============================================================
 // IN-PROGRESS EXAM STATE PERSISTENCE & RECOVERY CONTROLLERS
 // ============================================================
-function persistActiveExamState() {
+function persistActiveExamState(pauseOnFailure) {
   if (window.__PSAT_WRITE_BLOCKED__) return false;
   if (!activeExam) return false;
 
@@ -2757,7 +2492,17 @@ function persistActiveExamState() {
     savedAt: Date.now()
   };
   const saved = safeSetStorage('psat_active_exam_state', snapshot);
-  if (!saved) offerSaveRecovery({psat_active_exam_state:snapshot});
+  if (!saved) {
+    // A failed resume must not spend the student's banked time during recovery.
+    if (pauseOnFailure) Object.assign(snapshot, {
+      phase: pauseOnFailure.phase,
+      examModuleDeadline: pauseOnFailure.moduleDeadline,
+      totalPausedMs: pauseOnFailure.totalPausedMs,
+      pausedRemainingSeconds: pauseOnFailure.pausedRemainingSeconds,
+      pausedAt: pauseOnFailure.pausedAt
+    });
+    offerSaveRecovery({psat_active_exam_state:snapshot});
+  }
   return saved;
 }
 
@@ -2778,7 +2523,7 @@ function checkActiveExamResume() {
     if (titleEl) titleEl.innerText = meta.title || 'In-Progress Exam Available';
     const minsLeft = Math.max(0, Math.ceil((saved.examModuleDeadline - Date.now()) / 60000));
     const totalMods = (meta.modules && meta.modules.length) || 1;
-    const status = saved.pendingCompletion ? 'Report awaiting save' : saved.phase === 'break' ? 'Section break — submitted answers are locked' : meta.isUntimed ? 'Untimed practice' : minsLeft > 0 ? `~${minsLeft} min remaining` : 'Time expired — resume to review and submit';
+    const status = saved.pendingCompletion ? 'Report awaiting save' : saved.phase === 'paused' ? 'Paused — remaining time is saved' : saved.phase === 'break' ? 'Section break — submitted answers are locked' : meta.isUntimed ? 'Untimed practice' : minsLeft > 0 ? `~${minsLeft} min remaining` : 'Time expired — resume to review and submit';
     if (detailsEl) detailsEl.innerText = `Module ${saved.currentModuleIndex + 1} of ${totalMods} • ${status}.`;
     banner.classList.remove('hidden');
   } else {
@@ -3050,7 +2795,14 @@ function setQuestionErrorTag(qid, tagId) {
     progress[qid] = { answered: true, isCorrect: false, timestamp: Date.now() };
   }
   progress[qid].errorTag = tagId;
-  safeSetStorage('psat_progress', progress);
+  // WI-38: stamp the metadata revision so the delta push can SEE this change.
+  // An error tag on an already-answered question moves no answer timestamp, so
+  // without this the tag stayed on the device and never reached the server.
+  progress[qid].metaUpdatedAt = Math.max(Date.now(), (progress[qid].metaUpdatedAt || 0) + 1);
+  if (!safeSetStorage('psat_progress', progress)) {
+    offerSaveRecovery({ psat_progress: progress });
+    return;
+  }
   // WI-28 finding 3: route every trigger through the one coordinator. A direct
   // pushToCloud here bypassed retry, single-flight and status entirely.
   requestSync('error-tag');
@@ -3240,7 +2992,7 @@ Object.assign(window, {
   prepareFocusedTestForOffline,
   requestManualSync,
   requestSync,
-  __coordState: () => (syncCoordinator ? syncCoordinator.getState() : "no-coordinator"),
+  __coordState: () => pageSync.getState(),
   prepareSelectedTestForOffline,
   buildCustomExamFromPlan,
   startPreparedOfflineExam,

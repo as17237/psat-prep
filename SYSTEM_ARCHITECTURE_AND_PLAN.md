@@ -216,7 +216,7 @@ psat-prep/
 ├── test_extractor.py                # Portable Python unit & integration test suite
 ├── upload_to_azure.py               # Azure Cosmos DB & Blob Storage uploader
 ├── SYSTEM_ARCHITECTURE_AND_PLAN.md  # Comprehensive technical specification
-├── AGENT_HANDOFF.md                 # LLM Agent briefing document
+├── README.md                 # LLM Agent briefing document
 ├── README.md                        # Quickstart documentation
 └── requirements.txt                 # Python dependencies
 ```

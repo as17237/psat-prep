@@ -254,7 +254,7 @@
       };
     });
 
-    return {
+    var lean = {
       examId: report.examId,
       customPlan: report.customPlan || null,
       examCategory: report.examCategory || null,
@@ -273,6 +273,10 @@
       totalTimeSpentMs: report.totalTimeSpentMs,
       moduleReports: leanModules
     };
+    ['pauseCount', 'totalPausedMs', 'shortTestEstimate'].forEach(function (key) {
+      if (report[key] !== undefined) lean[key] = report[key];
+    });
+    return lean;
   }
 
 
@@ -916,6 +920,11 @@
       timingReliable: !!a.timingReliable,
       timestamp: at,
       isFlagged: prev.isFlagged || false,
+      // Answers preserve independently ordered bookmark edits.
+      flagUpdatedAt: (typeof prev.flagUpdatedAt === 'number') ? prev.flagUpdatedAt : undefined,
+      // Resolving a tag is a new metadata edit; a miss retains the previous edit.
+      metaUpdatedAt: a.isCorrect ? Math.max(at, (Number.isFinite(prev.metaUpdatedAt) ? prev.metaUpdatedAt : 0) + 1)
+        : (Number.isFinite(prev.metaUpdatedAt) ? prev.metaUpdatedAt : undefined),
       errorTag: a.isCorrect ? null : prevErrorTag,
       historicalErrorTags: historicalErrorTags,
       timesSeen: newSeen,

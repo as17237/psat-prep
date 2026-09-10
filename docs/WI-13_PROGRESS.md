@@ -58,5 +58,5 @@ npx playwright test practice-flow.spec.js srs-review-queue.spec.js exam-flow.spe
 Playwright over the single-threaded local `python http.server` intermittently trips `page.goto`/`reload` **15s load timeouts** — worsened by stray servers and by external CDN resources (Google Fonts `@import`, unpkg lucide, Desmos) that `waitUntil:'load'` waits on. It hits pages this work never touched (e.g. `parent.html`). Mitigation: `pkill -9 -f "http.server"; pkill -9 -f chromium` between runs, and use `--workers=1`. Always re-run before treating a `page.goto` timeout as real.
 
 ## Also parked (separate from WI-13)
-- WI-11.5 API deploy is **live + verified** on prod (done earlier today; see `CONTINUE_HERE.md` §10). `default_student` shard migration remains owner-gated.
+- WI-11.5 API deploy is **live + verified** on prod (done earlier today; see `docs/DISASTER_RECOVERY_RUNBOOK.md` (historical API recovery assets)). `default_student` shard migration remains owner-gated.
 - The BSD-sed `deploy_v2.sh` fix is merged to `main` (commit `3d8613c`).

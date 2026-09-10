@@ -73,6 +73,7 @@ APP_FILES=(
   "js/shared/dom.js"
   "js/shared/env.js"
   "js/shared/storage.js"
+  "js/shared/sync.js"
   "js/shared/beta_sandbox.js"
   "js/shared/questions.js"
   "js/shared/drill.js"

@@ -502,7 +502,7 @@
 
     var next = cloneSnapshot(snap);
     var pausedMs = isFiniteNumber(snap.pausedAt) ? Math.max(0, now - snap.pausedAt) : 0;
-    next.phase = snap.resumePhase === EXAM_PHASES.MODULE ? EXAM_PHASES.MODULE : EXAM_PHASES.MODULE;
+    next.phase = EXAM_PHASES.MODULE;
     next.moduleDeadline = now + (banked * 1000);
     next.totalPausedMs = (isFiniteNumber(snap.totalPausedMs) ? snap.totalPausedMs : 0) + pausedMs;
     next.pausedAt = null;

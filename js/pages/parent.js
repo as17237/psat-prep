@@ -1,3 +1,4 @@
+import { createPageSync, syncStatusText } from '../shared/sync.js';
 import { mountFocusedBuilder } from '../shared/focused_builder.js';
 import { importStudentFile } from '../shared/import_dialog.js';
 /**
@@ -12,7 +13,7 @@ import { importStudentFile } from '../shared/import_dialog.js';
  */
 import { esc } from '../shared/html.js';
 import { APP_ENV } from '../shared/env.js';
-import { safeGetStorage, safeSetStorage, safeSetStorageDownloaded, readSyncBadgeState, onPendingSyncCountChanged } from '../shared/storage.js';
+import { safeGetStorage, safeSetStorage, offerSaveRecovery, onPendingSyncCountChanged } from '../shared/storage.js';
 import { cloneProdDataToBeta, resetBetaSandbox } from '../shared/beta_sandbox.js';
 import { questionImageSrc } from '../shared/questions.js';
 import { launchTargetedMistakeDrill } from '../shared/drill.js';
@@ -22,28 +23,15 @@ import { toggleDesmosCalculator, initDesmosCalculator, fallbackDesmosIframe, tog
 // safeSetStorage bumps the pending-sync counter; this is how it reaches this
 // page's badge. Registered during module evaluation, before any write can
 // happen -- the inline original called updateParentSyncStatusBadge() directly.
-onPendingSyncCountChanged(updateParentSyncStatusBadge);
+onPendingSyncCountChanged(() => { updateParentSyncStatusBadge(); pageSync.schedule(); });
+
+const pageSync = createPageSync({ onState: updateParentSyncStatusBadge, onPull: () => { renderParentMetrics(); } });
 
 function updateParentSyncStatusBadge() {
-  const textEl = document.getElementById('cloud-sync-status-text');
-  if (!textEl) return;
-  const { pending, lastSync, minutesAgo } = readSyncBadgeState();
-
-  let timeAgoStr = '';
-  if (lastSync) {
-    const mins = minutesAgo;
-    if (mins < 1) timeAgoStr = ' (Just now)';
-    else if (mins === 1) timeAgoStr = ' (1m ago)';
-    else if (mins < 60) timeAgoStr = ` (${mins}m ago)`;
-    else timeAgoStr = ` (${Math.floor(mins / 60)}h ago)`;
-  }
-
-  if (pending > 0) {
-    textEl.innerText = `Cosmos DB: ${pending} Pending`;
-  } else {
-    textEl.innerText = `Cosmos DB Synced${timeAgoStr}`;
-  }
+  const badge = document.getElementById('cloud-sync-status-text');
+  if (badge) badge.textContent = syncStatusText(pageSync.getState());
 }
+
 
 let currentGapCount = 20;
 // Explainer index: question id -> step-by-step explainer.
@@ -70,50 +58,9 @@ let parentActiveExamReport = null;
 let parentExamFilterMode = 'all';
 
 function syncParentFromCloud(isManual = false) {
-  const txt = document.getElementById('cloud-sync-status-text');
-  if (txt) txt.innerText = 'Syncing...';
-  
-  if (typeof PSAT_ENGINE !== 'undefined' && PSAT_ENGINE.pullFromCloud) {
-    PSAT_ENGINE.pullFromCloud(localStorage, null, APP_ENV.studentName, safeSetStorageDownloaded).then(res => {
-      if (res && res.success) {
-        renderParentMetrics();
-        // WI-32: a PULL must never acknowledge local changes. This zeroed the
-        // pending counter and stamped a sync time after a successful GET, so a write
-        // saved on the student page and then viewed here lost its unsent status —
-        // zero POSTs, no server record, and the badge claiming everything was synced.
-        // student.js was fixed in WI-28; these twins were missed (CLAUDE.md mode 2).
-        // Downloaded state also writes through safeSetStorageDownloaded so it cannot
-        // manufacture pending counts of its own.
-        updateParentSyncStatusBadge();
-        if (isManual) {
-          if (res.updated) {
-            alert(`Successfully synced latest student progress from Cosmos DB profile (${APP_ENV.studentName})! (${res.mergedHistoryCount} completed test/exam reports loaded).`);
-          } else if (res.empty) {
-            alert(`Cosmos DB is connected, but no student test attempts or reports have been submitted yet for ${APP_ENV.studentName}.`);
-          } else {
-            alert('Cosmos DB is up to date — all attempts and reports are currently synchronized.');
-          }
-        }
-      } else {
-        updateParentSyncStatusBadge();
-        if (res && res.quotaExceeded) {
-          if (isManual) alert('Sync Error: Local browser storage is full (quota exceeded). Please clear older test data or export audit data.');
-        } else {
-          const errMsg = (res && res.error) ? res.error : 'Could not connect to Cosmos DB server';
-          if (isManual) alert(`Sync Warning: ${errMsg}. Please check your internet connection.`);
-        }
-      }
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    }).catch(err => {
-      updateParentSyncStatusBadge();
-      console.warn('Sync failed:', err);
-      if (isManual) alert('Sync failed: Could not reach Cosmos DB sync endpoint.');
-    });
-  } else {
-    if (txt) txt.innerText = 'Cosmos DB Sync';
-    if (isManual) alert('Engine is loading. Please refresh and try again.');
-  }
+  return pageSync.requestSync(isManual ? 'manual' : 'startup', isManual);
 }
+
 
 // ---------------------------------------------------------------------
 // Cloud backup freshness widget (WI-04c)
@@ -817,12 +764,21 @@ function openParentExamReview(examId) {
     return;
   }
   parentActiveExamReport = PSAT_ENGINE.rehydrateReport(found, window.QUESTIONS_DATA || []);
+  const summary = PSAT_ENGINE.summarizeExamReport(found, window.QUESTIONS_DATA || []);
+  const estimate = summary.shortTestEstimate;
+  const shortScored = estimate && estimate.isScored;
+  document.getElementById('pmod-exam-estimate-note').textContent = shortScored
+    ? `${estimate.label}. Range: ${estimate.totalRangeFormatted}. ${estimate.disclosure}` : '';
+  document.getElementById('pmod-exam-pause-note').textContent = summary.pauseText;
   
   const accPercent = (typeof found.overallAccuracyPercent === 'number') ? found.overallAccuracyPercent : ((found.totalQuestions && found.totalQuestions > 0) ? Math.round(((found.totalCorrect || 0) / found.totalQuestions) * 100) : 0);
   const hasScaled = (found.scores?.isScaledReady !== false && found.scores?.totalScaled !== null && found.scores?.totalScaled !== undefined);
   document.getElementById('pmod-exam-title').innerText = found.title || 'Practice Exam Score Report';
   document.getElementById('pmod-exam-date').innerText = found.formattedDate || (found.completedAt ? new Date(found.completedAt).toLocaleString() : 'Recent');
-  document.getElementById('pmod-exam-score').innerHTML = hasScaled ?
+  document.getElementById('pmod-exam-score-label').textContent = shortScored ? 'Estimated from this test' : hasScaled ? 'Composite Score' : 'Correct answers';
+  document.getElementById('pmod-exam-badge').textContent = shortScored ? estimate.label : hasScaled ? 'Practice score estimate' : 'Practice report';
+  document.getElementById('pmod-exam-score').innerHTML = shortScored ?
+    `${estimate.totalScore} <span class="text-xs font-normal text-slate-400">/ 1440 (estimate)</span>` : hasScaled ?
     `${found.scores?.totalScaled} <span class="text-xs font-normal text-slate-400">/ 1440</span>` :
     `${found.totalCorrect || 0} / ${found.totalQuestions || 0} <span class="text-xs font-normal text-slate-400">(${accPercent}%)</span>`;
   document.getElementById('pmod-exam-stats').innerText = `Accuracy: ${accPercent}% (${found.totalCorrect || 0} / ${found.totalQuestions || 0})`;
@@ -851,8 +807,8 @@ function openParentExamReview(examId) {
   const modalRwPct = modalRwTotal > 0 ? Math.round((modalRwCorrect / modalRwTotal) * 100) : 0;
   const modalMathPct = modalMathTotal > 0 ? Math.round((modalMathCorrect / modalMathTotal) * 100) : 0;
 
-  document.getElementById('pmod-exam-rw').innerText = hasScaled ? `R&W: ${found.scores?.rwScaled} / 720` : (modalRwTotal > 0 ? `R&W: ${modalRwCorrect}/${modalRwTotal} Correct (${modalRwPct}%)` : 'R&W: —');
-  document.getElementById('pmod-exam-math').innerText = hasScaled ? `Math: ${found.scores?.mathScaled} / 720` : (modalMathTotal > 0 ? `Math: ${modalMathCorrect}/${modalMathTotal} Correct (${modalMathPct}%)` : 'Math: —');
+  document.getElementById('pmod-exam-rw').innerText = shortScored ? `R&W: ${estimate.rwScore} / 720 (${estimate.rwRangeFormatted})` : hasScaled ? `R&W: ${found.scores?.rwScaled} / 720` : (modalRwTotal > 0 ? `R&W: ${modalRwCorrect}/${modalRwTotal} Correct (${modalRwPct}%)` : 'R&W: —');
+  document.getElementById('pmod-exam-math').innerText = shortScored ? `Math: ${estimate.mathScore} / 720 (${estimate.mathRangeFormatted})` : hasScaled ? `Math: ${found.scores?.mathScaled} / 720` : (modalMathTotal > 0 ? `Math: ${modalMathCorrect}/${modalMathTotal} Correct (${modalMathPct}%)` : 'Math: —');
 
   filterParentExamQuestions('all');
   document.getElementById('parent-exam-review-modal').classList.remove('hidden');

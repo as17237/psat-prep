@@ -348,6 +348,35 @@ function stripAcceptedWi22Deltas(dump, baseline) {
   return out;
 }
 
+// Explicit additions from pause/report persistence and independent tag ordering.
+// Assert their values before removing them from the historical comparison.
+function stripAcceptedReportMetadata(dump) {
+  const out = JSON.parse(JSON.stringify(dump));
+  Object.values(out.psat_progress || {}).forEach(entry => {
+    if (!('metaUpdatedAt' in entry)) return;
+    expect(entry.isCorrect).toBe(true);
+    expect(entry.errorTag).toBeNull();
+    expect(Number.isFinite(entry.metaUpdatedAt)).toBe(true);
+    delete entry.metaUpdatedAt;
+  });
+  const [completed, legacy] = out.psat_exam_history;
+  expect(completed.pauseCount).toBe(0);
+  expect(completed.totalPausedMs).toBe(0);
+  expect(completed.shortTestEstimate).toMatchObject({
+    isScored: false, isSingleTestEstimate: true,
+    totalAttempted: 8, rwAttempted: 4, mathAttempted: 4,
+    rwCorrect: 1, mathCorrect: 1, totalScore: null,
+    minTestQuestions: 30, minRequiredPerSection: 15
+  });
+  expect(legacy.pauseCount).toBeUndefined();
+  expect(legacy.totalPausedMs).toBeUndefined();
+  expect(legacy.shortTestEstimate).toBeUndefined();
+  delete completed.pauseCount;
+  delete completed.totalPausedMs;
+  delete completed.shortTestEstimate;
+  return out;
+}
+
 // Top-level localStorage keys that are pure clock values.
 const CLOCK_ONLY_KEYS = new Set(['psat_last_cloud_sync_time']);
 
@@ -558,6 +587,9 @@ test.describe('localStorage equivalence (WI-09 no-behaviour-change proof)', () =
     expect(history.length).toBe(2); // 1 seeded fixture exam + 1 completed in this session
     expect(raw.psat_srs).toBeTruthy();
 
+    for (const entry of Object.values(progress)) {
+      if ('metaUpdatedAt' in entry) expect(entry.metaUpdatedAt).toBe(entry.timestamp);
+    }
     const dump = normaliseDump(raw);
 
     const outPath = process.env.LS_DUMP_OUT
@@ -605,13 +637,13 @@ test.describe('localStorage equivalence (WI-09 no-behaviour-change proof)', () =
       ].join('-');
       expect(Object.keys(rawSessions)).toEqual([todayKey]);
 
-      const comparable = stripAcceptedWi22Deltas(stripAcceptedWi11Deltas(dump, baseline), baseline);
+      const comparable = stripAcceptedWi22Deltas(stripAcceptedWi11Deltas(stripAcceptedReportMetadata(dump), baseline), baseline);
       expect(Object.keys(comparable).sort()).toEqual(Object.keys(baseline).sort());
       expect(comparable).toEqual(baseline);
       // eslint-disable-next-line no-console
       console.log(
         `[ls-equivalence] DEEP-EQUAL vs ${baselinePath} -- 0 differences ` +
-          'beyond the documented WI-11 and WI-22 deltas'
+          'beyond the documented storage, pause/report, and metadata deltas'
       );
     }
   });

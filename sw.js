@@ -29,7 +29,7 @@
 
 importScripts('js/shared/sw_routing.js');
 
-var VERSION = '20260908-bounded-waits-2';
+var VERSION = '20260910-sync-reports-1';
 var SHELL_CACHE = 'psat-shell-' + VERSION;
 var IMAGE_CACHE = 'psat-images';
 var EXT_CACHE = 'psat-ext';
@@ -63,6 +63,7 @@ var SHELL_ASSETS = [
   'js/shared/dom.js',
   'js/shared/env.js',
   'js/shared/storage.js',
+  'js/shared/sync.js',
   'js/shared/beta_sandbox.js',
   'js/shared/questions.js',
   'js/shared/drill.js',

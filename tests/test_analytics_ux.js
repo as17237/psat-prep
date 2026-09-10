@@ -19,7 +19,13 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const PSAT_ENGINE = require('../srs.js');
+const engine = require('../srs.js');
+// Rendering suites never contact a server or schedule background sync retries.
+const PSAT_ENGINE = { ...engine,
+  pullFromCloud: async () => ({ success: false, error: 'offline render fixture' }),
+  createSyncCoordinator: opts => engine.createSyncCoordinator({ ...opts,
+    timers: { setTimeout: () => 0, clearTimeout: () => {} } })
+};
 const questionsData = require('../data/ela_questions.json').concat(require('../data/math_questions.json'));
 const indexHtml = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
 // WI-09: index.html's logic now lives in js/pages/student.js (+ js/shared/*).
@@ -147,6 +153,7 @@ function createStudentAppRuntime(customQuestions = null) {
   }
 
   const window = {
+    addEventListener: () => {},
     location: { pathname: '/index.html', search: '' },
     QUESTIONS_DATA: dataset,
     localStorage: {

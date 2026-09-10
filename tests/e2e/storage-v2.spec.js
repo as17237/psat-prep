@@ -225,13 +225,15 @@ test.describe('WI-11 interrupted sync', () => {
     // load that race loses an answer -- which made this spec intermittently report
     // 2 of 3 attempts. Waiting on the recorded state is the deterministic form.
     for (let i = 0; i < 3; i++) {
-      await page.locator('#options-container button').first().click({ force: true });
+      const previousId = await page.locator('#q-id-badge').innerText();
+      await page.locator('#options-container button').first().click();
       await page.waitForFunction(
         (expected) => Object.keys(JSON.parse(localStorage.getItem('psat_progress') || '{}')).length === expected,
         i + 1,
         { timeout: 10000 }
       );
-      await page.locator('#btn-next').click({ force: true });
+      await page.locator('#btn-next').click();
+      await expect(page.locator('#q-id-badge')).not.toHaveText(previousId);
     }
 
     const offline = await page.evaluate(() => ({

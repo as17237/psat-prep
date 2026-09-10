@@ -74,6 +74,7 @@
       'SCALING_ASSUMPTIONS',
       'scaleSectionRawScore',
       'scoreShortTest',
+      'summarizeExamReport',
       'routeAdaptiveTrack',
       'calculateWilsonScoreInterval',
       'calculateScaledScore',

@@ -74,12 +74,11 @@ test.describe('exam pause and resume (WI-37)', () => {
     // on one guard is therefore absorbed by the other; only attempting a real answer
     // shows whether the contract actually holds.
     const beforeClick = await page.evaluate(() =>
-      Object.keys(JSON.parse(localStorage.getItem('psat_active_exam_state') || '{}').examUserAnswers || {}).length);
-    await page.locator('#exam-mcq-options button').nth(1).click({ force: true }).catch(() => {});
-    await page.waitForTimeout(300);
+      JSON.parse(localStorage.getItem('psat_active_exam_state')).examUserAnswers);
+    await page.evaluate(() => selectExamMcqChoice('D'));
     const afterClick = await page.evaluate(() =>
-      Object.keys(JSON.parse(localStorage.getItem('psat_active_exam_state') || '{}').examUserAnswers || {}).length);
-    expect(afterClick, 'clicking an option while paused must record nothing').toBe(beforeClick);
+      JSON.parse(localStorage.getItem('psat_active_exam_state')).examUserAnswers);
+    expect(afterClick, 'a paused answer handler must not change an existing answer').toEqual(beforeClick);
 
     // ---- 4. THE CASE THIS SPEC EXISTS FOR: reload while paused -------------
     await page.reload();
@@ -132,4 +131,33 @@ test.describe('exam pause and resume (WI-37)', () => {
     const canEditNow = await page.evaluate(() => window.moduleCanEdit());
     expect(canEditNow, 'the student can answer again after resuming').toBe(true);
   });
+});
+
+
+test('failed resume stays paused through recovery without spending banked time', async ({ page }) => {
+  await page.goto('/index.html');
+  await seedEmpty(page);
+  page.on('dialog', d => d.accept());
+  await startMiniExamAndAnswer(page);
+  await page.click('#btn-pause-exam', { force: true });
+  const before = await page.evaluate(() => JSON.parse(localStorage.getItem('psat_active_exam_state')));
+  await page.evaluate(() => {
+    const original = Storage.prototype.setItem;
+    window.restoreStorage = () => { Storage.prototype.setItem = original; };
+    Storage.prototype.setItem = function(key, value) {
+      if (key === 'psat_active_exam_state') throw new DOMException('Synthetic full storage', 'QuotaExceededError');
+      return original.call(this, key, value);
+    };
+    resumeExamNow();
+  });
+  await expect(page.locator('#save-recovery-panel')).toBeVisible();
+  await page.waitForTimeout(1200);
+  await page.evaluate(() => window.restoreStorage());
+  await page.click('#retry-pending-save');
+  await page.waitForFunction(() => !window.__PSAT_WRITE_BLOCKED__);
+  const recovered = await page.evaluate(() => JSON.parse(localStorage.getItem('psat_active_exam_state')));
+  expect(recovered.phase).toBe('paused');
+  expect(recovered.pausedRemainingSeconds).toBe(before.pausedRemainingSeconds);
+  expect(recovered.examModuleDeadline).toBeNull();
+  expect(recovered.examUserAnswers).toEqual(before.examUserAnswers);
 });

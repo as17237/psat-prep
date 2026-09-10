@@ -649,3 +649,42 @@ afterwards is that the shard documents and the master's `shardsVerifiedAt` came 
 `SHARD-ROUTING` check in `tests/integrity/run_integrity.js` catches misrouted or duplicated
 records, and `DOC-SIZE-ALL` enforces the 400 KB budget on every document rather than only the
 master.
+
+
+## Historical extraction and API recovery assets
+
+These pointers were recorded on 2026-08-30 and preserved when superseded
+continuation guides were removed on 2026-09-10. They are historical recovery
+evidence, not a fresh verification of backup health.
+
+The source PDFs were **only on the original machine** until 2026-08-30, when they were uploaded to `refactor-baseline/source-pdfs/` (private container) with `SHA256SUMS.txt`:
+
+```
+edf66093017508b8643ed2bc47f88b17d95608001f72936372630e68984c7569  ELA1A.pdf   93,514,609 B
+13837883ac9461e679fc09b9e990d4ae18a87d37b2eedb16d0ebb9f2659b9a75  ELA1.pdf    85,340,206 B
+2bb96e846ba39ffa1647425e3179ea0dfaeab7b893a5d6e78f4718fe1aad9bea  MATH1A.pdf 130,586,448 B
+603f63e5743f12fc152a0a6966bb99bd01a087b521cc62a812710a75d3ecda29  MATH1.pdf   86,688,993 B
+```
+
+Retrieve them only if you need to re-run extraction (you almost certainly do not — the extracted JSON and all 3,059 rendered cards are in git):
+
+```bash
+export AZURE_STORAGE_ACCOUNT=psatprep4915
+export AZURE_STORAGE_KEY=$(az storage account keys list -g rg-psat-prep -n psatprep4915 --query '[0].value' -o tsv)
+az storage blob download-batch --source refactor-baseline --pattern 'source-pdfs/*' --destination .
+sha256sum -c source-pdfs/SHA256SUMS.txt
+```
+
+On macOS, use `shasum -a 256 -c source-pdfs/SHA256SUMS.txt` for the checksum check.
+The pre-WI-11.5 API package is `scm-releases/rollback/scm-pre-wi115-2026-08-30.zip`
+(4,157,440 bytes); the subsequent deployment was
+`093684c5-2137-4317-a8d6-313cb2125141`. This is a historical fallback, not the
+preferred rollback for a new release. Preserve the current API package and web
+manifest before each release. Before reverting a sharded API to an older handler,
+follow §7.5: restore compatible document state and allow one sync before reverting
+code. Never delete the private baseline or its superseded partial snapshots.
+
+Historical profiles can contain missing answer timestamps, SRS entries with an
+empty `questionId` whose map key is authoritative, and old reports missing title or
+type. Absence is unknown data, not permission to reset it. Integrity floors are
+raised deliberately after verified growth, never recalculated downward.

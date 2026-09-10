@@ -43,7 +43,7 @@
  *    answered the same question from a shared base of one prior attempt ended at
  *    `timesSeen: 2` when the true count is 3 — one branch's evidence was thrown away.
  *    The merge is now MONOTONIC: the newer timestamp still wins the answer CONTENT
- *    (selectedAnswer / isCorrect / timeSpentMs / timingReliable / timestamp / errorTag),
+ *    (selectedAnswer / isCorrect / timeSpentMs / timingReliable / timestamp),
  *    but timesSeen / timesCorrect / timesIncorrect take the per-field MAXIMUM, the
  *    capped `attempts` log becomes the deduplicated union of both sides,
  *    `historicalErrorTags` becomes a union by tag, and `isFlagged` is true if either
@@ -228,7 +228,7 @@ function mergeHistoricalErrorTags(winner, loser) {
  *
  * For a question BOTH sides know about:
  *   - the newer `timestamp` wins the answer CONTENT (selectedAnswer, isCorrect,
- *     timeSpentMs, timingReliable, timestamp, errorTag — everything on the winning
+ *     timeSpentMs, timingReliable, timestamp — everything on the winning
  *     record). A missing timestamp counts as 0, so a timestamp-less incoming entry can
  *     never displace a timestamped stored one; equal timestamps favour incoming (`>=`).
  *   - timesSeen / timesCorrect / timesIncorrect take the per-field MAXIMUM (WI-22,
@@ -300,6 +300,18 @@ function mergeProgress(existing, incoming) {
     } else {
       out.isFlagged = prior.isFlagged === true;
       out.flagUpdatedAt = priorAt;
+    }
+
+    // Mirror the client's independent tag clock, including legacy removals.
+    const priorMeta = Object.prototype.hasOwnProperty.call(prior, 'errorTag')
+      ? (Number.isFinite(prior.metaUpdatedAt) ? prior.metaUpdatedAt : (prior.timestamp || prior.lastAttemptTime || 0)) : -1;
+    const incomingMeta = Object.prototype.hasOwnProperty.call(p, 'errorTag')
+      ? (Number.isFinite(p.metaUpdatedAt) ? p.metaUpdatedAt : (p.timestamp || p.lastAttemptTime || 0)) : -1;
+    if (priorMeta >= 0 || incomingMeta >= 0) {
+      const tagSource = incomingMeta >= priorMeta ? p : prior;
+      out.errorTag = tagSource.errorTag;
+      if (Number.isFinite(tagSource.metaUpdatedAt)) out.metaUpdatedAt = tagSource.metaUpdatedAt;
+      else delete out.metaUpdatedAt;
     }
 
     merged[qid] = out;

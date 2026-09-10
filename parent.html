@@ -1112,13 +1112,18 @@
 
         <div class="flex items-center space-x-4">
           <div class="text-right">
-            <span class="text-[10px] text-slate-400 uppercase font-semibold block">Composite Score</span>
+            <span id="pmod-exam-score-label" class="text-[10px] text-slate-400 uppercase font-semibold block">Score</span>
             <span id="pmod-exam-score" class="text-2xl font-black text-white">— <span class="text-xs font-normal text-slate-400">/ 1440</span></span>
           </div>
           <button onclick="closeParentExamReview()" class="btn btn-sm btn-icon btn-ghost text-slate-400" title="Close">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
+      </div>
+
+      <div class="px-6 py-3 text-xs text-slate-600">
+        <p id="pmod-exam-estimate-note"></p>
+        <p id="pmod-exam-pause-note"></p>
       </div>
 
       <!-- Filter Controls & Stats Bar -->

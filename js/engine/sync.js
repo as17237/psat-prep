@@ -215,6 +215,18 @@
           chosen.isFlagged = l.isFlagged === true;
           chosen.flagUpdatedAt = lAt;
         }
+        // Tag edits and answers have separate clocks. Legacy tags retain their
+        // answer timestamp; a missing tag is unknown, not an explicit removal.
+        var cMeta = Object.prototype.hasOwnProperty.call(c, 'errorTag')
+          ? (Number.isFinite(c.metaUpdatedAt) ? c.metaUpdatedAt : cTime) : -1;
+        var lMeta = Object.prototype.hasOwnProperty.call(l, 'errorTag')
+          ? (Number.isFinite(l.metaUpdatedAt) ? l.metaUpdatedAt : lTime) : -1;
+        if (cMeta >= 0 || lMeta >= 0) {
+          var tagSource = lMeta >= cMeta ? l : c;
+          chosen.errorTag = tagSource.errorTag;
+          if (Number.isFinite(tagSource.metaUpdatedAt)) chosen.metaUpdatedAt = tagSource.metaUpdatedAt;
+          else delete chosen.metaUpdatedAt;
+        }
         if (Array.isArray(c.historicalErrorTags) || Array.isArray(l.historicalErrorTags)) {
           var tags = new Map();
           (newer.historicalErrorTags || []).concat(older.historicalErrorTags || []).forEach(function(t) {
@@ -503,7 +515,17 @@
       Object.keys(progress).forEach(function (qid) {
         var p = progress[qid];
         if (!p) return;
-        var t = p.timestamp || p.lastAttemptTime || 0;
+        // WI-38: a delta selected on the ANSWER timestamp alone, so every non-answer
+        // mutation was invisible to it — an error tag or a bookmark edit on an
+        // already-synced question moves no timestamp, so the payload carried no
+        // progress at all and the change never reached the server. Metadata edits
+        // stamp their own revision; the delta takes the newest of them.
+        var t = Math.max(
+          p.timestamp || 0,
+          p.lastAttemptTime || 0,
+          p.metaUpdatedAt || 0,
+          p.flagUpdatedAt || 0
+        );
         if (t >= sinceMs) outProgress[qid] = p;
       });
       Object.keys(srs).forEach(function (qid) {
@@ -996,8 +1018,9 @@
       if (state.pendingRequest) { state.pendingRequest = false; drain('coalesced'); }
     }
 
+    var activePromise = null;
     function drain(reason) {
-      if (state.inFlight) { state.pendingRequest = true; return; }
+      if (state.inFlight) { state.pendingRequest = true; return activePromise; }
       cancelTimer();
       state.inFlight = true;
       state.status = 'syncing';
@@ -1005,40 +1028,35 @@
       var p;
       try { p = Promise.resolve(o.run(reason)); }
       catch (e) { p = Promise.resolve({ success: false, error: e && e.message }); }
-      p.then(function (res) {
+      activePromise = p.catch(function (err) {
+        return { success: false, error: err && err.message };
+      }).then(function (res) {
         var verdict = classifySyncOutcome(res);
-        if (verdict === 'ok') { state.attempt = 0; finish('synced', null); return; }
+        if (verdict === 'ok') { state.attempt = 0; finish('synced', null); return res; }
         if (verdict === 'permanent') {
           state.attempt = 0;
           finish('failed', (res && res.error) || 'Sync rejected');
-          return;
+          return res;
         }
         state.attempt += 1;
         var delay = nextRetryDelayMs(state.attempt, o.rand, cfg);
         if (delay === null) {
           state.attempt = 0;
           finish('failed', (res && res.error) || 'Sync failed after repeated retries');
-          return;
+          return res;
         }
         state.inFlight = false;
         state.status = 'retrying';
         state.lastError = (res && res.error) || 'Sync failed';
         emit();
         state.timer = timers.setTimeout(function () { state.timer = null; drain('retry'); }, delay);
-      }, function (err) {
-        state.attempt += 1;
-        var delay2 = nextRetryDelayMs(state.attempt, o.rand, cfg);
-        if (delay2 === null) { state.attempt = 0; finish('failed', err && err.message); return; }
-        state.inFlight = false;
-        state.status = 'retrying';
-        state.lastError = err && err.message;
-        emit();
-        state.timer = timers.setTimeout(function () { state.timer = null; drain('retry'); }, delay2);
+        return res;
       });
+      return activePromise;
     }
 
     return {
-      requestSync: function (reason) { drain(reason || 'manual'); },
+      requestSync: function (reason) { return drain(reason || 'manual'); },
       stop: function () { cancelTimer(); state.pendingRequest = false; },
       getState: function () {
         return { status: state.status, attempt: state.attempt, inFlight: state.inFlight,

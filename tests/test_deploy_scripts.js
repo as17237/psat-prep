@@ -186,6 +186,7 @@ const V2_EXPECTED_BLOBS = [
   'v2/js/shared/dom.js',
   'v2/js/shared/env.js',
   'v2/js/shared/storage.js',
+  'v2/js/shared/sync.js',
   'v2/js/shared/beta_sandbox.js',
   'v2/js/shared/questions.js',
   'v2/js/shared/drill.js',

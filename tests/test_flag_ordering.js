@@ -100,4 +100,91 @@ ok('a bookmark edit leaves the attempt timestamp alone');
 }
 ok('neither merge mutates its inputs');
 
-console.log('\n✓ All ' + n + ' flag-ordering checks passed.\n');
+// ---------------------------------------------------------------------------
+// WI-38 — the COMPOSITION the seven checks above could not see.
+//
+// Every check so far feeds hand-written records straight to the merges, so they prove
+// the ordering RULE. None of them runs a record through buildProgressEntry first —
+// and that builder was dropping `flagUpdatedAt` entirely. A record that had been
+// through an answer therefore reached the server with no revision, both merges fell
+// to their legacy branch, and the older cloud `true` won: a bookmark the student had
+// deleted came back.
+//
+// The rule was right and its tests were green. The writer was stripping the field the
+// rule depends on. This exercises writer + merge together, which is the only place
+// that defect is visible.
+// ---------------------------------------------------------------------------
+{
+  const cloudRaised = { answered: true, isCorrect: true, timestamp: 500, isFlagged: true, flagUpdatedAt: 1000 };
+  let local = { answered: true, isCorrect: true, timestamp: 500, isFlagged: false, flagUpdatedAt: 2000 };
+
+  // Control: the removal survives on its own.
+  assert.strictEqual(serverMerge.mergeProgress({ q: cloudRaised }, { q: local }).q.isFlagged, false,
+    'control — a removal with a newer revision beats the cloud raise');
+
+  // Now answer the question again, the way the practice and exam paths both do.
+  local = PSAT_ENGINE.buildProgressEntry(local, {
+    selectedAnswer: 'B', isCorrect: true, timeSpentMs: 20000,
+    timingReliable: true, at: 3000, source: 'practice'
+  });
+
+  assert.strictEqual(local.flagUpdatedAt, 2000,
+    'buildProgressEntry must CARRY the bookmark revision; dropping it silently disarms ' +
+    'the ordering rule on the next sync');
+  assert.strictEqual(local.isFlagged, false, 'and the bookmark stays removed locally');
+  assert.strictEqual(serverMerge.mergeProgress({ q: cloudRaised }, { q: local }).q.isFlagged, false,
+    'answering a question must not resurrect a bookmark the student deleted');
+}
+ok('answering after removing a bookmark does not bring it back');
+
+{
+  // A record that never had a bookmark must not gain a spurious revision — an invented
+  // field would start winning merges it has no business deciding.
+  const plain = PSAT_ENGINE.buildProgressEntry(
+    { answered: true, isCorrect: false, timestamp: 1 },
+    { selectedAnswer: 'A', isCorrect: true, timeSpentMs: 9000, timingReliable: true, at: 2, source: 'practice' }
+  );
+  assert.strictEqual(plain.flagUpdatedAt, undefined, 'no revision is invented');
+  assert.ok(!JSON.stringify(plain).includes('flagUpdatedAt'),
+    'and it does not bloat the stored record either');
+}
+ok('a record with no bookmark gains no revision field');
+
+
+
+// An answer revision and a tag revision are independent, on both merge paths.
+for (const reverse of [false, true]) {
+  const answer = { answered: true, timestamp: 3000, selectedAnswer: 'B', errorTag: 'misread', metaUpdatedAt: 1000 };
+  const tag = { answered: true, timestamp: 500, selectedAnswer: 'A', errorTag: 'concept_gap', metaUpdatedAt: 4000 };
+  const results = reverse ? bothEnds(tag, answer) : bothEnds(answer, tag);
+  for (const merged of Object.values(results)) {
+    assert.strictEqual(merged.selectedAnswer, 'B');
+    assert.strictEqual(merged.errorTag, 'concept_gap');
+    assert.strictEqual(merged.metaUpdatedAt, 4000);
+  }
+}
+ok('newer error tag survives a newer answer in either arrival order');
+{
+  const old = { answered: true, errorTag: 'concept_gap', metaUpdatedAt: 4000, timestamp: 500 };
+  const solved = PSAT_ENGINE.buildProgressEntry(old, { isCorrect: true, selectedAnswer: 'B', at: 5000 });
+  for (const merged of Object.values(bothEnds(old, solved))) {
+    assert.strictEqual(merged.errorTag, null);
+    assert.ok(merged.metaUpdatedAt > 4000);
+  }
+}
+ok('a correct answer advances the revision of its resolved tag');
+
+console.log('✓ All ' + n + ' metadata-ordering checks passed.');
+
+for (const tagged of [
+  { timestamp: 500, errorTag: 'misread', metaUpdatedAt: 4000 },
+  { timestamp: 5000, errorTag: null },
+  { timestamp: 6000 }
+]) {
+  const prior = { timestamp: 100, errorTag: 'concept_gap', metaUpdatedAt: 3000 };
+  const expected = tagged.errorTag === undefined ? 'concept_gap' : tagged.errorTag;
+  for (const merged of Object.values(bothEnds(prior, tagged))) assert.strictEqual(merged.errorTag, expected);
+  const codec = require('../api/src/lib/datamodel');
+  assert.deepStrictEqual(codec.expandProgressEntry(codec.slimProgressEntry(tagged).slim), tagged);
+}
+console.log('Legacy tag removal, missing metadata, and cloud codec round-trips passed.');

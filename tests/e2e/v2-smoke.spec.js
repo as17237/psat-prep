@@ -81,3 +81,75 @@ test.describe('@v2smoke live /v2/ deployment', () => {
     });
   }
 });
+
+// Exercises the deployed client and API through the mandatory test-identity rewrite.
+// No profile is reset: this appends one explicitly named test report.
+test('@v2smoke release pause, report parity, and retried metadata upload', async ({ page }) => {
+  test.setTimeout(120000);
+  const base = process.env.PSAT_RELEASE_SMOKE_ROOT || V2_BASE_URL;
+  expect([V2_BASE_URL, new URL('/', V2_BASE_URL).href]).toContain(base);
+  const endpoint = 'https://psat-api-4915.azurewebsites.net/api/sync?student_name=e2e_test_student';
+  let rejectNextPost = false;
+  let rejected = 0;
+  await page.route('**/api/sync**', async route => {
+    if (route.request().method() === 'POST' && rejectNextPost) {
+      rejectNextPost = false;
+      rejected++;
+      return route.fulfill({ status: 503, body: 'Release-check transient failure' });
+    }
+    return route.fallback(); // mandatory quarantine rewrites before real network
+  });
+  page.on('dialog', d => d.accept());
+  await page.goto(new URL('index.html', base).href);
+  await expect.poll(() => page.evaluate(() => window.__coordState().status), { timeout: 30000 }).toBe('synced');
+  const examId = 'release_check_' + Date.now();
+  await page.evaluate(id => {
+    const qs = ['Reading and Writing', 'Math'].flatMap(section =>
+      QUESTIONS_DATA.filter(q => q.test === section && q.type === 'multiple_choice').slice(0, 15));
+    startCustomTestDirect({ id, type: 'focused_custom_test', title: 'Release verification', questions: qs, timeLimitMinutes: 30 });
+  }, examId);
+  await page.click('#btn-pause-exam');
+  const banked = await page.evaluate(() => JSON.parse(localStorage.getItem('psat_active_exam_state')).pausedRemainingSeconds);
+  await page.reload();
+  await page.click('#tab-exam');
+  await page.evaluate(() => resumeActiveExamState());
+  await expect(page.locator('#exam-paused-overlay')).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('psat_active_exam_state')).pausedRemainingSeconds)).toBe(banked);
+  await page.locator('#exam-paused-overlay button').click();
+  rejectNextPost = true;
+  await page.evaluate(() => {
+    const saved = JSON.parse(localStorage.getItem('psat_active_exam_state'));
+    saved.activeExamMeta.modules[0].questionIds.forEach((id, i) => {
+      loadExamQuestion(i);
+      selectExamMcqChoice(QUESTIONS_DATA.find(q => q.id === id).correct_answer);
+    });
+    showModuleReviewScreen(); submitCurrentExamModule();
+  });
+  await expect(page.locator('#report-total-score')).toHaveText('1440');
+  await expect(page.locator('#report-pause-note')).toContainText('Paused 1 time');
+  await expect.poll(() => page.evaluate(() => window.__coordState().status), { timeout: 30000 }).toBe('synced');
+  expect(rejected).toBe(1);
+  const response = await page.request.get(endpoint);
+  expect(response.ok()).toBe(true);
+  const cloud = (await response.json()).data;
+  const report = cloud.examHistory.find(r => r.examId === examId);
+  expect(report).toMatchObject({ totalQuestions: 30, totalCorrect: 30, pauseCount: 1 });
+  expect(report.shortTestEstimate.totalScore).toBe(1440);
+  expect(report.totalPausedMs).toBeGreaterThan(0);
+  await page.goto(new URL('parent.html', base).href);
+  await page.evaluate(id => openParentExamReview(id), examId);
+  await expect(page.locator('#pmod-exam-score')).toContainText('1440');
+  await expect(page.locator('#pmod-exam-estimate-note')).toContainText('Estimated from this test alone');
+  await expect(page.locator('#pmod-exam-pause-note')).toContainText('Paused 1 time');
+  await page.goto(new URL('mistakes.html', base).href);
+  const qid = await page.evaluate(() => QUESTIONS_DATA[0].id);
+  rejectNextPost = true;
+  await page.evaluate(id => setMistakeErrorTag(id, 'concept_gap'), qid);
+  await expect.poll(async () => {
+    const r = await page.request.get(endpoint);
+    return r.ok() ? (await r.json()).data.progress[qid]?.errorTag : null;
+  }, { timeout: 30000 }).toBe('concept_gap');
+  await expect(page.locator('#mistakes-sync-status-text')).toHaveText('All work saved', { timeout: 30000 });
+  expect(rejected).toBe(2);
+  console.log('RELEASE_LIVE_SMOKE_OK', base, examId, '30 correct, pause retained, 2 rejected uploads recovered; e2e_test_student only');
+});
