@@ -73,6 +73,7 @@
     scoring: [
       'SCALING_ASSUMPTIONS',
       'scaleSectionRawScore',
+      'scoreShortTest',
       'routeAdaptiveTrack',
       'calculateWilsonScoreInterval',
       'calculateScaledScore',
@@ -154,6 +155,8 @@
       'isModuleLocked',
       'markModuleSubmitted',
       'enterBreak',
+      'pauseExam',
+      'resumeFromPause',
       'buildPendingCompletion',
       'markCompletionSaved',
       'isCompletionRecorded',

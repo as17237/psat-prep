@@ -247,6 +247,133 @@
 
 
   /**
+   * WI-35 — a scaled-score ESTIMATE for a single short test (not the practice bank).
+   *
+   * The parent test builder deliberately produced no score at all: a 7-question drill
+   * rendered as a PSAT number would be worse than no number. That rule stays for short
+   * tests. This adds a middle tier for tests long enough to say something.
+   *
+   * Two gates, both of which must pass, and they are NOT the same gate:
+   *   - MIN_SCORED_TEST_QUESTIONS (20) answered in the test overall. This is the
+   *     "is this test substantial enough to score at all" gate.
+   *   - MIN_PER_SECTION (15) answered within a section, before that SECTION gets a
+   *     number. This is the existing statistical gate and is not relaxed here.
+   *
+   * The consequence is deliberate and worth stating: a 20-question single-subject test
+   * yields ONE section estimate and NO composite, because a composite needs 15 in each
+   * section — 30 questions minimum. Reporting a total from one section would be
+   * inventing the other half (CLAUDE.md mode 1).
+   *
+   * Everything returned is labelled an estimate from a single short test. It carries
+   * `isSingleTestEstimate` so no caller can mistake it for the bank-wide
+   * calculateScaledScore or fold it into full-exam trends.
+   *
+   * @param {Array} questions the questions actually in the test
+   * @param {Object} answersById questionId -> {isCorrect:boolean, answered:boolean}
+   * @returns {Object} the estimate, with `isScored` false and a plain-English `reason`
+   *   when a gate is not met
+   */
+  function scoreShortTest(questions, answersById) {
+    var qs = Array.isArray(questions) ? questions : [];
+    var ans = answersById || {};
+
+    var rwAttempted = 0, rwCorrect = 0, mathAttempted = 0, mathCorrect = 0;
+    qs.forEach(function (q) {
+      if (!q || !q.id) return;
+      var a = ans[q.id];
+      if (!a || a.answered !== true) return;
+      if (q.test === 'Reading and Writing') {
+        rwAttempted++; if (a.isCorrect) rwCorrect++;
+      } else if (q.test === 'Math') {
+        mathAttempted++; if (a.isCorrect) mathCorrect++;
+      }
+    });
+
+    var totalAttempted = rwAttempted + mathAttempted;
+    var MIN_TEST = SCALING_ASSUMPTIONS.MIN_SCORED_TEST_QUESTIONS;
+    var MIN_SECTION = SCALING_ASSUMPTIONS.MIN_PER_SECTION;
+
+    var base = {
+      isSingleTestEstimate: true,
+      isScored: false,
+      reason: null,
+      rwAttempted: rwAttempted, rwCorrect: rwCorrect, rwScore: null, rwRange: null,
+      mathAttempted: mathAttempted, mathCorrect: mathCorrect, mathScore: null, mathRange: null,
+      totalScore: null, totalRange: null,
+      totalAttempted: totalAttempted,
+      overallAccuracyPercent: totalAttempted > 0
+        ? Math.round(((rwCorrect + mathCorrect) / totalAttempted) * 100) : 0,
+      minTestQuestions: MIN_TEST,
+      minRequiredPerSection: MIN_SECTION,
+      label: 'Estimated from this test alone',
+      disclosure: 'An estimate from a single short test, not a full adaptive exam. ' +
+        'It is not comparable to an official score and is not included in exam trends.'
+    };
+
+    if (totalAttempted < MIN_TEST) {
+      base.reason = 'A scaled estimate needs at least ' + MIN_TEST + ' answered questions; this test has ' +
+        totalAttempted + '.';
+      return base;
+    }
+
+    var rwReady = rwAttempted >= MIN_SECTION;
+    var mathReady = mathAttempted >= MIN_SECTION;
+    if (!rwReady && !mathReady) {
+      base.reason = 'No section has the ' + MIN_SECTION + ' answered questions needed for a reliable ' +
+        'section estimate (Reading and Writing ' + rwAttempted + ', Math ' + mathAttempted + ').';
+      return base;
+    }
+
+    function sectionEstimate(correct, attempted) {
+      var acc = attempted > 0 ? (correct / attempted) : 0;
+      var score = scaleSectionRawScore(acc, 'Standard', false);
+      var w = calculateWilsonScoreInterval(correct, attempted, SCALING_ASSUMPTIONS.CONFIDENCE_Z_90);
+      return {
+        score: score,
+        range: [
+          Math.max(SCALING_ASSUMPTIONS.SECTION_FLOOR, scaleSectionRawScore(w.lower, 'Standard', false)),
+          Math.min(SCALING_ASSUMPTIONS.SECTION_CEILING, scaleSectionRawScore(w.upper, 'Standard', false))
+        ]
+      };
+    }
+
+    if (rwReady) {
+      var rw = sectionEstimate(rwCorrect, rwAttempted);
+      base.rwScore = rw.score; base.rwRange = rw.range;
+      base.rwRangeFormatted = rw.range[0] + '–' + rw.range[1];
+    }
+    if (mathReady) {
+      var mt = sectionEstimate(mathCorrect, mathAttempted);
+      base.mathScore = mt.score; base.mathRange = mt.range;
+      base.mathRangeFormatted = mt.range[0] + '–' + mt.range[1];
+    }
+
+    // A composite requires BOTH sections to clear the statistical gate. One section
+    // plus a guess is not a total.
+    // Belt and braces: BOTH sections must have produced a score AND an interval. The
+    // readiness flags alone were enough until someone loosened them; requiring the
+    // actual values means a half-composite cannot be produced even by mistake.
+    if (rwReady && mathReady && base.rwScore !== null && base.mathScore !== null &&
+        base.rwRange && base.mathRange) {
+      base.totalScore = base.rwScore + base.mathScore;
+      var dL = Math.sqrt(Math.pow(base.rwScore - base.rwRange[0], 2) + Math.pow(base.mathScore - base.mathRange[0], 2));
+      var dU = Math.sqrt(Math.pow(base.rwRange[1] - base.rwScore, 2) + Math.pow(base.mathRange[1] - base.mathScore, 2));
+      base.totalRange = [
+        Math.max(SCALING_ASSUMPTIONS.TOTAL_FLOOR, Math.round(base.totalScore - dL)),
+        Math.min(SCALING_ASSUMPTIONS.TOTAL_CEILING, Math.round(base.totalScore + dU))
+      ];
+      base.totalRangeFormatted = base.totalRange[0] + '–' + base.totalRange[1];
+    } else {
+      base.reason = 'Only one section had enough answered questions (' + MIN_SECTION + ' needed each), ' +
+        'so a combined estimate would be half measured and half invented. Section estimate shown instead.';
+    }
+
+    base.isScored = true;
+    return base;
+  }
+
+
+  /**
    * Calculates an empirical practice scaled score estimate for a section (120–720 scale).
    * Monotonic Guarantee: Score is strictly non-decreasing with raw correct answers across all tracks.
    * Zero raw correct always yields the baseline floor (120).
@@ -678,6 +805,7 @@
   return {
     SCALING_ASSUMPTIONS: SCALING_ASSUMPTIONS,
     scaleSectionRawScore: scaleSectionRawScore,
+    scoreShortTest: scoreShortTest,
     routeAdaptiveTrack: routeAdaptiveTrack,
     calculateWilsonScoreInterval: calculateWilsonScoreInterval,
     calculateScaledScore: calculateScaledScore,

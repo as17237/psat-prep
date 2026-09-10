@@ -1401,6 +1401,13 @@ function jumpToQuestion(qid) {
 // ============================================================
 let activeExam = null;
 let examPhase = 'module';
+// WI-35 pause state. pausedRemainingSeconds is the banked clock; totalPausedMs and
+// examPauseCount are recorded so the report can say the exam was paused rather than
+// quietly presenting it as a clean timed run.
+let pausedRemainingSeconds = null;
+let pausedAt = null;
+let totalPausedMs = 0;
+let examPauseCount = 0;
 let submittedModules = [];
 let breakDeadline = null;
 let pendingCompletion = null;
@@ -1901,9 +1908,105 @@ function loadExamModule(modIdx) {
 }
 
 function moduleCanEdit() {
+  // WI-35: a paused exam must not accept answers. Pausing stops the clock, so allowing
+  // writes would be unlimited time on an open question.
   return !window.__PSAT_WRITE_BLOCKED__ && !pendingCompletion && examPhase !== 'break' &&
+    examPhase !== 'paused' &&
     !submittedModules.includes(currentModuleIndex) && !examModuleExpired &&
     (activeExam?.isUntimed || (Number.isFinite(examModuleDeadline) && Date.now() < examModuleDeadline));
+}
+
+/**
+ * WI-35 — the page's live exam state in the shape the engine's pause helpers read.
+ *
+ * The persisted snapshot uses this page's historical field names (examModuleDeadline,
+ * phase), while exam_state.js works in its own vocabulary (moduleDeadline). Rather
+ * than reshape a stored format that the resume path already depends on, this adapts
+ * the handful of fields the pause arithmetic actually touches. The engine stays pure
+ * and unaware of the page.
+ */
+function buildCurrentExamSnapshot() {
+  return {
+    phase: examPhase,
+    moduleDeadline: examModuleDeadline,
+    pausedAt: pausedAt,
+    pausedRemainingSeconds: pausedRemainingSeconds,
+    pauseCount: examPauseCount,
+    totalPausedMs: totalPausedMs,
+    resumePhase: 'module'
+  };
+}
+
+/**
+ * WI-35 — pause the running module. The clock stops; the banked remainder is what the
+ * student gets back, however long they are away.
+ *
+ * The engine owns the arithmetic (PSAT_ENGINE.pauseExam); this only drives the DOM and
+ * persists, so a reload during a pause resumes paused rather than silently expiring.
+ */
+function pauseExamNow() {
+  if (!activeExam) return;
+  if (activeExam.isUntimed) {
+    showExamToast('This test is untimed — there is no clock to pause.');
+    return;
+  }
+  const snap = buildCurrentExamSnapshot();
+  const res = PSAT_ENGINE.pauseExam(snap, Date.now());
+  if (!res.ok) { showExamToast(res.reason); return; }
+
+  if (examTimerInterval) clearInterval(examTimerInterval);
+  // Stop crediting time to the current question too, or the pause would inflate it.
+  flushExamQuestionTime();
+  examQuestionShownAt = null;
+
+  examPhase = 'paused';
+  pausedRemainingSeconds = res.snapshot.pausedRemainingSeconds;
+  pausedAt = res.snapshot.pausedAt;
+  examPauseCount = res.snapshot.pauseCount;
+  examModuleDeadline = null;
+  if (!persistActiveExamState()) {
+    showExamToast('Could not save the paused exam — staying on the question instead.');
+    resumeExamNow();
+    return;
+  }
+  renderPausedOverlay();
+}
+
+function resumeExamNow() {
+  if (examPhase !== 'paused') return;
+  const snap = buildCurrentExamSnapshot();
+  const res = PSAT_ENGINE.resumeFromPause(snap, Date.now());
+  if (!res.ok) { showExamToast(res.reason); return; }
+
+  examPhase = 'module';
+  examModuleDeadline = res.snapshot.moduleDeadline;
+  totalPausedMs = res.snapshot.totalPausedMs;
+  pausedRemainingSeconds = null;
+  pausedAt = null;
+  persistActiveExamState();
+
+  const overlay = document.getElementById('exam-paused-overlay');
+  if (overlay) overlay.classList.add('hidden');
+  // Restart question timing from now, so the pause is not charged to this question.
+  examQuestionShownAt = Date.now();
+  startModuleClock();
+}
+
+function renderPausedOverlay() {
+  const overlay = document.getElementById('exam-paused-overlay');
+  if (!overlay) return;
+  const mins = Math.floor((pausedRemainingSeconds || 0) / 60);
+  const secs = (pausedRemainingSeconds || 0) % 60;
+  const left = document.getElementById('exam-paused-remaining');
+  if (left) left.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  const note = document.getElementById('exam-paused-note');
+  if (note) {
+    note.innerText = examPauseCount > 1
+      ? `Pause ${examPauseCount} of this exam. Your time is held exactly where it was.`
+      : 'Your time is held exactly where it was.';
+  }
+  overlay.classList.remove('hidden');
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function startModuleClock() {
@@ -2599,6 +2702,12 @@ function persistActiveExamState() {
     currentModuleIndex: currentModuleIndex,
     currentExamQIndex: currentExamQIndex,
     examModuleDeadline: examModuleDeadline,
+    // WI-35: without these a reload during a pause would come back with no deadline
+    // and no banked time — the module would look expired and the student would lose it.
+    pausedRemainingSeconds: pausedRemainingSeconds,
+    pausedAt: pausedAt,
+    totalPausedMs: totalPausedMs,
+    examPauseCount: examPauseCount,
     examUserAnswers: examUserAnswers,
     examUserTimes: examUserTimes,
     examMarkedForReview: examMarkedForReview,
@@ -2720,10 +2829,32 @@ function resumeActiveExamState() {
   submittedModules = saved.submittedModules || Array.from({length:currentModuleIndex},(_,i)=>i);
   breakDeadline = saved.breakDeadline ?? null;
   pendingCompletion = saved.pendingCompletion || null;
-  examModuleExpired = !activeExam.isUntimed && (!Number.isFinite(examModuleDeadline) || Date.now() >= examModuleDeadline);
+  // WI-35: restore the pause carriers BEFORE deciding expiry. A paused module has no
+  // deadline by design, and the generic expiry test below treats a missing deadline as
+  // expired — so without this a reload during a pause would destroy the module.
+  pausedRemainingSeconds = saved.pausedRemainingSeconds ?? null;
+  pausedAt = saved.pausedAt ?? null;
+  totalPausedMs = saved.totalPausedMs ?? 0;
+  examPauseCount = saved.examPauseCount ?? 0;
+
+  examModuleExpired = examPhase !== 'paused' && !activeExam.isUntimed &&
+    (!Number.isFinite(examModuleDeadline) || Date.now() >= examModuleDeadline);
   examQuestionShownAt = null;
   if (pendingCompletion) {finishExamAndShowReport();return;}
   if (examPhase === 'break') {startBreakTimer(0,true);return;}
+  if (examPhase === 'paused') {
+    // Come back paused, with the banked time intact. The clock stays stopped until the
+    // student resumes, so time spent closed is never charged to them.
+    showExamSubview('exam-active');
+    document.getElementById('exam-active-module-title').innerText = activeExam.modules[currentModuleIndex].name;
+    loadExamQuestion(currentExamQIndex);
+    examQuestionShownAt = null;
+    examModuleTimerSeconds = pausedRemainingSeconds || 0;
+    updateExamTimerDisplay();
+    renderPausedOverlay();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    return;
+  }
   if (submittedModules.includes(currentModuleIndex)) {
     if (currentModuleIndex < activeExam.modules.length-1) loadExamModule(currentModuleIndex+1);
     else finishExamAndShowReport();
@@ -3061,6 +3192,8 @@ Object.assign(window, {
   startStandardExam,
   startMiniExam,
   prepareOfflineExam,
+  pauseExamNow,
+  resumeExamNow,
   prepareFocusedTestForOffline,
   requestManualSync,
   requestSync,

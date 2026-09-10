@@ -70,10 +70,16 @@
     MODULE: 'module',
     REVIEW: 'review',
     BREAK: 'break',
+    // WI-35: an explicit student-initiated pause. Distinct from BREAK, which is the
+    // scheduled between-section break the exam format mandates and whose length the
+    // app controls. A pause has no deadline at all — it ends only when the student
+    // says so — so the two cannot share a representation.
+    PAUSED: 'paused',
     COMPLETED_PENDING_SAVE: 'completed_pending_save'
   };
 
   var PHASE_LIST = [
+    EXAM_PHASES.PAUSED,
     EXAM_PHASES.MODULE,
     EXAM_PHASES.REVIEW,
     EXAM_PHASES.BREAK,
@@ -418,6 +424,92 @@
     next.breakStartedAt = isFiniteNumber(now) ? now : null;
     next.savedAt = isFiniteNumber(now) ? now : next.savedAt;
     return next;
+  }
+
+  /**
+   * WI-35 — pause the running module.
+   *
+   * The module timer is a wall-clock DEADLINE, not a countdown, so pausing cannot
+   * simply stop a tick: the deadline would keep arriving. Instead we bank the seconds
+   * that were left and drop the deadline entirely. resumeFromPause() then mints a NEW
+   * deadline from the banked remainder, so paused wall-clock time is never charged to
+   * the student.
+   *
+   * Every pause is recorded — count and total duration — because time away from a
+   * timed test is a fact about the attempt, and a report that hides it would overstate
+   * how the student performed under timed conditions (CLAUDE.md mode 1). The caller is
+   * responsible for showing it.
+   *
+   * Refuses to pause anything but a live module: there is nothing meaningful about
+   * pausing a review screen, a scheduled break, or a finished exam.
+   *
+   * @returns {{ok:boolean, reason:string, snapshot:Object}} snapshot is unchanged when ok is false
+   */
+  function pauseExam(snapshot, now) {
+    var snap = snapshot || null;
+    if (!snap) return { ok: false, reason: 'There is no exam to pause.', snapshot: snap };
+    if (snap.phase === EXAM_PHASES.PAUSED) {
+      return { ok: false, reason: 'The exam is already paused.', snapshot: snap };
+    }
+    if (snap.phase !== EXAM_PHASES.MODULE) {
+      return { ok: false, reason: 'Only a module in progress can be paused.', snapshot: snap };
+    }
+    if (!isFiniteNumber(now)) {
+      return { ok: false, reason: 'Cannot pause without a valid clock.', snapshot: snap };
+    }
+
+    var remaining = computeRemainingSeconds(snap.moduleDeadline, now);
+    if (remaining <= 0) {
+      // Pausing an already-expired module would hand back time the student no longer
+      // has. Let expiry take its normal course instead.
+      return { ok: false, reason: 'Time for this module has already run out.', snapshot: snap };
+    }
+
+    var next = cloneSnapshot(snap);
+    next.phase = EXAM_PHASES.PAUSED;
+    next.pausedAt = now;
+    next.pausedRemainingSeconds = remaining;
+    next.resumePhase = EXAM_PHASES.MODULE;
+    // The deadline is REMOVED, not kept. A stale deadline surviving a pause is how a
+    // paused exam would silently expire while the student was away.
+    next.moduleDeadline = null;
+    next.pauseCount = (isFiniteNumber(snap.pauseCount) ? snap.pauseCount : 0) + 1;
+    next.savedAt = now;
+    return { ok: true, reason: '', snapshot: next };
+  }
+
+  /**
+   * WI-35 — resume a paused module, restoring exactly the banked time.
+   *
+   * The new deadline is `now + banked`, so however long the student was away, they get
+   * back the seconds they had — no more and no less.
+   */
+  function resumeFromPause(snapshot, now) {
+    var snap = snapshot || null;
+    if (!snap) return { ok: false, reason: 'There is no exam to resume.', snapshot: snap };
+    if (snap.phase !== EXAM_PHASES.PAUSED) {
+      return { ok: false, reason: 'The exam is not paused.', snapshot: snap };
+    }
+    if (!isFiniteNumber(now)) {
+      return { ok: false, reason: 'Cannot resume without a valid clock.', snapshot: snap };
+    }
+    var banked = isFiniteNumber(snap.pausedRemainingSeconds) ? snap.pausedRemainingSeconds : null;
+    if (banked === null || banked <= 0) {
+      // Never invent a duration. Without a banked remainder we cannot know how long
+      // was left, and guessing would either rob the student or gift them time.
+      return { ok: false, reason: 'The paused time could not be read, so the module cannot be resumed safely.', snapshot: snap };
+    }
+
+    var next = cloneSnapshot(snap);
+    var pausedMs = isFiniteNumber(snap.pausedAt) ? Math.max(0, now - snap.pausedAt) : 0;
+    next.phase = snap.resumePhase === EXAM_PHASES.MODULE ? EXAM_PHASES.MODULE : EXAM_PHASES.MODULE;
+    next.moduleDeadline = now + (banked * 1000);
+    next.totalPausedMs = (isFiniteNumber(snap.totalPausedMs) ? snap.totalPausedMs : 0) + pausedMs;
+    next.pausedAt = null;
+    next.pausedRemainingSeconds = null;
+    next.resumePhase = null;
+    next.savedAt = now;
+    return { ok: true, reason: '', snapshot: next };
   }
 
   /**
@@ -801,6 +893,8 @@
     isModuleLocked: isModuleLocked,
     markModuleSubmitted: markModuleSubmitted,
     enterBreak: enterBreak,
+    pauseExam: pauseExam,
+    resumeFromPause: resumeFromPause,
     buildPendingCompletion: buildPendingCompletion,
     markCompletionSaved: markCompletionSaved,
     isCompletionRecorded: isCompletionRecorded,

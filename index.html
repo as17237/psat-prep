@@ -791,6 +791,9 @@
               <i data-lucide="clock" class="w-4 h-4 text-emerald-400"></i>
               <span id="exam-timer-display" class="font-mono text-base font-black text-white">32:00</span>
               <button onclick="toggleExamTimerVisibility()" id="btn-toggle-timer" class="text-xs text-slate-400 hover:text-white ml-2 underline">Hide</button>
+              <!-- WI-35: stops the clock. The banked remainder is restored exactly on
+                   resume, and answering is blocked while paused. -->
+              <button onclick="pauseExamNow()" id="btn-pause-exam" class="text-xs text-slate-300 hover:text-white ml-3 underline" title="Pause the exam and stop the clock">Pause</button>
             </div>
 
             <label class="flex items-center text-xs font-semibold text-slate-300 hover:text-white cursor-pointer bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-700/60">
@@ -849,6 +852,21 @@
             <!-- Answer Input Controls -->
             <div class="pt-6 border-t border-slate-100">
               
+              <!-- WI-35: pause overlay. Shown over the question while the clock is
+                   stopped; answering is blocked by moduleCanEdit() while paused. -->
+              <div id="exam-paused-overlay" class="hidden fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-6">
+                <div class="card max-w-md w-full text-center p-8">
+                  <i data-lucide="pause-circle" class="w-12 h-12 mx-auto text-indigo-600"></i>
+                  <h3 class="text-xl font-extrabold text-slate-900 mt-4">Exam paused</h3>
+                  <p class="text-sm text-slate-600 mt-2">Time remaining in this module</p>
+                  <p id="exam-paused-remaining" class="text-4xl font-extrabold text-slate-900 mt-1 tabular-nums">--:--</p>
+                  <p id="exam-paused-note" class="text-xs text-slate-500 mt-3"></p>
+                  <button onclick="resumeExamNow()" class="btn btn-md btn-primary mt-6 w-full">
+                    <i data-lucide="play" class="w-4 h-4 mr-1.5"></i> Resume exam
+                  </button>
+                </div>
+              </div>
+
               <!-- WI-23: answer-choice-quality notice. 917 of 2,694 MC records have
                    option text the student cannot use; the choices live on the official
                    card above. Hidden unless PSAT_ENGINE.optionTextIssue() reports one. -->
