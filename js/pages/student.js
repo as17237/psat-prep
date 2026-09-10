@@ -2483,6 +2483,32 @@ function finishExamAndShowReport() {
   renderExamLobbyHistory();renderExamReport(currentExamReport);showExamSubview('exam-report');
 }
 
+/**
+ * WI-37 — the short-test scaled estimate, for a report that is not a full exam.
+ *
+ * A full standard exam already scores through scoreStandardExam; this is the tier
+ * between that and "raw count only". It only ever produces a number when the test had
+ * 15+ answered in EACH section (30 minimum), and the engine decides that — this just
+ * assembles the input from the report and the bank.
+ *
+ * Returns null when the report is a full exam (already scored) or the engine declines.
+ */
+function shortTestEstimateFor(fullReport) {
+  if (!fullReport || fullReport.type === 'standard_psat89') return null;
+  if (typeof PSAT_ENGINE === 'undefined' || !PSAT_ENGINE.scoreShortTest) return null;
+  const qMap = {};
+  (window.QUESTIONS_DATA || questions).forEach(q => { qMap[q.id] = q; });
+  const qs = [];
+  const ans = {};
+  (fullReport.moduleReports || []).forEach(m => (m.questions || []).forEach(r => {
+    const q = qMap[r.questionId];
+    if (!q) return;                       // a question missing from the bank is not invented
+    qs.push(q);
+    ans[q.id] = { answered: r.answered === true, isCorrect: r.isCorrect === true };
+  }));
+  return PSAT_ENGINE.scoreShortTest(qs, ans);
+}
+
 function renderExamReport(report) {
   const fullReport = PSAT_ENGINE.rehydrateReport(report, window.QUESTIONS_DATA || questions);
   currentExamReport = fullReport;
@@ -2504,6 +2530,22 @@ function renderExamReport(report) {
     const rangeStr = fullReport.scores.totalRangeFormatted ? `Score Range: ${fullReport.scores.totalRangeFormatted} (${fullReport.scores.confidenceInterval || '90% Confidence Interval'}). ` : '';
     const basisStr = fullReport.scores.dataBasis ? `Basis: ${fullReport.scores.dataBasis}. ` : '';
     document.getElementById('report-scaling-note').innerText = `${rangeStr}${basisStr}Estimated from section accuracy scaled to the 240–1440 PSAT 8/9 scale.`;
+  } else if (shortTestEstimateFor(fullReport) && shortTestEstimateFor(fullReport).isScored) {
+    // WI-37: a focused test long enough to be measurable in both sections. Labelled as
+    // an estimate from THIS test, never as an official or composite PSAT result, and
+    // never folded into exam trends.
+    const est = shortTestEstimateFor(fullReport);
+    document.getElementById('report-score-label').innerText = 'Estimated Score from this test (240–1440)';
+    document.getElementById('report-total-score').innerText = est.totalScore;
+    document.getElementById('report-scale-denom').innerText = '/ 1440 (estimate)';
+    document.getElementById('report-rw-score').innerText =
+      `${est.rwScore} / 720${est.rwRangeFormatted ? ` (${est.rwRangeFormatted})` : ''}`;
+    document.getElementById('report-math-score').innerText =
+      `${est.mathScore} / 720${est.mathRangeFormatted ? ` (${est.mathRangeFormatted})` : ''}`;
+    document.getElementById('report-scaling-note').innerText =
+      `${est.totalRangeFormatted ? `Score Range: ${est.totalRangeFormatted} (90% Confidence Interval). ` : ''}` +
+      `Based on ${est.totalAttempted} answered questions (${est.rwAttempted} Reading and Writing, ` +
+      `${est.mathAttempted} Math). ${est.disclosure}`;
   } else {
     document.getElementById('report-score-label').innerText = 'Practice Check Score (Raw)';
     document.getElementById('report-total-score').innerText = `${fullReport.totalCorrect} / ${fullReport.totalQuestions}`;
@@ -3192,6 +3234,7 @@ Object.assign(window, {
   startStandardExam,
   startMiniExam,
   prepareOfflineExam,
+  moduleCanEdit,
   pauseExamNow,
   resumeExamNow,
   prepareFocusedTestForOffline,
